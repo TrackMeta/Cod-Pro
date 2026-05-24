@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -3731,6 +3731,7 @@ function cambiarEstado(id,estado){
   if(document.getElementById('prov-view'))renderProvinciaContent();
   if(CURRENT_PAGE==='dashboard')renderDashboard();
   if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  if(CURRENT_PAGE==='rotulos')renderRotulosContent();
 }
 
 function marcarDevuelto(id){
@@ -3780,6 +3781,7 @@ function confirmarDevolucion(id){
   if(document.getElementById('prov-view'))renderProvinciaContent();
   if(CURRENT_PAGE==='dashboard')renderDashboard();
   if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  if(CURRENT_PAGE==='rotulos')renderRotulosContent();
 }
 
 // =====================================================================
@@ -4797,6 +4799,7 @@ function renderFinanzas(){
   const hasta=document.getElementById('fin-hasta')?.value||hoy();
   let filtro;
   if(per==='custom')filtro={tipo:'custom',desde,hasta};
+  else if(per==='exacta'){const dia=document.getElementById('fin-fecha-dia')?.value||hoy();filtro={tipo:'custom',desde:dia,hasta:dia};}
   else filtro=per;
   const ent=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),filtro);
   const allP=filtrarPeriodo(DB.pedidos,filtro);
@@ -4894,7 +4897,9 @@ function renderFinanzas(){
 function toggleFinFechas(){
   const per=document.getElementById('fin-per')?.value;
   const f=document.getElementById('fin-fechas');
+  const fe=document.getElementById('fin-fecha-exacta');
   if(f)f.style.display=per==='custom'?'flex':'none';
+  if(fe)fe.style.display=per==='exacta'?'flex':'none';
 }
 
 function roiPorProducto(){
@@ -5278,8 +5283,12 @@ function renderFlujo(){
         <option value="14">Últimos 14 días</option>
         <option value="30">Últimos 30 días</option>
         <option value="60">Últimos 60 días</option>
-        <option value="custom">📅 Rango personalizado</option>
+        <option value="exacta">📅 Fecha exacta</option>
+        <option value="custom">↔️ Rango personalizado</option>
       </select>
+      <span id="flujo-fecha-exacta" style="display:none;align-items:center;gap:4px">
+        <input type="date" id="flujo-fecha-dia" onchange="renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+      </span>
       <span id="flujo-fechas" style="display:none;align-items:center;gap:4px">
         <input type="date" id="flujo-desde" onchange="renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
         <span style="color:var(--text3);font-size:12px">→</span>
@@ -5295,7 +5304,9 @@ function renderFlujo(){
 function toggleFlujoPer(){
   const per=document.getElementById('flujo-per')?.value;
   const f=document.getElementById('flujo-fechas');
+  const fe=document.getElementById('flujo-fecha-exacta');
   if(f)f.style.display=per==='custom'?'flex':'none';
+  if(fe)fe.style.display=per==='exacta'?'flex':'none';
 }
 
 function renderFlujoContent(){
@@ -5309,14 +5320,16 @@ function renderFlujoContent(){
   // Build days array from filter
   const per=document.getElementById('flujo-per')?.value||'7';
   let dias=[];
-  if(per==='custom'){
+  if(per==='exacta'){
+    const dia=document.getElementById('flujo-fecha-dia')?.value||hoy();
+    dias=[dia];
+  } else if(per==='custom'){
     const desde=document.getElementById('flujo-desde')?.value||'';
     const hasta=document.getElementById('flujo-hasta')?.value||hoy();
     if(desde&&hasta){
       let cur=new Date(desde+'T00:00:00');const fin=new Date(hasta+'T00:00:00');
       while(cur<=fin&&dias.length<90){dias.push(cur.toISOString().split('T')[0]);cur.setDate(cur.getDate()+1);}
     } else {
-      // fallback 7d
       const h=new Date();for(let i=6;i>=0;i--){const d=new Date(h);d.setDate(d.getDate()-i);dias.push(d.toISOString().split('T')[0]);}
     }
   } else {
@@ -6187,9 +6200,13 @@ function renderRotulos(){
         <option value="hoy">Hoy</option>
         <option value="semana">Últimos 7 días</option>
         <option value="mes">Últimos 30 días</option>
+        <option value="exacta">📅 Fecha exacta</option>
         <option value="custom">↔️ Rango de fechas</option>
       </select>
     </div>
+    <span id="rot-fecha-exacta" style="display:none;align-items:flex-end;gap:6px">
+      <div class="fg-filter"><label>Fecha</label><input type="date" id="rot-fecha-dia" onchange="renderRotulosContent()"></div>
+    </span>
     <span id="rot-fechas" style="display:none;align-items:flex-end;gap:6px">
       <div class="fg-filter"><label>Desde</label><input type="date" id="rot-desde" onchange="renderRotulosContent()"></div>
       <div class="fg-filter"><label>Hasta</label><input type="date" id="rot-hasta" onchange="renderRotulosContent()"></div>
@@ -6247,7 +6264,9 @@ function setRotOrient(rotado){
 function toggleRotFechas(){
   const per=document.getElementById('rot-f-fecha')?.value;
   const f=document.getElementById('rot-fechas');
+  const fe=document.getElementById('rot-fecha-exacta');
   if(f)f.style.display=per==='custom'?'flex':'none';
+  if(fe)fe.style.display=per==='exacta'?'flex':'none';
 }
 
 function getRotulosPedidos(){
@@ -6261,6 +6280,9 @@ function getRotulosPedidos(){
     const desde=document.getElementById('rot-desde')?.value||'';
     const hasta=document.getElementById('rot-hasta')?.value||hoy();
     arr=arr.filter(p=>(!desde||p.fecha>=desde)&&(!hasta||p.fecha<=hasta));
+  } else if(per==='exacta'){
+    const dia=document.getElementById('rot-fecha-dia')?.value||hoy();
+    arr=arr.filter(p=>p.fecha===dia);
   } else {
     arr=filtrarPeriodo(arr,per);
   }

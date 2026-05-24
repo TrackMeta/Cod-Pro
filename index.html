@@ -301,11 +301,7 @@ tr:hover td{background:var(--surface2)}
 .spill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
 .spill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
 
-/* ── FILTERS BAR ─────────────────────────────── */
-.fbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
-.fbar input,.fbar select{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:7px 11px;font-size:12.5px;color:var(--text);outline:none;font-family:var(--font);transition:border .12s}
-.fbar input:focus,.fbar select:focus{border-color:var(--accent)}
-.fbar select option{background:var(--surface2)}
+/* ── FILTERS BAR — definición principal en sección "FILTER BAR IMPROVED" ── */
 
 /* ── INNER TABS ─────────────────────────────── */
 .itabs{display:flex;margin-bottom:18px;border-bottom:1px solid var(--border);gap:0}
@@ -454,18 +450,50 @@ tr:hover td{background:var(--surface2)}
 /* ── RECOMPRAS ──────────────────────────────── */
 .recompra-badge{display:inline-flex;align-items:center;gap:4px;background:var(--cyanL);color:var(--cyan);border-radius:6px;padding:2px 7px;font-size:10.5px;font-weight:700}
 
-/* ── FILTER BAR IMPROVED ────────────────────── */
-.fbar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 14px;align-items:flex-end}
-.fg-filter{display:flex;flex-direction:column;gap:4px}
-.fg-filter label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);padding-left:1px}
-.fg-filter select,.fg-filter input[type=text],.fg-filter input[type=date]{
-  background:var(--surface2);border:1.5px solid var(--border2);border-radius:8px;
-  padding:7px 10px;font-size:13px;color:var(--text);font-family:var(--font);
-  outline:none;cursor:pointer;min-width:0;transition:border-color .12s
+/* ── FILTER BAR ─────────────────────────────── */
+.fbar{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r2);padding:10px 14px 12px;margin-bottom:16px
 }
-.fg-filter select:focus,.fg-filter input:focus{border-color:var(--accent)}
-.fg-filter input[type=text]{min-width:180px}
-.fbar-sep{width:1px;background:var(--border2);height:32px;align-self:center;margin:0 2px}
+.fg-filter{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fg-filter label{
+  font-size:9.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--text2);padding-left:1px;white-space:nowrap;
+  display:flex;align-items:center;gap:3px
+}
+.fg-filter select,.fg-filter input[type=text],.fg-filter input[type=date]{
+  background:var(--surface);border:1.5px solid var(--border2);border-radius:9px;
+  padding:8px 12px;font-size:13px;color:var(--text);font-family:var(--font);
+  outline:none;cursor:pointer;min-width:0;height:37px;box-sizing:border-box;
+  transition:border-color .15s,box-shadow .15s,background .12s
+}
+.fg-filter select{
+  appearance:none;-webkit-appearance:none;padding-right:28px;
+  background-color:var(--surface);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:calc(100% - 9px) center
+}
+.fg-filter select:hover:not(:focus),.fg-filter input:hover:not(:focus){border-color:var(--border3)}
+.fg-filter select:focus,.fg-filter input:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,85,0,.1)
+}
+.fg-filter select option{background:var(--surface2);color:var(--text)}
+.fg-filter input[type=text]{
+  min-width:180px;
+  padding-left:32px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:10px center;background-color:var(--surface)
+}
+.fg-filter input[type=text]::placeholder{color:var(--text3);font-weight:400}
+/* filtro activo — se aplica con JS cuando valor ≠ default */
+.fg-filter select.f-on{border-color:var(--accent);background-color:var(--accentL);color:var(--accent);font-weight:600}
+.fg-filter input.f-on{border-color:var(--accent);background-color:var(--accentL)}
+[data-theme="light"] .fg-filter select.f-on{background-color:rgba(255,85,0,.07)}
+[data-theme="light"] .fg-filter input.f-on{background-color:rgba(255,85,0,.07)}
+.fbar-sep{width:1px;background:var(--border);height:28px;align-self:center;margin:0 4px}
+/* luz — fondo fbar un poco más marcado */
+[data-theme="light"] .fbar{background:var(--surface3);border-color:var(--border2)}
 
 /* ── IMPROVED CARD ──────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r3);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:14px;transition:border-color .15s}
@@ -3136,6 +3164,20 @@ function updateSidebarBadges(){
 function hoy(){return new Date().toISOString().split('T')[0];}
 function fmt(n){return 'S/ '+Math.abs(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function fmtN(n){return 'S/ '+(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+// Marca filtros activos con clase .f-on — se llama automáticamente desde setContent
+function initFbar(){
+  document.querySelectorAll('.fg-filter select,.fg-filter input[type=text]').forEach(el=>{
+    // Para selects: cualquier opción que no sea la primera es "activo"
+    // Para inputs: cualquier texto no vacío es "activo"
+    const isActive=()=>el.tagName==='SELECT'?el.selectedIndex>0:el.value.trim()!=='';
+    const check=()=>el.classList.toggle('f-on',isActive());
+    check();
+    el.removeEventListener('change',check);
+    el.removeEventListener('input',check);
+    el.addEventListener('change',check);
+    el.addEventListener('input',check);
+  });
+}
 let dashPeriodo='semana';
 function setDashPeriodo(p){
   dashPeriodo=p;
@@ -7687,7 +7729,7 @@ function updateNegocioName(name){
 // =====================================================================
 // UTILS
 // =====================================================================
-function setContent(html){document.getElementById('content-area').innerHTML=html;}
+function setContent(html){document.getElementById('content-area').innerHTML=html;requestAnimationFrame(initFbar);}
 
 function exportarDatos(){
   const b=new Blob([JSON.stringify({DB,CFG},null,2)],{type:'application/json'});

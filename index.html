@@ -962,12 +962,14 @@ td{padding:11px 14px;font-size:13px}
     <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px">⬆️ Upsell / Order Bump ofrecido</div>
     <div class="form-grid">
       <div class="fg"><label>Producto upsell</label>
-        <select id="p-upsell-prod"><option value="">— Sin upsell —</option></select>
+        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value)"><option value="">— Sin upsell —</option></select>
       </div>
       <div class="fg"><label>Resultado</label>
         <select id="p-upsell-res"><option value="">—</option><option value="aceptado">✅ Aceptado</option><option value="rechazado">❌ Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
       </div>
     </div>
+    <input type="hidden" id="p-upsell-precio" value="">
+    <div id="upsell-ofr-box"></div>
   </div>
 
   <div class="divider"></div>
@@ -2146,6 +2148,17 @@ td{padding:11px 14px;font-size:13px}
     <div class="fg"><label>Precio de oferta S/ *</label><input type="number" id="up-precio" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Costo S/</label><input type="number" id="up-costo" placeholder="0" min="0" step="0.01"></div>
     <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
+  </div>
+  <!-- Ofertas por cantidad -->
+  <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber)">🏷️ Ofertas por cantidad</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/25 · 2×S/40 — aparecen como botones al registrar pedidos</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaUp()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
+    </div>
+    <div id="up-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarUpsell()">Guardar</button>
@@ -3805,6 +3818,7 @@ function openNuevoPedido(){
   pedidoItems=[];
   agregarItemPedido();
   fillUpsellSelect();
+  fillUpsellOfertas('');
   if(isAdmin()){fillVendedorSelect('');}else{const ma=DB.asesores.find(a=>a.workerId===SESSION.id);fillVendedorSelect(ma?ma.id:SESSION.id);}
   toggleZona();
   document.getElementById('modal-pedido').classList.add('open');
@@ -3849,6 +3863,7 @@ function editarPedido(id){
     fregBox.style.display='block';
   }
   fillUpsellSelect(p.upsellProd);
+  fillUpsellOfertas(p.upsellProd,p.upsellPrecio);
   fillVendedorSelect(p.vendedor);
   toggleZona();
   renderItemsPedido();
@@ -3964,6 +3979,7 @@ function guardarPedido(){
     comentario:document.getElementById('p-comentario').value,
     upsellProd:document.getElementById('p-upsell-prod').value,
     upsellRes:document.getElementById('p-upsell-res').value,
+    upsellPrecio:parseFloat(document.getElementById('p-upsell-precio')?.value)||0,
     vendedor:document.getElementById('p-vendedor')?.value||'',
     liquidado:id?DB.pedidos.find(x=>x.id===parseInt(id))?.liquidado||false:false,
     fechaLiq:id?DB.pedidos.find(x=>x.id===parseInt(id))?.fechaLiq||'':'',
@@ -5216,6 +5232,7 @@ function eliminarProducto(id){if(!confirm('¿Eliminar producto?'))return;DB.prod
 let upsellPer='todo';
 let upsellQ='';
 let upsellTipoF='';
+let upsellOfertas=[];
 function renderUpsells(){
   // ── Filtro período ──
   const filtro=upsellPer==='custom'
@@ -5227,8 +5244,8 @@ function renderUpsells(){
   const aceptados=todosOfrecidos.filter(p=>p.upsellRes==='aceptado');
   const rechazados=todosOfrecidos.filter(p=>p.upsellRes==='rechazado');
   const convRate=todosOfrecidos.length>0?Math.round(aceptados.length/todosOfrecidos.length*100):0;
-  const upsellRev=aceptados.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?u.precio:0);},0);
-  const upsellGan=aceptados.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?(u.precio-(u.costo||0)):0);},0);
+  const upsellRev=aceptados.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(p.upsellPrecio||(u?u.precio:0));},0);
+  const upsellGan=aceptados.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);const pr=p.upsellPrecio||(u?u.precio:0);return s+(pr-(u?u.costo||0:0));},0);
   const tieneCostos=DB.upsells.some(u=>u.costo>0);
 
   // ── Ticket promedio con vs sin upsell ──
@@ -5311,8 +5328,8 @@ function renderUpsells(){
     const costoU=u.costo||0;
     const gananciaU=u.precio-costoU;
     const margenU=u.precio>0?((gananciaU/u.precio)*100):0;
-    const revU=accPer.length*(u.precio||0);
-    const ganTotalU=accPer.length*gananciaU;
+    const revU=accPer.reduce((s,p)=>s+(p.upsellPrecio||u.precio),0);
+    const ganTotalU=accPer.reduce((s,p)=>s+((p.upsellPrecio||u.precio)-costoU),0);
     const ultimas=[...accPer].sort((a,b)=>b.id-a.id).slice(0,3);
     const convColor=convU>=40?'var(--green)':convU>=20?'var(--amber)':'var(--red)';
     return `<div class="card" style="border-left:3px solid ${convColor}">
@@ -5329,7 +5346,15 @@ function renderUpsells(){
       </div>
 
       <!-- Precio / Costo / Ganancia -->
-      <div class="fr" style="padding:5px 0"><span class="fr-label">💰 Precio de oferta</span><span class="fr-val" style="color:var(--green)">${fmt(u.precio)}</span></div>
+      ${u.ofertas&&u.ofertas.length?`
+      <div style="margin-bottom:10px;padding:9px 11px;background:rgba(240,165,32,.08);border:1px solid rgba(240,165,32,.22);border-radius:9px">
+        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🏷️ Ofertas por cantidad</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${u.ofertas.map(o=>`<span style="background:var(--surface3);border:1.5px solid rgba(240,165,32,.35);border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;color:var(--text);text-align:center;line-height:1.4">${o.cantidad}×<div style="font-size:11px;color:var(--amber)">${fmt(o.precio)}</div></span>`).join('')}
+        </div>
+        ${costoU>0?`<div style="margin-top:7px;font-size:10.5px;color:var(--text3)">${u.ofertas.map(o=>`${o.cantidad}× → gan. ${fmt(o.precio-costoU*o.cantidad)}`).join(' · ')}</div>`:''}
+      </div>`:`
+      <div class="fr" style="padding:5px 0"><span class="fr-label">💰 Precio base</span><span class="fr-val" style="color:var(--green)">${fmt(u.precio)}</span></div>`}
       ${costoU>0?`
       <div class="fr" style="padding:5px 0"><span class="fr-label">📦 Costo</span><span class="fr-val" style="color:var(--red)">${fmt(costoU)}</span></div>
       <div class="fr" style="padding:5px 0"><span class="fr-label">✨ Ganancia / u.</span><span class="fr-val" style="color:var(--accent)">${fmt(gananciaU)} <span style="font-size:10.5px;opacity:.7">(${margenU.toFixed(0)}%)</span></span></div>`:''}
@@ -5398,11 +5423,14 @@ function openModalUpsell(id){
       document.getElementById('up-precio').value=u.precio||'';
       document.getElementById('up-costo').value=u.costo||'';
       document.getElementById('up-desc').value=u.desc||'';
+      upsellOfertas=u.ofertas?JSON.parse(JSON.stringify(u.ofertas)):[];
     }
   } else {
     ['up-nombre','up-desc'].forEach(i=>document.getElementById(i).value='');
     ['up-precio','up-costo'].forEach(i=>document.getElementById(i).value='');
+    upsellOfertas=[];
   }
+  renderOfertasUp();
   document.getElementById('modal-upsell').classList.add('open');
   setTimeout(()=>document.getElementById('up-nombre')?.focus(),80);
 }
@@ -5416,7 +5444,8 @@ function guardarUpsell(){
     tipo:document.getElementById('up-tipo').value||'Order Bump',
     precio:parseFloat(document.getElementById('up-precio').value)||0,
     costo:parseFloat(document.getElementById('up-costo').value)||0,
-    desc:document.getElementById('up-desc').value.trim()
+    desc:document.getElementById('up-desc').value.trim(),
+    ofertas:(upsellOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad)
   };
   if(id){const idx=DB.upsells.findIndex(x=>x.id===parseInt(id));DB.upsells[idx]=u;}
   else DB.upsells.push(u);
@@ -5424,6 +5453,54 @@ function guardarUpsell(){
   showToast(id?'✅ Upsell actualizado':'✅ Upsell creado');
 }
 function eliminarUpsell(id){if(!confirm('¿Eliminar upsell?'))return;DB.upsells=DB.upsells.filter(x=>x.id!==id);save();renderUpsells();}
+
+// ── OFERTAS POR CANTIDAD (Upsells) ────────────────────────────────────
+function agregarOfertaUp(){upsellOfertas.push({cantidad:1,precio:0});renderOfertasUp();}
+function eliminarOfertaUp(idx){upsellOfertas.splice(idx,1);renderOfertasUp();}
+function renderOfertasUp(){
+  const c=document.getElementById('up-ofertas-container');if(!c)return;
+  if(!upsellOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div>';return;}
+  const inp='background:var(--surface3);border:1.5px solid var(--amber);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--mono);text-align:center';
+  c.innerHTML=upsellOfertas.map((o,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <input type="number" value="${o.cantidad||1}" min="1" placeholder="Cant." oninput="upsellOfertas[${i}].cantidad=parseInt(this.value)||1" style="${inp};width:70px">
+      <span style="font-size:13px;color:var(--text3);font-weight:700">×</span>
+      <span style="font-size:12px;color:var(--text3)">S/</span>
+      <input type="number" value="${o.precio||''}" min="0" step="0.01" placeholder="Precio total" oninput="upsellOfertas[${i}].precio=parseFloat(this.value)||0" style="${inp};flex:1">
+      <button type="button" onclick="eliminarOfertaUp(${i})" style="background:var(--redL);border:none;border-radius:6px;color:var(--red);cursor:pointer;font-size:13px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+    </div>`).join('');
+}
+function fillUpsellOfertas(upId,savedPrecio){
+  const box=document.getElementById('upsell-ofr-box');
+  const hidden=document.getElementById('p-upsell-precio');
+  if(!box)return;
+  if(!upId){box.innerHTML='';if(hidden)hidden.value='';return;}
+  const u=DB.upsells.find(x=>x.id==upId);
+  if(!u||!u.ofertas||!u.ofertas.length){box.innerHTML='';if(hidden)hidden.value='';return;}
+  if(hidden)hidden.value='';
+  box.innerHTML=`<div style="margin-top:8px;padding:9px 11px;background:rgba(240,165,32,.07);border:1px solid rgba(240,165,32,.22);border-radius:8px">
+    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🏷️ Seleccionar oferta</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${u.ofertas.map(of=>`<button type="button" id="uofr-${of.cantidad}" onclick="seleccionarOfertaUp(${of.cantidad},${of.precio})" style="background:var(--surface3);border:2px solid var(--border2);border-radius:9px;padding:7px 16px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;transition:all .15s;line-height:1.4;text-align:center">${of.cantidad}×<br><span style="font-size:11px;opacity:.85">S/${of.precio}</span></button>`).join('')}
+    </div>
+  </div>`;
+  if(savedPrecio){
+    const ofMatch=u.ofertas.find(o=>o.precio===savedPrecio);
+    if(ofMatch)seleccionarOfertaUp(ofMatch.cantidad,ofMatch.precio);
+  }
+}
+function seleccionarOfertaUp(cant,precio){
+  const hidden=document.getElementById('p-upsell-precio');
+  if(hidden)hidden.value=precio;
+  document.querySelectorAll('#upsell-ofr-box button').forEach(b=>{
+    const activo=b.id===`uofr-${cant}`;
+    b.style.background=activo?'var(--accent)':'var(--surface3)';
+    b.style.color=activo?'#fff':'var(--text)';
+    b.style.borderColor=activo?'var(--accent)':'var(--border2)';
+  });
+  const res=document.getElementById('p-upsell-res');
+  if(res&&!res.value)res.value='aceptado';
+}
 
 // =====================================================================
 // FINANZAS & ROI
@@ -5475,7 +5552,7 @@ function renderFinanzas(){
   const ingLima=ent.filter(p=>p.zona==='lima').reduce((s,p)=>s+p.precio,0);
   const ingProv=ent.filter(p=>p.zona==='provincia').reduce((s,p)=>s+p.precio,0);
   const upsellEnt=filtrarPeriodo(DB.pedidos.filter(p=>p.upsellRes==='aceptado'),filtro);
-  const upsellRev=upsellEnt.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?u.precio:0);},0);
+  const upsellRev=upsellEnt.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(p.upsellPrecio||(u?u.precio:0));},0);
 
   // ── PERÍODO ANTERIOR (comparación) ──
   const prevFiltro=getPrevPeriodo(per, per==='exacta'?diaExacta:desde, hasta);

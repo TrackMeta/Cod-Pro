@@ -2197,7 +2197,7 @@ const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // DB & CONFIG — datos en memoria, sincronizados con Supabase
 // =====================================================================
 let DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-let CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20};
+let CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0};
 let SESSION=null;   // { id, email, role, name, initials, workspace_id, negocio_name, logo_data }
 let WORKSPACE=null; // alias de SESSION para compatibilidad con código existente
 let notifTab='active';
@@ -2386,11 +2386,22 @@ async function load(){
 }
 
 function saveConfig(){
-  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max'].forEach(k=>{
-    const el=document.getElementById('cfg-'+k);if(el)CFG[k]=parseFloat(el.value)||CFG[k];
+  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault'].forEach(k=>{
+    const el=document.getElementById('cfg-'+k);if(el)CFG[k]=parseFloat(el.value)||0;
   });
   save();
   renderNotifications();
+  showToast('✅ Configuración guardada');
+}
+
+function showToast(msg,type='success',dur=2500){
+  let t=document.getElementById('cod-toast');
+  if(!t){t=document.createElement('div');t.id='cod-toast';Object.assign(t.style,{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%) translateY(80px)',background:type==='error'?'var(--red)':type==='warn'?'var(--amber)':'var(--green)',color:'#fff',padding:'10px 20px',borderRadius:'10px',fontWeight:'700',fontSize:'13px',zIndex:'9999',transition:'transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s',opacity:'0',pointerEvents:'none',boxShadow:'0 4px 20px rgba(0,0,0,.35)',whiteSpace:'nowrap'});document.body.appendChild(t);}
+  t.textContent=msg;
+  t.style.background=type==='error'?'var(--red)':type==='warn'?'var(--amber)':'var(--green)';
+  requestAnimationFrame(()=>{t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';});
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(80px)';},dur);
 }
 
 // =====================================================================
@@ -2521,7 +2532,7 @@ async function onSignedIn(user){
   WORKSPACE=SESSION;
 
   DB={pedidos:[],asesores:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20};
+  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0};
   if(ws.db_data)DB=ws.db_data;
   if(ws.cfg_data)CFG=Object.assign({...CFG},ws.cfg_data);
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
@@ -2683,7 +2694,7 @@ async function doNewPassword(){
 function bootSaWorkspace(w,saInfo){
   // Load workspace DB and CFG
   DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20};
+  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0};
   if(w.db_data)DB=w.db_data;
   if(w.cfg_data)CFG=Object.assign({...CFG},w.cfg_data);
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
@@ -3711,7 +3722,7 @@ function openNuevoPedido(){
   const shaTamEl=document.getElementById('p-shalom-tam');if(shaTamEl)shaTamEl.value='PAQUETE XS';
   document.getElementById('p-fecha').value=hoy();
   document.getElementById('p-cenv').value=CFG.courier||14;
-  document.getElementById('p-emb').value='';
+  document.getElementById('p-emb').value=CFG.embDefault||0;
   ['p-cenv','p-emb'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=!isAdmin();e.style.opacity=isAdmin()?'':'0.6';e.style.cursor=isAdmin()?'':'not-allowed';}});
   document.getElementById('p-adelanto').value=CFG.adelanto||20;
   document.getElementById('p-adv-default').textContent=CFG.adelanto||20;
@@ -7032,83 +7043,180 @@ function renderConfig(){
   const wsLogo=SESSION?.logoData||'';
   const wsName=SESSION?.negocioName||'';
   const accentColor=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''))||'#ff5500';
+  const backups=getBackups();
+  const ultimo=backups[0];
   const html=`
-  <div class="section-header"><div><div class="section-title">Configuración</div></div></div>
+  <div class="section-header">
+    <div>
+      <div class="section-title">⚙️ Configuración</div>
+      <div class="section-sub">${wsName||'Mi negocio'} · Los cambios se guardan automáticamente al modificar cualquier campo</div>
+    </div>
+  </div>
+
+  <!-- FILA 1: Valores operativos + Metas -->
   <div class="g2">
-    <div class="card"><div class="card-title">Valores por defecto</div>
-      <div class="cfg-row"><div><div class="cfg-label">Adelanto provincia S/</div><div class="cfg-sub">Monto estándar al confirmar</div></div><input class="cfg-input" type="number" id="cfg-adelanto" value="${CFG.adelanto}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Costo courier Lima S/</div><div class="cfg-sub">Por defecto al crear pedido</div></div><input class="cfg-input" type="number" id="cfg-courier" value="${CFG.courier}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Costo Shalom S/</div><div class="cfg-sub">Estimado por envío provincia</div></div><input class="cfg-input" type="number" id="cfg-shalom" value="${CFG.shalom}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Com. Lima S/</div><div class="cfg-sub">Comisión por entrega Lima</div></div><input class="cfg-input" type="number" id="cfg-comLima" value="${CFG.comLima}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Com. Provincia S/</div><div class="cfg-sub">Comisión por entrega provincia</div></div><input class="cfg-input" type="number" id="cfg-comProv" value="${CFG.comProv}" onchange="saveConfig()"></div>
-    </div>
-    <div class="card"><div class="card-title">Metas & Alertas</div>
-      <div class="cfg-row"><div><div class="cfg-label">Meta efectividad %</div><div class="cfg-sub">Notificación si baja</div></div><div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-metaEf" value="${CFG.metaEf}" onchange="saveConfig()"><span style="color:var(--text2)">%</span></div></div>
-      <div class="cfg-row"><div><div class="cfg-label">Meta venta diaria S/</div><div class="cfg-sub">Notificación al alcanzarla</div></div><input class="cfg-input" type="number" id="cfg-metaVentaDia" value="${CFG.metaVentaDia}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Horas sin enviar</div><div class="cfg-sub">Alerta pedidos estancados</div></div><div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-horasAlerta" value="${CFG.horasAlerta}" onchange="saveConfig()"><span style="color:var(--text2)">h</span></div></div>
-      <div class="cfg-row"><div><div class="cfg-label">ROAS mínimo</div><div class="cfg-sub">Alerta si cae abajo</div></div><input class="cfg-input" type="number" id="cfg-roas_min" value="${CFG.roas_min}" step="0.1" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Devoluciones máx.</div><div class="cfg-sub">Alerta si superas</div></div><div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-dev_max" value="${CFG.dev_max}" onchange="saveConfig()"><span style="color:var(--text2)">%</span></div></div>
-    </div>
+
+    <!-- CARD 1: Valores por defecto -->
     <div class="card">
-      <div class="card-title">Personalización del negocio</div>
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
-        <div style="width:60px;height:60px;border-radius:12px;background:var(--surface3);border:2px dashed var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer" id="logo-preview-big">
-          ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:22px;color:var(--text3)">🖼️</span>'}
+      <div class="card-title">💰 Costos & Comisiones por defecto</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Se usan al crear pedidos y calcular rentabilidad</div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Envíos</div>
+      <div class="cfg-row"><div><div class="cfg-label">Courier Lima S/</div><div class="cfg-sub">Costo de entrega Lima (por pedido)</div></div><input class="cfg-input" type="number" id="cfg-courier" value="${CFG.courier}" onchange="saveConfig()"></div>
+      <div class="cfg-row"><div><div class="cfg-label">Shalom Provincia S/</div><div class="cfg-sub">Costo estimado envío a provincia</div></div><input class="cfg-input" type="number" id="cfg-shalom" value="${CFG.shalom}" onchange="saveConfig()"></div>
+      <div class="cfg-row"><div><div class="cfg-label">Embalaje por defecto S/</div><div class="cfg-sub">Se aplica al registrar cada nuevo pedido</div></div><input class="cfg-input" type="number" id="cfg-embDefault" value="${CFG.embDefault||0}" step="0.5" onchange="saveConfig()"></div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Comisiones de asesores</div>
+      <div class="cfg-row"><div><div class="cfg-label">Comisión Lima S/</div><div class="cfg-sub">Por cada entrega exitosa Lima</div></div><input class="cfg-input" type="number" id="cfg-comLima" value="${CFG.comLima}" onchange="saveConfig()"></div>
+      <div class="cfg-row"><div><div class="cfg-label">Comisión Provincia S/</div><div class="cfg-sub">Por cada entrega exitosa Provincia</div></div><input class="cfg-input" type="number" id="cfg-comProv" value="${CFG.comProv}" onchange="saveConfig()"></div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Provincia</div>
+      <div class="cfg-row"><div><div class="cfg-label">Adelanto estándar S/</div><div class="cfg-sub">Monto pre-cargado al confirmar provincia</div></div><input class="cfg-input" type="number" id="cfg-adelanto" value="${CFG.adelanto}" onchange="saveConfig()"></div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Catálogo</div>
+      <div class="cfg-row"><div><div class="cfg-label">Stock mínimo por defecto</div><div class="cfg-sub">Umbral de "stock crítico" al crear productos</div></div><input class="cfg-input" type="number" id="cfg-stockMinDefault" value="${CFG.stockMinDefault||5}" onchange="saveConfig()"></div>
+    </div>
+
+    <!-- CARD 2: Metas & Alertas -->
+    <div class="card">
+      <div class="card-title">🎯 Metas & Alertas</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Umbrales para notificaciones y semáforos visuales</div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Rendimiento</div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Meta efectividad</div><div class="cfg-sub">Alerta si cae por debajo</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-metaEf" value="${CFG.metaEf}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">%</span></div>
+      </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Devoluciones máx.</div><div class="cfg-sub">Alerta si tasa de dev. supera</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-dev_max" value="${CFG.dev_max}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">%</span></div>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Ventas</div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Meta venta diaria S/</div><div class="cfg-sub">Notificación al alcanzarla</div></div>
+        <input class="cfg-input" type="number" id="cfg-metaVentaDia" value="${CFG.metaVentaDia}" onchange="saveConfig()">
+      </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">ROAS mínimo</div><div class="cfg-sub">Finanzas · alerta si cae abajo</div></div>
+        <input class="cfg-input" type="number" id="cfg-roas_min" value="${CFG.roas_min}" step="0.1" onchange="saveConfig()">
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Operaciones</div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Horas sin enviar</div><div class="cfg-sub">Alerta si pedido confirmado no se envía</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-horasAlerta" value="${CFG.horasAlerta}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">h</span></div>
+      </div>
+
+      <!-- Resumen de valores actuales -->
+      <div style="margin-top:16px;padding:12px;background:var(--surface3);border-radius:8px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Resumen configuración activa</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${[
+            ['Courier Lima','S/'+CFG.courier,'var(--blue)'],
+            ['Shalom','S/'+CFG.shalom,'var(--accent)'],
+            ['Embalaje','S/'+(CFG.embDefault||0),'var(--teal)'],
+            ['Com. Lima','S/'+CFG.comLima,'var(--green)'],
+            ['Com. Prov','S/'+CFG.comProv,'var(--green)'],
+            ['Efectividad',CFG.metaEf+'%','var(--amber)'],
+            ['Stock mín.',CFG.stockMinDefault||5,'var(--purple)'],
+          ].map(([l,v,c])=>`<div style="padding:5px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+            <div style="font-size:9.5px;color:var(--text3)">${l}</div>
+            <div style="font-size:13px;font-weight:700;color:${c};font-family:var(--mono)">${v}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 3: Personalización -->
+    <div class="card">
+      <div class="card-title">🎨 Personalización</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <div style="width:64px;height:64px;border-radius:12px;background:var(--surface3);border:2px dashed var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0" id="logo-preview-big">
+          ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:24px;color:var(--text3)">🖼️</span>'}
           <input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer">
         </div>
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:600;margin-bottom:3px">Logo del negocio</div>
-          <div style="font-size:11px;color:var(--text3)">Aparece en sidebar y rótulos. Clic para cambiar.</div>
-          ${wsLogo?`<button class="btn btn-danger btn-xs" style="margin-top:5px" onclick="deleteLogo()">🗑️ Quitar</button>`:''}
-        </div>
-      </div>
-      <div class="cfg-row"><div><div class="cfg-label">Nombre del negocio</div><div class="cfg-sub">Se muestra en rótulos</div></div>
-        <input class="cfg-input" type="text" style="width:160px;text-align:left" value="${wsName}" onchange="updateNegocioName(this.value)" placeholder="Mi Tienda">
-      </div>
-      <div class="cfg-row"><div><div class="cfg-label">Color de acento</div><div class="cfg-sub">Color principal de la interfaz</div></div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="color" value="${accentColor}" onchange="setAccentColor(this.value)" style="width:34px;height:28px;border:1px solid var(--border2);border-radius:6px;cursor:pointer;background:var(--surface3);padding:2px">
-          <div style="display:flex;gap:3px">
-            ${['#ff5500','#6366f1','#0ea5e9','#10b981','#f43f5e','#8b5cf6','#f59e0b','#ec4899'].map(c=>`<div onclick="setAccentColor('${c}')" style="width:20px;height:20px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===accentColor?'var(--text)':'transparent'};transition:border .15s"></div>`).join('')}
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Logo del negocio</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Aparece en sidebar y en los rótulos de impresión</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-xs" onclick="document.querySelector('#logo-preview-big input').click()">📷 ${wsLogo?'Cambiar':'Subir logo'}</button>
+            ${wsLogo?`<button class="btn btn-danger btn-xs" onclick="deleteLogo()">🗑️ Quitar</button>`:''}
           </div>
         </div>
       </div>
+
+      <div class="cfg-row">
+        <div><div class="cfg-label">Nombre del negocio</div><div class="cfg-sub">Aparece en rótulos y encabezados</div></div>
+        <input class="cfg-input" type="text" style="width:160px;text-align:left" value="${wsName}" onchange="updateNegocioName(this.value)" placeholder="Mi Tienda">
+      </div>
+
+      <div class="cfg-row" style="align-items:flex-start;padding-top:10px">
+        <div><div class="cfg-label">Color de acento</div><div class="cfg-sub">Afecta botones, badges y gráficas</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <input type="color" value="${accentColor}" onchange="setAccentColor(this.value)" style="width:38px;height:32px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;background:var(--surface3);padding:2px">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+            ${['#ff5500','#6366f1','#0ea5e9','#10b981','#f43f5e','#8b5cf6','#f59e0b','#ec4899'].map(c=>`<div onclick="setAccentColor('${c}')" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===accentColor?'var(--text)':'transparent'};transition:all .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''"></div>`).join('')}
+          </div>
+        </div>
+      </div>
+
       <div class="divider"></div>
       <button class="btn btn-ghost btn-sm" onclick="showPage('usuarios')">👤 Gestionar equipo de trabajo →</button>
     </div>
+
+    <!-- CARD 4: Datos & Backup -->
     <div class="card">
-      <div class="card-title">Datos & Backup</div>
-      ${(()=>{
-        const backups=getBackups();
-        const ultimo=backups[0];
-        const infoBackup=ultimo
-          ?`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--greenL);border-radius:8px;margin-bottom:12px">
-              <span style="font-size:16px">✅</span>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:700;color:var(--green)">Último backup automático: ${new Date(ultimo.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'short'})}</div>
-                <div style="font-size:11px;color:var(--text3)">${ultimo.totalPedidos} pedidos · ${backups.length} backup(s) guardado(s)</div>
-              </div>
-              <button class="btn btn-ghost btn-xs" onclick="verBackupsLocales()">Ver todos</button>
-            </div>`
-          :`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface3);border-radius:8px;margin-bottom:12px">
-              <span style="font-size:16px">🕐</span>
-              <div style="font-size:12px;color:var(--text3)">Backup automático: se crea al guardar por primera vez hoy</div>
-            </div>`;
-        return infoBackup;
-      })()}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="btn btn-blue btn-sm" onclick="verBackupsLocales()">📦 Ver & Restaurar backups</button>
+      <div class="card-title">💾 Datos & Backup</div>
+
+      <!-- Estado del backup -->
+      ${ultimo
+        ?`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--greenL);border:1px solid rgba(34,197,94,.25);border-radius:8px;margin-bottom:14px">
+            <span style="font-size:20px">✅</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700;color:var(--green)">Último backup: ${new Date(ultimo.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+              <div style="font-size:11px;color:var(--text3)">${ultimo.totalPedidos} pedidos guardados · ${backups.length} backup(s) locales</div>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="verBackupsLocales()">Ver →</button>
+          </div>`
+        :`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface3);border-radius:8px;margin-bottom:14px">
+            <span style="font-size:18px">🕐</span>
+            <div style="font-size:12px;color:var(--text3)">Sin backups todavía · se crea automáticamente al guardar hoy</div>
+          </div>`}
+
+      <!-- Acciones backup -->
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Copias de seguridad</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn btn-blue btn-sm" onclick="verBackupsLocales()">📦 Ver & Restaurar</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarDatos()">⬇️ Descargar JSON</button>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+
+      <!-- Exportar -->
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Exportar datos</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <button class="btn btn-success btn-sm" onclick="exportarExcel()">📊 Pedidos CSV</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarFinanzasExcel()">💰 Finanzas CSV</button>
         <button class="btn btn-ghost btn-sm" onclick="showPage('importar')">📥 Importar CSV</button>
       </div>
+
+      <!-- Info datos actuales -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        ${[
+          ['📦 Pedidos', DB.pedidos.length],
+          ['🛍️ Productos', DB.productos.length],
+          ['👥 Asesores', DB.asesores.length],
+          ['📢 Publicidad', DB.publicidad.length],
+        ].map(([l,v])=>`<div style="flex:1;min-width:70px;text-align:center;padding:8px 6px;background:var(--surface3);border-radius:8px">
+          <div style="font-size:11px;color:var(--text3)">${l}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text)">${v}</div>
+        </div>`).join('')}
+      </div>
+
       <div class="divider"></div>
       <button class="btn btn-danger btn-sm" onclick="resetearDatos()">🗑️ Limpiar todos los datos</button>
-      <div style="margin-top:10px;font-size:11px;color:var(--text3)">Backups automáticos: 1 por día · últimos 10 días · solo este navegador</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3)">Backups automáticos: 1 por día · últimos 10 días · almacenados en este navegador</div>
     </div>
+
   </div>`;
   setContent(html);
 }

@@ -3680,7 +3680,7 @@ function guardarPedido(){
     liquidado:id?DB.pedidos.find(x=>x.id===parseInt(id))?.liquidado||false:false,
     fechaLiq:id?DB.pedidos.find(x=>x.id===parseInt(id))?.fechaLiq||'':'',
     fechaCreado:id?DB.pedidos.find(x=>x.id===parseInt(id))?.fechaCreado:new Date().toISOString(),
-    fechaEntregaLima:zona==='lima'?(document.getElementById('p-fecha-entrega-lima')?.value||''):''
+    fechaEntregaLima:zona==='lima'?(document.getElementById('p-fecha-entrega-lima')?.value||''):'',
     historial:id?DB.pedidos.find(x=>x.id===parseInt(id))?.historial||[]:[]
   };
   // Historial de estado

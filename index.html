@@ -6815,10 +6815,181 @@ let SA_workspaces=[];
 let SA_activeWs=null;
 
 async function loadSuperAdminPanel(){
-  // Load all workspaces
   const{data:ws}=await _supabase.from('workspaces').select('id,negocio_name,admin_id,created_at,db_data,cfg_data').order('created_at',{ascending:false});
   SA_workspaces=ws||[];
+  saAutoBackupGlobal(); // ✅ Backup automático cada vez que se abre el panel SA
   renderSuperAdminPanel();
+}
+
+// =====================================================================
+// SA BACKUP GLOBAL — snapshot de todos los workspaces en localStorage SA
+// =====================================================================
+function saAutoBackupGlobal(){
+  if(!SA_workspaces.length)return;
+  const key='cod_sa_backups';
+  try{
+    const backups=JSON.parse(localStorage.getItem(key)||'[]');
+    const hoyStr=hoy();
+    // 1 backup automático por día (no llenar localStorage)
+    if(backups.length&&backups[0].fecha===hoyStr){
+      // Actualizar el del día si hay más workspaces ahora
+      backups[0].ts=new Date().toISOString();
+      backups[0].workspaces=SA_workspaces.map(w=>({
+        id:w.id,negocio_name:w.negocio_name,created_at:w.created_at,
+        db_data:w.db_data,cfg_data:w.cfg_data
+      }));
+      backups[0].totalPedidos=SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.length||0),0);
+    } else {
+      backups.unshift({
+        fecha:hoyStr,
+        ts:new Date().toISOString(),
+        totalWorkspaces:SA_workspaces.length,
+        totalPedidos:SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.length||0),0),
+        workspaces:SA_workspaces.map(w=>({
+          id:w.id,negocio_name:w.negocio_name,created_at:w.created_at,
+          db_data:w.db_data,cfg_data:w.cfg_data
+        }))
+      });
+      backups.splice(5); // Guardar últimos 5 días (son grandes, no más)
+    }
+    localStorage.setItem(key,JSON.stringify(backups));
+  }catch(e){console.warn('saAutoBackup error:',e);}
+}
+
+function saGetBackupsGlobales(){
+  try{return JSON.parse(localStorage.getItem('cod_sa_backups')||'[]');}catch(e){return[];}
+}
+
+function saDescargarBackupGlobal(){
+  const data={
+    ts:new Date().toISOString(),
+    totalWorkspaces:SA_workspaces.length,
+    totalPedidos:SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.length||0),0),
+    workspaces:SA_workspaces.map(w=>({
+      id:w.id,negocio_name:w.negocio_name,created_at:w.created_at,
+      db_data:w.db_data,cfg_data:w.cfg_data
+    }))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`codpro_SA_backup_completo_${hoy()}.json`;
+  a.click();
+}
+
+function saDescargarWorkspace(wsId){
+  const w=SA_workspaces.find(x=>x.id===wsId);if(!w)return;
+  const data={ts:new Date().toISOString(),id:w.id,negocio_name:w.negocio_name,db_data:w.db_data,cfg_data:w.cfg_data};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`codpro_backup_${(w.negocio_name||'ws').replace(/\s+/g,'_')}_${hoy()}.json`;
+  a.click();
+}
+
+function saVerBackupsGlobales(){
+  const backups=saGetBackupsGlobales();
+  const mod=document.createElement('div');
+  mod.className='overlay open';mod.id='modal-sa-backups';
+  mod.style.cssText='z-index:9999';
+
+  if(!backups.length){
+    mod.innerHTML=`<div class="modal sm"><div class="modal-h"><div class="modal-title">🗄️ Backups SA Globales</div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
+    <div style="padding:20px;text-align:center;color:var(--text3)">
+      <div style="font-size:32px;margin-bottom:12px">📭</div>
+      <div style="font-weight:600;margin-bottom:6px">Sin backups globales aún</div>
+      <div style="font-size:12px">El backup se crea automáticamente cada vez que abres el panel SA.<br>Ya se creó uno hoy — cierra y vuelve a abrir para verlo.</div>
+    </div></div>`;
+    document.body.appendChild(mod);mod.addEventListener('click',e=>{if(e.target===mod)mod.remove();});return;
+  }
+
+  const rows=backups.map((b,bi)=>{
+    const fecha=new Date(b.ts);
+    const fechaStr=fecha.toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'});
+    const horaStr=fecha.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+    const esHoy=b.fecha===hoy();
+    const wsRows=(b.workspaces||[]).map(w=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2)">
+        <div style="flex:1">
+          <span style="font-size:12px;font-weight:600">${w.negocio_name||'Sin nombre'}</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:6px">${w.db_data?.pedidos?.length||0} pedidos</span>
+        </div>
+        <button class="btn btn-ghost btn-xs" onclick="saDescargarWsDeBackup(${bi},'${w.id}')">⬇️</button>
+        <button class="btn btn-blue btn-xs" onclick="saRestaurarWsDeBackup(${bi},'${w.id}')">🔄 Restaurar</button>
+      </div>`).join('');
+    return`<div style="border:1px solid var(--border2);border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface3);cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div style="flex:1">
+          <span style="font-weight:700;font-size:13px">${fechaStr}</span>
+          ${esHoy?'<span style="background:var(--greenL);color:var(--green);font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px">HOY</span>':''}
+          <span style="font-size:11px;color:var(--text3);margin-left:6px">${horaStr}</span>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${b.totalWorkspaces||0} workspaces · ${b.totalPedidos||0} pedidos totales</div>
+        </div>
+        <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();saDescargarBackupIndice(${bi})">⬇️ Todo</button>
+        <span style="color:var(--text3);font-size:12px">▼</span>
+      </div>
+      <div style="display:none;padding:8px 12px">${wsRows}</div>
+    </div>`;
+  }).join('');
+
+  mod.innerHTML=`<div class="modal" style="max-width:560px"><div class="modal-h">
+    <div><div class="modal-title">🗄️ Backups SA Globales</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Guardados en este navegador</div></div>
+    <div class="mc" onclick="this.closest('.overlay').remove()">×</div>
+  </div>
+  <div>${rows}</div>
+  <div style="margin-top:12px;padding:10px;background:var(--surface3);border-radius:8px;font-size:11px;color:var(--text3)">
+    ⚠️ <strong>Restaurar</strong> sobreescribe el workspace del cliente directamente en Supabase.
+  </div>
+  <div style="margin-top:14px;display:flex;justify-content:space-between">
+    <button class="btn btn-green btn-sm" onclick="saDescargarBackupGlobal()">⬇️ Descargar backup de ahora</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-sa-backups').remove()">Cerrar</button>
+  </div></div>`;
+  document.body.appendChild(mod);mod.addEventListener('click',e=>{if(e.target===mod)mod.remove();});
+}
+
+function saDescargarBackupIndice(bi){
+  const backups=saGetBackupsGlobales();
+  if(!backups[bi])return;
+  const b=backups[bi];
+  const blob=new Blob([JSON.stringify(b,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`codpro_SA_backup_${b.fecha}.json`;a.click();
+}
+
+function saDescargarWsDeBackup(bi,wsId){
+  const backups=saGetBackupsGlobales();
+  if(!backups[bi])return;
+  const w=backups[bi].workspaces?.find(x=>x.id===wsId);if(!w)return;
+  const blob=new Blob([JSON.stringify(w,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`codpro_backup_${(w.negocio_name||'ws').replace(/\s+/g,'_')}_${backups[bi].fecha}.json`;a.click();
+}
+
+async function saRestaurarWsDeBackup(bi,wsId){
+  const backups=saGetBackupsGlobales();
+  if(!backups[bi])return;
+  const w=backups[bi].workspaces?.find(x=>x.id===wsId);if(!w)return;
+  const peds=w.db_data?.pedidos?.length||0;
+  const fechaStr=new Date(backups[bi].ts).toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
+  if(!confirm(`⚠️ RESTAURAR WORKSPACE\n\n${w.negocio_name}\nBackup del: ${fechaStr}\nPedidos: ${peds}\n\nEsto SOBREESCRIBE los datos actuales del cliente en Supabase.\n¿Confirmas?`))return;
+  try{
+    const{error}=await _supabase.from('workspaces').update({
+      db_data:w.db_data,
+      cfg_data:w.cfg_data,
+      updated_at:new Date().toISOString()
+    }).eq('id',wsId);
+    if(error)throw error;
+    // Actualizar en memoria también
+    const idx=SA_workspaces.findIndex(x=>x.id===wsId);
+    if(idx>=0){SA_workspaces[idx].db_data=w.db_data;SA_workspaces[idx].cfg_data=w.cfg_data;}
+    document.getElementById('modal-sa-backups')?.remove();
+    alert(`✅ Workspace "${w.negocio_name}" restaurado al backup del ${fechaStr}.`);
+    renderSuperAdminPanel();
+  }catch(e){
+    alert('❌ Error al restaurar: '+e.message+'\n\nPuede ser un problema de permisos RLS en Supabase.');
+  }
 }
 
 function renderSuperAdminPanel(){
@@ -6837,7 +7008,18 @@ function renderSuperAdminPanel(){
         <div style="font-size:20px;font-weight:800;letter-spacing:-.5px">COD PRO <span style="font-size:11px;background:var(--redL);color:var(--red);padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.05em;vertical-align:middle">SUPER ADMIN</span></div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px">${SESSION.email} · ${SA_workspaces.length} workspaces activos</div>
       </div>
-      <button onclick="doLogout()" class="btn btn-ghost btn-sm" style="margin-left:auto">Salir →</button>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${(()=>{
+          const bks=saGetBackupsGlobales();
+          const ult=bks[0];
+          return ult
+            ?`<span style="font-size:11px;color:var(--green);background:var(--greenL);padding:3px 8px;border-radius:6px">✅ Backup: ${new Date(ult.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'short'})}</span>`
+            :`<span style="font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);padding:3px 8px;border-radius:6px">⏳ Guardando backup…</span>`;
+        })()}
+        <button onclick="saVerBackupsGlobales()" class="btn btn-blue btn-sm">🗄️ Backups</button>
+        <button onclick="saDescargarBackupGlobal()" class="btn btn-ghost btn-sm">⬇️ Descargar todo</button>
+        <button onclick="doLogout()" class="btn btn-ghost btn-sm">Salir →</button>
+      </div>
     </div>
 
     <!-- Global stats -->
@@ -6876,7 +7058,10 @@ function renderSuperAdminPanel(){
             <div><div style="font-size:18px;font-weight:800;color:var(--green)">${ent.length}</div><div style="font-size:10px;color:var(--text3)">entregados</div></div>
             <div><div style="font-size:18px;font-weight:800;color:var(--accent)">S/${ing.toFixed(0)}</div><div style="font-size:10px;color:var(--text3)">ingresos</div></div>
           </div>
-          <div style="margin-top:8px;font-size:11px;color:var(--text3)">Últimos 7d: ${ped7.length} pedidos</div>
+          <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:var(--text3)">Últimos 7d: ${ped7.length} pedidos</span>
+            <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();saDescargarWorkspace('${w.id}')" title="Descargar backup de este workspace">⬇️ Backup</button>
+          </div>
         </div>`;
       }).join('')}
     </div>

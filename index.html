@@ -2138,13 +2138,14 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL UPSELL -->
 <div class="overlay" id="modal-upsell">
 <div class="modal sm">
-  <div class="modal-h"><div class="modal-title">Upsell / Order Bump</div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
+  <div class="modal-h"><div><div class="modal-title">⬆️ Upsell / Order Bump</div><div class="modal-sub">Producto extra que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
   <input type="hidden" id="up-id">
   <div class="form-grid">
-    <div class="fg" style="grid-column:1/-1"><label>Nombre del upsell</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF"></div>
-    <div class="fg"><label>Tipo</label><select id="up-tipo"><option>Order Bump</option><option>Upsell</option><option>Cross-sell</option><option>Downsell</option></select></div>
-    <div class="fg"><label>Precio upsell S/</label><input type="number" id="up-precio" placeholder="0"></div>
-    <div class="fg" style="grid-column:1/-1"><label>Descripción / guión de venta</label><textarea id="up-desc" placeholder="Qué decirle al cliente al momento de ofrecerlo..."></textarea></div>
+    <div class="fg" style="grid-column:1/-1"><label>Nombre del upsell *</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF" autofocus></div>
+    <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option>Order Bump</option><option>Upsell</option><option>Cross-sell</option><option>Downsell</option></select></div>
+    <div class="fg"><label>Precio de oferta S/ *</label><input type="number" id="up-precio" placeholder="0" min="0" step="0.01"></div>
+    <div class="fg"><label>Costo S/</label><input type="number" id="up-costo" placeholder="0" min="0" step="0.01"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarUpsell()">Guardar</button>
@@ -5213,48 +5214,66 @@ function eliminarProducto(id){if(!confirm('¿Eliminar producto?'))return;DB.prod
 // UPSELLS / ORDER BUMPS
 // =====================================================================
 let upsellPer='todo';
+let upsellQ='';
+let upsellTipoF='';
 function renderUpsells(){
   // ── Filtro período ──
   const filtro=upsellPer==='custom'
     ?{tipo:'custom',desde:document.getElementById('up-desde')?.value||'',hasta:document.getElementById('up-hasta')?.value||hoy()}
     :upsellPer;
-  const todosLosOfrecidos=filtrarPeriodo(DB.pedidos.filter(p=>p.upsellProd&&p.upsellRes),filtro);
-  const aceptados=todosLosOfrecidos.filter(p=>p.upsellRes==='aceptado');
-  const rechazados=todosLosOfrecidos.filter(p=>p.upsellRes==='rechazado');
-  const convRate=todosLosOfrecidos.length>0?Math.round(aceptados.length/todosLosOfrecidos.length*100):0;
+
+  // ── Métricas globales ──
+  const todosOfrecidos=filtrarPeriodo(DB.pedidos.filter(p=>p.upsellProd&&p.upsellRes),filtro);
+  const aceptados=todosOfrecidos.filter(p=>p.upsellRes==='aceptado');
+  const rechazados=todosOfrecidos.filter(p=>p.upsellRes==='rechazado');
+  const convRate=todosOfrecidos.length>0?Math.round(aceptados.length/todosOfrecidos.length*100):0;
   const upsellRev=aceptados.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?u.precio:0);},0);
-  // Ticket promedio con upsell vs sin upsell
+  const upsellGan=aceptados.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?(u.precio-(u.costo||0)):0);},0);
+  const tieneCostos=DB.upsells.some(u=>u.costo>0);
+
+  // ── Ticket promedio con vs sin upsell ──
   const pedEnt=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),filtro);
   const conUp=pedEnt.filter(p=>p.upsellRes==='aceptado');
   const sinUp=pedEnt.filter(p=>!p.upsellRes||p.upsellRes!=='aceptado');
   const ticketConUp=conUp.length>0?conUp.reduce((s,p)=>s+p.precio,0)/conUp.length:0;
   const ticketSinUp=sinUp.length>0?sinUp.reduce((s,p)=>s+p.precio,0)/sinUp.length:0;
 
+  // ── Filtro de upsells ──
+  const tipos=[...new Set(DB.upsells.map(u=>u.tipo||'Order Bump'))].sort();
+  const upsellsFilt=DB.upsells.filter(u=>{
+    if(upsellQ&&!(u.nombre||'').toLowerCase().includes(upsellQ))return false;
+    if(upsellTipoF&&(u.tipo||'Order Bump')!==upsellTipoF)return false;
+    return true;
+  });
+
+  const fbarStyle=`background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:7px 11px;font-size:12.5px;color:var(--text);outline:none;font-family:var(--font)`;
+  const dateStyle=`background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none`;
+
   const html=`
   <div class="section-header">
     <div><div class="section-title">⬆️ Upsells / Order Bumps</div><div class="section-sub">Aumenta el ticket promedio ofreciendo productos adicionales al confirmar</div></div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px">
-      <select onchange="upsellPer=this.value;toggleUpsellFechas(this.value);renderUpsells()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+      <select onchange="upsellPer=this.value;toggleUpsellFechas(this.value);renderUpsells()" style="${fbarStyle}">
         <option value="todo" ${upsellPer==='todo'?'selected':''}>Todo el historial</option>
         <option value="semana" ${upsellPer==='semana'?'selected':''}>Últimos 7 días</option>
         <option value="mes" ${upsellPer==='mes'?'selected':''}>Últimos 30 días</option>
         <option value="custom" ${upsellPer==='custom'?'selected':''}>📅 Rango</option>
       </select>
       <span id="up-fechas" style="display:${upsellPer==='custom'?'flex':'none'};align-items:center;gap:4px">
-        <input type="date" id="up-desde" onchange="renderUpsells()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+        <input type="date" id="up-desde" onchange="renderUpsells()" style="${dateStyle}">
         <span style="color:var(--text3)">→</span>
-        <input type="date" id="up-hasta" onchange="renderUpsells()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+        <input type="date" id="up-hasta" onchange="renderUpsells()" style="${dateStyle}">
       </span>
       <button class="btn btn-primary" onclick="openModalUpsell()">+ Nuevo upsell</button>
     </div>
   </div>
 
   <div class="metrics-grid" style="margin-bottom:14px">
-    <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos extra</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(upsellRev)}</div><div class="mcard-sub">por upsells aceptados</div></div>
-    <div class="mcard mc-${convRate>=30?'green':convRate>=15?'amber':'red'}"><div class="mcard-label">% Conversión</div><div class="mcard-val mv-${convRate>=30?'green':convRate>=15?'amber':'red'}">${convRate}%</div><div class="mcard-sub">${aceptados.length} de ${todosLosOfrecidos.length} ofrecidos</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos extra</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(upsellRev)}</div><div class="mcard-sub">precio cobrado × aceptados</div></div>
+    ${tieneCostos?`<div class="mcard mc-accent"><div class="mcard-label">✨ Ganancia real</div><div class="mcard-val mv-accent" style="font-size:19px">${fmt(upsellGan)}</div><div class="mcard-sub">precio − costo × aceptados</div></div>`:`<div class="mcard mc-blue"><div class="mcard-label">🎟️ Ticket con upsell</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(ticketConUp)}</div><div class="mcard-sub">${ticketSinUp>0?`vs ${fmt(ticketSinUp)} sin upsell`:'pedidos entregados'}</div></div>`}
+    <div class="mcard mc-${convRate>=30?'green':convRate>=15?'amber':'red'}"><div class="mcard-label">% Conversión</div><div class="mcard-val mv-${convRate>=30?'green':convRate>=15?'amber':'red'}">${convRate}%</div><div class="mcard-sub">${aceptados.length} de ${todosOfrecidos.length} ofrecidos</div></div>
     <div class="mcard mc-green"><div class="mcard-label">✅ Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">upsells cobrados</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">❌ Rechazados</div><div class="mcard-val mv-red">${rechazados.length}</div><div class="mcard-sub">${todosLosOfrecidos.length>0?Math.round(rechazados.length/todosLosOfrecidos.length*100):0}% de ofrecidos</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">🎟️ Ticket con upsell</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(ticketConUp)}</div><div class="mcard-sub">${ticketSinUp>0?`vs ${fmt(ticketSinUp)} sin upsell`:''}</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">❌ Rechazados</div><div class="mcard-val mv-red">${rechazados.length}</div><div class="mcard-sub">${todosOfrecidos.length>0?Math.round(rechazados.length/todosOfrecidos.length*100):0}% de ofrecidos</div></div>
     <div class="mcard mc-amber"><div class="mcard-label">⬆️ Upsells activos</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
   </div>
 
@@ -5268,43 +5287,70 @@ function renderUpsells(){
     </div>
   </div>`:''}
 
+  ${DB.upsells.length>1?`
+  <div class="fbar" style="margin-bottom:14px">
+    <div class="fg-filter">
+      <label>Buscar</label>
+      <input type="text" value="${upsellQ}" placeholder="Nombre del upsell..." oninput="upsellQ=this.value;renderUpsells()">
+    </div>
+    ${tipos.length>1?`<div class="fg-filter"><label>Tipo</label><select onchange="upsellTipoF=this.value;renderUpsells()">
+      <option value="" ${upsellTipoF===''?'selected':''}>Todos</option>
+      ${tipos.map(t=>`<option value="${t}" ${upsellTipoF===t?'selected':''}>${t}</option>`).join('')}
+    </select></div>`:''}
+    <span style="font-size:12px;color:var(--text3);align-self:flex-end;padding-bottom:8px">${upsellsFilt.length} upsell(s)</span>
+  </div>`:''}
+
   ${DB.upsells.length?`
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
-  ${DB.upsells.map(u=>{
+  ${upsellsFilt.length?upsellsFilt.map(u=>{
     const ofrTotal=DB.pedidos.filter(p=>p.upsellProd==u.id&&p.upsellRes);
     const ofrPer=filtrarPeriodo(ofrTotal,filtro);
     const accPer=ofrPer.filter(p=>p.upsellRes==='aceptado');
     const rejPer=ofrPer.filter(p=>p.upsellRes==='rechazado');
     const convU=ofrPer.length>0?Math.round(accPer.length/ofrPer.length*100):0;
-    const revU=accPer.reduce((s,p)=>{return s+u.precio;},0);
-    // Últimas 3 aceptaciones
+    const costoU=u.costo||0;
+    const gananciaU=u.precio-costoU;
+    const margenU=u.precio>0?((gananciaU/u.precio)*100):0;
+    const revU=accPer.length*(u.precio||0);
+    const ganTotalU=accPer.length*gananciaU;
     const ultimas=[...accPer].sort((a,b)=>b.id-a.id).slice(0,3);
     const convColor=convU>=40?'var(--green)':convU>=20?'var(--amber)':'var(--red)';
     return `<div class="card" style="border-left:3px solid ${convColor}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div>
-          <span class="upsell-badge">⬆️ ${u.tipo||'Upsell'}</span>
-          <div style="font-size:15px;font-weight:700;margin-top:6px;line-height:1.3">${u.nombre}</div>
-          <div class="mono" style="font-size:16px;font-weight:800;color:var(--accent);margin-top:4px">${fmt(u.precio)}</div>
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div style="flex:1;min-width:0">
+          <span class="upsell-badge">⬆️ ${u.tipo||'Order Bump'}</span>
+          <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
         </div>
-        <div style="display:flex;gap:4px">
+        <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
           <button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarUpsell(${u.id})">🗑️</button>
         </div>
       </div>
 
+      <!-- Precio / Costo / Ganancia -->
+      <div class="fr" style="padding:5px 0"><span class="fr-label">💰 Precio de oferta</span><span class="fr-val" style="color:var(--green)">${fmt(u.precio)}</span></div>
+      ${costoU>0?`
+      <div class="fr" style="padding:5px 0"><span class="fr-label">📦 Costo</span><span class="fr-val" style="color:var(--red)">${fmt(costoU)}</span></div>
+      <div class="fr" style="padding:5px 0"><span class="fr-label">✨ Ganancia / u.</span><span class="fr-val" style="color:var(--accent)">${fmt(gananciaU)} <span style="font-size:10.5px;opacity:.7">(${margenU.toFixed(0)}%)</span></span></div>`:''}
+
+      <div style="height:1px;background:var(--border);margin:10px 0"></div>
+
       <!-- Barra de conversión -->
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px">
           <span style="color:var(--text3)">Conversión del período</span>
           <span style="font-weight:700;color:${convColor}">${convU}%</span>
         </div>
-        <div style="background:var(--surface3);border-radius:6px;height:10px;overflow:hidden;display:flex">
-          <div style="width:${convU}%;background:${convColor};border-radius:6px;transition:width .3s"></div>
+        <div style="background:var(--surface3);border-radius:6px;height:10px;overflow:hidden">
+          <div style="width:${convU}%;background:${convColor};border-radius:6px;height:100%;transition:width .4s"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:3px">
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:5px">
           <span>✅ ${accPer.length} aceptados · ❌ ${rejPer.length} rechazados</span>
-          <span class="mono" style="color:var(--green);font-weight:700">${fmt(revU)}</span>
+          <div style="text-align:right">
+            <div class="mono" style="color:var(--green);font-weight:700">${fmt(revU)}</div>
+            ${costoU>0&&accPer.length>0?`<div class="mono" style="color:var(--accent);font-size:10px">${fmt(ganTotalU)} gan.</div>`:''}
+          </div>
         </div>
       </div>
 
@@ -5314,23 +5360,23 @@ function renderUpsells(){
       ${ultimas.length?`
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Últimas aceptaciones</div>
-        ${ultimas.map(p=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:3px 0">
+        ${ultimas.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:3px 0">
           <div><span style="color:var(--text3)">#${p.id}</span> <span style="font-weight:600">${p.nombre}</span></div>
           <span style="color:var(--text3)">${p.fecha}</span>
         </div>`).join('')}
       </div>`:''}
 
-      ${u.desc?`<div style="margin-top:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:11.5px;color:var(--text3);line-height:1.5;font-style:italic">"${u.desc}"</div>`:''}
+      ${u.desc?`<div style="margin-top:10px;padding:9px 11px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--border2);font-size:11.5px;color:var(--text2);line-height:1.6">"${u.desc}"</div>`:''}
     </div>`;
-  }).join('')}
+  }).join(''):
+  `<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Sin upsells que coincidan con los filtros.</div>`}
   </div>`
   :`<div class="card" style="text-align:center;padding:40px 24px">
     <div style="font-size:40px;margin-bottom:12px">⬆️</div>
     <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes upsells</div>
-    <div style="font-size:13px;color:var(--text3);max-width:420px;margin:0 auto 20px;line-height:1.6">
-      Un <b>upsell / order bump</b> es un producto extra que ofreces al cliente al confirmar su pedido.<br>
-      Ejemplo: "¿Le agrego el estuche protector por solo S/ 15 más?" — si acepta, se suma al pedido.
+    <div style="font-size:13px;color:var(--text3);max-width:440px;margin:0 auto 20px;line-height:1.6">
+      Un <b>upsell / order bump</b> es un producto extra que ofreces al cliente justo al confirmar su pedido.<br><br>
+      Ejemplo: <i>"¿Le agrego el estuche protector por solo S/ 15 más?"</i> — si acepta, se suma al ticket.
     </div>
     <button class="btn btn-primary" onclick="openModalUpsell()">+ Crear primer upsell</button>
   </div>`}`;
@@ -5344,15 +5390,38 @@ function toggleUpsellFechas(per){
 
 function openModalUpsell(id){
   document.getElementById('up-id').value=id||'';
-  if(id){const u=DB.upsells.find(x=>x.id===id);if(u){document.getElementById('up-nombre').value=u.nombre;document.getElementById('up-tipo').value=u.tipo||'Order Bump';document.getElementById('up-precio').value=u.precio;document.getElementById('up-desc').value=u.desc||'';}}
-  else{['up-nombre','up-desc'].forEach(i=>document.getElementById(i).value='');document.getElementById('up-precio').value='';}
+  if(id){
+    const u=DB.upsells.find(x=>x.id===id);
+    if(u){
+      document.getElementById('up-nombre').value=u.nombre||'';
+      document.getElementById('up-tipo').value=u.tipo||'Order Bump';
+      document.getElementById('up-precio').value=u.precio||'';
+      document.getElementById('up-costo').value=u.costo||'';
+      document.getElementById('up-desc').value=u.desc||'';
+    }
+  } else {
+    ['up-nombre','up-desc'].forEach(i=>document.getElementById(i).value='');
+    ['up-precio','up-costo'].forEach(i=>document.getElementById(i).value='');
+  }
   document.getElementById('modal-upsell').classList.add('open');
+  setTimeout(()=>document.getElementById('up-nombre')?.focus(),80);
 }
 function guardarUpsell(){
+  const nombre=document.getElementById('up-nombre').value.trim();
+  if(!nombre){alert('El nombre es obligatorio.');return;}
   const id=document.getElementById('up-id').value;
-  const u={id:id?parseInt(id):Date.now(),nombre:document.getElementById('up-nombre').value,tipo:document.getElementById('up-tipo').value,precio:parseFloat(document.getElementById('up-precio').value)||0,desc:document.getElementById('up-desc').value};
-  if(id){const idx=DB.upsells.findIndex(x=>x.id===parseInt(id));DB.upsells[idx]=u;}else DB.upsells.push(u);
+  const u={
+    id:id?parseInt(id):Date.now(),
+    nombre,
+    tipo:document.getElementById('up-tipo').value||'Order Bump',
+    precio:parseFloat(document.getElementById('up-precio').value)||0,
+    costo:parseFloat(document.getElementById('up-costo').value)||0,
+    desc:document.getElementById('up-desc').value.trim()
+  };
+  if(id){const idx=DB.upsells.findIndex(x=>x.id===parseInt(id));DB.upsells[idx]=u;}
+  else DB.upsells.push(u);
   save();closeModal('modal-upsell');renderUpsells();
+  showToast(id?'✅ Upsell actualizado':'✅ Upsell creado');
 }
 function eliminarUpsell(id){if(!confirm('¿Eliminar upsell?'))return;DB.upsells=DB.upsells.filter(x=>x.id!==id);save();renderUpsells();}
 

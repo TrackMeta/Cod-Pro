@@ -4405,7 +4405,7 @@ function renderLimaContent(){
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
     </div></td>
-  </tr>`).join('');
+  </tr>`;}).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`;
   v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>

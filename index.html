@@ -3480,6 +3480,17 @@ function actualizarCantidadItem(idx,val){
   const cant=parseInt(val)||1;
   const prod=pedidoItems[idx].productoId?DB.productos.find(p=>p.id===parseInt(pedidoItems[idx].productoId)):null;
   pedidoItems[idx].cantidad=cant;
+  // Auto-aplicar oferta si la cantidad coincide exactamente
+  if(prod&&prod.ofertas&&prod.ofertas.length){
+    const oferta=prod.ofertas.find(o=>o.cantidad===cant);
+    if(oferta){
+      pedidoItems[idx].precio=oferta.precio;
+      pedidoItems[idx].cprod=(prod.costo||0)*cant;
+      pedidoItems[idx].desglose=cant>1?[{variante:'',cantidad:1},{variante:'',cantidad:cant-1}]:[];
+      recalcPend();renderItemsPedido();
+      return;
+    }
+  }
   if(prod&&prod.costo)pedidoItems[idx].cprod=prod.costo*cant;
   if(cant<=1)pedidoItems[idx].desglose=[];
   recalcPend();renderItemsPedido();
@@ -4354,9 +4365,10 @@ function renderLimaContent(){
       cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado}</span>`:'',
       (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado}</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="10"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
-    const rows=its.map(p=>`<tr>
+    const sepRow=`<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
+    const rows=its.map(p=>{const fcReg=p.fechaCreado?new Date(p.fechaCreado).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})+' <span style="color:var(--text3)">'+new Date(p.fechaCreado).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})+'</span>':'—';return`<tr>
     <td class="mono" style="color:var(--text3)">#${p.id}</td>
+    <td style="font-size:11px;white-space:nowrap">${fcReg}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.dist||'-'}</td>
@@ -4395,8 +4407,8 @@ function renderLimaContent(){
     </div></td>
   </tr>`).join('');
     return sepRow+rows;
-  }).join(''):`<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
+  }).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`;
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
   <tbody>${limaBody}</tbody></table></div>`;
 }
 

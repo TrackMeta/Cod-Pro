@@ -6826,27 +6826,59 @@ function eliminarWA(id){if(!confirm('¿Eliminar esta plantilla?'))return;DB.waTm
 // =====================================================================
 function renderImportar(){
   const html=`
-  <div class="section-header"><div><div class="section-title">Importar CSV</div><div class="section-sub">Importa pedidos desde Shopify, ReleasIt o EasySell
+  <div class="section-header">
+    <div><div class="section-title">📥 Importar CSV</div><div class="section-sub">Importa pedidos desde Shopify, ReleasIt, EasySell o CSV manual</div></div>
+  </div>
   <div class="g2">
     <div class="card">
       <div class="card-title">📁 Subir archivo CSV</div>
-      <div class="import-drop" id="import-drop" onclick="document.getElementById('import-file').click()">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
-        <div style="font-weight:600;margin-bottom:4px">Haz clic o arrastra tu CSV aquí</div>
-        <div style="font-size:12px;color:var(--text3)">Formatos: Shopify / ReleasIt / EasySell / Manual</div>
-        <input type="file" id="import-file" accept=".csv" style="display:none" onchange="handleCSVFile(event)">
+      <div class="import-drop" id="import-drop" onclick="document.getElementById('import-file').click()" style="cursor:pointer">
+        <div style="font-size:36px;margin-bottom:10px">📄</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:5px">Haz clic o arrastra tu CSV aquí</div>
+        <div style="font-size:12px;color:var(--text3)">Formatos: Shopify · ReleasIt · EasySell · Manual</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Separador: coma ( , ) o punto y coma ( ; )</div>
+        <input type="file" id="import-file" accept=".csv,.txt" style="display:none" onchange="handleCSVFile(event)">
       </div>
       <div id="import-preview" style="margin-top:16px"></div>
     </div>
     <div class="card">
-      <div class="card-title">Mapeo de columnas</div>
-      <div class="abox abox-blue"><span class="abox-icon">ℹ️</span><div class="abox-text">El sistema detecta automáticamente las columnas. Si algo no cuadra, puedes ajustar el mapeo abajo.</div></div>
-      <div id="import-mapeo" style="margin-top:12px"></div>
-      <div class="card-title" style="margin-top:20px">Formato manual esperado</div>
-      <div style="background:var(--surface3);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8">
-        nombre,celular,producto,precio,zona,distrito,direccion<br>
-        Juan Pérez,999999999,Producto,89,lima,SJL,Av. Las Flores 123<br>
-        Ana Torres,988888888,Pastillas,120,provincia,Trujillo,—
+      <div class="card-title">📋 Guía de columnas</div>
+      <div class="abox abox-blue" style="margin-bottom:12px"><span class="abox-icon">🤖</span><div class="abox-text">El sistema detecta columnas automáticamente. Revisa el mapeo antes de importar y corrígelo si algo no cuadra.</div></div>
+      <div id="import-mapeo"></div>
+      <div style="margin-top:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Campos detectables</div>
+        ${[
+          ['nombre / name / cliente','Nombre del cliente','obligatorio'],
+          ['celular / telefono / phone','Número de contacto','obligatorio'],
+          ['producto / product / item','Producto pedido','obligatorio'],
+          ['precio / price / total / monto','Precio de venta','obligatorio'],
+          ['zona / zone','lima o provincia','opcional'],
+          ['distrito / city','Distrito Lima','opcional'],
+          ['direccion / address','Dirección entrega','opcional'],
+          ['provincia / province','Ciudad provincia','opcional'],
+          ['dni / cedula','Documento de identidad','opcional'],
+        ].map(([col,desc,req])=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <code style="font-size:10px;color:var(--accent);background:var(--surface3);padding:1px 6px;border-radius:4px;flex-shrink:0">${col.split('/')[0].trim()}</code>
+          <span style="font-size:11px;color:var(--text2);flex:1">${desc}</span>
+          <span style="font-size:10px;padding:1px 6px;border-radius:4px;${req==='obligatorio'?'background:rgba(239,68,68,.12);color:var(--red);font-weight:700':'color:var(--text3)'}">${req}</span>
+        </div>`).join('')}
+      </div>
+      <div style="margin-top:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ejemplo CSV manual</div>
+        <div style="background:var(--surface3);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:10.5px;color:var(--text2);line-height:1.9;overflow-x:auto">
+          nombre,celular,producto,precio,zona,distrito<br>
+          Juan Pérez,999999999,Crema X,89,lima,San Isidro<br>
+          Ana Torres,988888888,Pastillas,120,provincia,Trujillo
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Notas de importación</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.7">
+          • Los pedidos se importan como <b>Confirmados</b><br>
+          • Costo envío: automático según zona (Lima: S/${CFG.courier} · Prov: S/${CFG.shalom})<br>
+          • Costo producto: se busca en tu catálogo (si no se encuentra: S/0)<br>
+          • Zona: si no hay columna, se asume Lima
+        </div>
       </div>
     </div>
   </div>
@@ -6856,9 +6888,15 @@ function renderImportar(){
   setTimeout(()=>{
     const drop=document.getElementById('import-drop');
     if(!drop)return;
-    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
-    drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
-    drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');const f=e.dataTransfer.files[0];if(f)parseCSVFile(f);});
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.borderColor='var(--accent)';drop.style.background='var(--accentL)';});
+    drop.addEventListener('dragleave',()=>{drop.style.borderColor='';drop.style.background='';});
+    drop.addEventListener('drop',e=>{
+      e.preventDefault();
+      drop.style.borderColor='';drop.style.background='';
+      const f=e.dataTransfer.files[0];
+      if(f&&(f.name.endsWith('.csv')||f.name.endsWith('.txt')))parseCSVFile(f);
+      else if(f){document.getElementById('import-preview').innerHTML='<div class="abox abox-red"><span class="abox-icon">❌</span><div class="abox-text">Solo se aceptan archivos CSV o TXT.</div></div>';}
+    });
   },100);
 }
 
@@ -6883,14 +6921,33 @@ function parseCSVFile(file){
     // Show preview
     const prev=document.getElementById('import-preview');
     const mapeo=document.getElementById('import-mapeo');
-    mapeo.innerHTML=`<div class="card-title">Columnas detectadas</div>`+
-      Object.entries(map).map(([k,i])=>`<div class="cf-row"><span style="color:var(--text2)">${k}</span><span style="font-family:var(--mono);font-size:12px;color:var(--accent)">${headers[i]}</span></div>`).join('')+
-      `<div style="margin-top:12px"><button class="btn btn-primary" onclick="doImportarCSV()">✅ Importar ${rows.length} pedido(s)</button></div>`;
-    window._csvImportData={rows,map};
-    prev.innerHTML=`<div class="abox abox-green"><span class="abox-icon">✅</span><div class="abox-text">Archivo cargado: <b>${file.name}</b> — ${rows.length} filas detectadas</div></div>
-    <div class="tw" style="margin-top:12px"><table><thead><tr>${headers.slice(0,6).map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.slice(0,5).map(r=>`<tr>${r.slice(0,6).map(c=>`<td style="font-size:12px">${c||'-'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px">Mostrando primeras 5 filas de ${rows.length}</div>`;
+    const required=['nombre','celular','producto','precio'];
+    const optional=['zona','distrito','direccion','provincia','dni'];
+    const allFields=[...required,...optional];
+    const missingReq=required.filter(k=>map[k]===undefined);
+    const mappedHtml=allFields.map(k=>{
+      const mapped=map[k]!==undefined;
+      const isReq=required.includes(k);
+      return`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:16px">${mapped?'✅':'⬜'}</span>
+        <span style="font-size:12px;font-weight:${isReq?'700':'400'};color:${mapped?'var(--text)':(isReq?'var(--red)':'var(--text3)')};flex:1">${k}${isReq?' *':''}</span>
+        ${mapped?`<code style="font-size:11px;color:var(--accent);background:var(--surface3);padding:1px 6px;border-radius:4px">${headers[map[k]]}</code>`:`<span style="font-size:10px;color:${isReq?'var(--red)':'var(--text3)'}">${isReq?'⚠️ No detectado':'—'}</span>`}
+      </div>`;
+    }).join('');
+    mapeo.innerHTML=`
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Mapeo detectado (${headers.length} columnas)</div>
+      ${mappedHtml}
+      ${missingReq.length?`<div class="abox abox-red" style="margin-top:10px"><span class="abox-icon">⚠️</span><div class="abox-text">Campos obligatorios no detectados: <b>${missingReq.join(', ')}</b>. Los pedidos se importarán con valores vacíos.</div></div>`:''}
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="doImportarCSV()">✅ Importar ${rows.length} pedido(s)</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').value='';document.getElementById('import-preview').innerHTML='';document.getElementById('import-mapeo').innerHTML='';window._csvImportData=null;">✕ Cancelar</button>
+      </div>`;
+    window._csvImportData={rows,map,fileName:file.name};
+    prev.innerHTML=`<div class="abox abox-green"><span class="abox-icon">✅</span><div class="abox-text">Archivo cargado: <b>${file.name}</b> — <b>${rows.length}</b> filas detectadas · separador: "${sep}"</div></div>
+    <div style="margin-top:10px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Vista previa (primeras 5 filas)</div>
+    <div class="tw"><table><thead><tr>${headers.slice(0,7).map(h=>`<th style="font-size:11px">${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.slice(0,5).map(r=>`<tr>${r.slice(0,7).map(c=>`<td style="font-size:11.5px">${c||'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    ${rows.length>5?`<div style="font-size:11px;color:var(--text3);margin-top:4px">… y ${rows.length-5} fila(s) más</div>`:''}`;
   };
   reader.readAsText(file,'UTF-8');
 }
@@ -6900,24 +6957,67 @@ function doImportarCSV(){
   importarPedidos(window._csvImportData.rows, window._csvImportData.map);
 }
 function importarPedidos(rows,map){
-  let ok=0,skip=0;
+  let ok=0,skip=0,conCprod=0;
+  // Build quick-lookup for product catalog (by name, lowercased)
+  const catMap={};
+  (DB.productos||[]).forEach(p=>{if(p.nombre)catMap[p.nombre.toLowerCase().trim()]=p;});
   rows.forEach(r=>{
-    const nombre=(map.nombre!==undefined?r[map.nombre]:'')||'Importado';
-    const celular=map.celular!==undefined?r[map.celular]:'';
-    const producto=map.producto!==undefined?r[map.producto]:'';
-    const precio=parseFloat(map.precio!==undefined?r[map.precio]:0)||0;
-    const zona=(map.zona!==undefined?r[map.zona]:'').toLowerCase().includes('prov')?'provincia':'lima';
-    const distrito=map.distrito!==undefined?r[map.distrito]:'';
-    const direccion=map.direccion!==undefined?r[map.direccion]:'';
-    const provincia=map.provincia!==undefined?r[map.provincia]:'';
-    const dni=map.dni!==undefined?r[map.dni]:'';
-    if(!nombre&&!celular){skip++;return;}
-    DB.pedidos.push({id:DB.nextId++,fecha:hoy(),nombre,celular,dni,producto,cantidad:1,precio,zona,modalidad:'stock',cprod:0,cenv:zona==='lima'?CFG.courier:CFG.shalom,emb:0,dist:distrito,dir:direccion,prov:provincia,estado:'confirmado',fuente:'Shopify',fechaCreado:new Date().toISOString()});
+    const nombre=(map.nombre!==undefined?r[map.nombre]:'').trim()||'Importado';
+    const celular=(map.celular!==undefined?r[map.celular]:'').replace(/\D/g,'');
+    const producto=(map.producto!==undefined?r[map.producto]:'').trim();
+    const precioRaw=(map.precio!==undefined?r[map.precio]:'').replace(/[^0-9.,-]/g,'').replace(',','.');
+    const precio=parseFloat(precioRaw)||0;
+    const zonaRaw=(map.zona!==undefined?r[map.zona]:'').toLowerCase();
+    const zona=zonaRaw.includes('prov')?'provincia':'lima';
+    const distrito=(map.distrito!==undefined?r[map.distrito]:'').trim();
+    const direccion=(map.direccion!==undefined?r[map.direccion]:'').trim();
+    const provinciaVal=(map.provincia!==undefined?r[map.provincia]:'').trim();
+    const dni=(map.dni!==undefined?r[map.dni]:'').trim();
+    if(!nombre&&!celular&&!producto){skip++;return;}
+    // Lookup cprod from catalog
+    const prodCat=producto?catMap[producto.toLowerCase().trim()]:null;
+    const cprod=prodCat?(prodCat.costo||0):0;
+    if(cprod>0)conCprod++;
+    const cenv=zona==='lima'?CFG.courier:CFG.shalom;
+    DB.pedidos.push({
+      id:DB.nextId++,fecha:hoy(),nombre,celular,dni,producto,cantidad:1,
+      precio,zona,modalidad:'stock',cprod,cenv,emb:0,
+      dist:distrito,dir:direccion,prov:provinciaVal||distrito,
+      estado:'confirmado',fuente:'CSV',
+      adelanto:zona==='provincia'?0:undefined,
+      pendiente:zona==='provincia'?precio:undefined,
+      fechaCreado:new Date().toISOString()
+    });
     ok++;
   });
   save();updateSidebarBadges();
   const res=document.getElementById('import-result');
-  if(res)res.innerHTML=`<div class="abox abox-green"><span class="abox-icon">✅</span><div class="abox-text"><b>${ok} pedidos importados</b> correctamente.${skip>0?` ${skip} filas omitidas (sin datos).`:''} <a href="#" onclick="showPage('pedidos')" style="color:var(--green);text-decoration:underline">Ver pedidos →</a></div></div>`;
+  if(!res)return;
+  const lima=DB.pedidos.slice(-ok).filter(p=>p.zona==='lima').length;
+  const prov=ok-lima;
+  res.innerHTML=`
+    <div class="card" style="border:1px solid rgba(34,197,94,.3);background:var(--greenL)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <span style="font-size:28px">✅</span>
+        <div>
+          <div style="font-size:16px;font-weight:700">${ok} pedido(s) importados correctamente</div>
+          ${skip>0?`<div style="font-size:12px;color:var(--text3)">${skip} fila(s) omitida(s) por estar vacías</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        ${lima>0?`<div style="padding:8px 14px;background:rgba(59,130,246,.12);border-radius:8px;border:1px solid rgba(59,130,246,.2)"><div style="font-size:11px;color:var(--blue);font-weight:700">🏙️ Lima</div><div style="font-size:18px;font-weight:800;color:var(--blue)">${lima}</div></div>`:''}
+        ${prov>0?`<div style="padding:8px 14px;background:var(--accentL);border-radius:8px;border:1px solid rgba(255,85,0,.2)"><div style="font-size:11px;color:var(--accent);font-weight:700">📦 Provincia</div><div style="font-size:18px;font-weight:800;color:var(--accent)">${prov}</div></div>`:''}
+        ${conCprod>0?`<div style="padding:8px 14px;background:var(--surface3);border-radius:8px;border:1px solid var(--border)"><div style="font-size:11px;color:var(--text3);font-weight:700">💰 Con costo prod.</div><div style="font-size:18px;font-weight:800">${conCprod}</div></div>`:''}
+      </div>
+      ${conCprod<ok?`<div style="font-size:11px;color:var(--amber);margin-bottom:10px">⚠️ ${ok-conCprod} pedido(s) sin costo de producto detectado (no encontrado en catálogo). Edítalos después.</div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="showPage('pedidos')">📋 Ver todos los pedidos →</button>
+        ${lima>0?`<button class="btn btn-ghost btn-sm" onclick="showPage('lima')">🏙️ Ver Lima →</button>`:''}
+        ${prov>0?`<button class="btn btn-ghost btn-sm" onclick="showPage('provincia')">📦 Ver Provincia →</button>`:''}
+      </div>
+    </div>`;
+  // Reset file input for next import
+  const fi=document.getElementById('import-file');if(fi)fi.value='';
 }
 
 // =====================================================================
@@ -7004,7 +7104,8 @@ function renderConfig(){
       <div class="divider"></div>
       <button class="btn btn-danger btn-sm" onclick="resetearDatos()">🗑️ Limpiar todos los datos</button>
       <div style="margin-top:10px;font-size:11px;color:var(--text3)">Backups automáticos: 1 por día · últimos 10 días · solo este navegador</div>
-    </div>`;
+    </div>
+  </div>`;
   setContent(html);
 }
 

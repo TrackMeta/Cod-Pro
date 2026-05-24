@@ -4846,18 +4846,30 @@ function renderProdCards(){
     pedFiltrados=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),per);
   }
   const diasActivos=per==='hoy'?1:per==='semana'?7:per==='mes'?30:30;
-  return DB.productos.map(p=>{
-    const vendidos=pedFiltrados.filter(x=>x.productoId===p.id).reduce((s,x)=>s+x.cantidad,0);
+  // Calcular ventas en período por producto y ordenar por más vendido
+  const prodData=DB.productos.map(p=>{
+    const pedProd=pedFiltrados.filter(x=>x.productoId===p.id);
+    const vendidos=pedProd.reduce((s,x)=>s+x.cantidad,0);
+    const ingPeriodo=pedProd.reduce((s,x)=>s+x.precio,0);
     const totalVendidos=DB.pedidos.filter(x=>x.productoId===p.id&&x.estado==='entregado').reduce((s,x)=>s+x.cantidad,0);
+    return{p,vendidos,ingPeriodo,totalVendidos};
+  });
+  prodData.sort((a,b)=>b.vendidos-a.vendidos||(b.p.stock||0)-(a.p.stock||0));
+  const maxVendidos=prodData[0]?.vendidos||0;
+  return prodData.map(({p,vendidos,ingPeriodo,totalVendidos},rank)=>{
     const pctStock=p.stock<=0?0:Math.min(100,Math.round(p.stock/(p.stock+totalVendidos)*100));
     const isLow=p.stock<=p.stockMin&&p.modalidad==='stock';
     const promDia=vendidos/diasActivos;
     const diasRestantes=promDia>0?Math.floor(p.stock/promDia):null;
+    const ganancia=p.precio-p.costo;
+    const margen=p.precio>0?((ganancia/p.precio)*100):0;
     const cicloHtml=p.modalidad==='stock'&&diasRestantes!==null?`<div style="font-size:11px;margin-top:4px;color:${diasRestantes<=7?'var(--red)':diasRestantes<=14?'var(--amber)':'var(--text3)'}">⏱ ${diasRestantes<=0?'Stock agotado en ventas actuales':`~${diasRestantes} días de stock restante`}</div>`:'';
-    return `<div class="prod-card">
+    const isTop=rank===0&&maxVendidos>0;
+    return `<div class="prod-card" style="${isLow?'border-color:rgba(239,68,68,.4)':''}${isTop?';box-shadow:0 0 0 2px rgba(139,92,246,.25)':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div class="prod-name">${p.nombre}</div><div class="prod-sku">${p.sku||'Sin SKU'}</div></div>
         <div style="display:flex;gap:4px">
+          ${isTop?'<span style="font-size:11px;font-weight:700;color:var(--purple);padding:2px 6px;background:var(--purpleL);border-radius:5px">🏆 Top</span>':''}
           <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">🗑️</button>
         </div>
@@ -4867,15 +4879,18 @@ function renderProdCards(){
         <span class="bdg" style="background:var(--tealL);color:var(--teal)">${p.categoria||'General'}</span>
         ${isLow?`<span class="bdg bdg-crit">⚠️ Stock bajo</span>`:''}
       </div>
-      <div class="fr" style="padding:6px 0"><span style="font-size:12px;color:var(--text2)">Precio venta</span><span class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</span></div>
-      <div class="fr" style="padding:6px 0"><span style="font-size:12px;color:var(--text2)">Costo</span><span class="mono" style="color:var(--red)">${fmt(p.costo)}</span></div>
-      <div class="fr" style="padding:6px 0;border:none"><span style="font-size:12px;color:var(--text2)">Margen</span><span class="mono" style="color:var(--accent)">${p.precio>0?((p.precio-p.costo)/p.precio*100).toFixed(1)+'%':'—'}</span></div>
+      <div class="fr" style="padding:5px 0"><span style="font-size:12px;color:var(--text2)">Precio venta</span><span class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</span></div>
+      <div class="fr" style="padding:5px 0"><span style="font-size:12px;color:var(--text2)">Costo</span><span class="mono" style="color:var(--red)">${fmt(p.costo)}</span></div>
+      <div class="fr" style="padding:5px 0;border:none"><span style="font-size:12px;color:var(--text2)">Ganancia / u.</span><span class="mono" style="color:var(--accent);font-weight:700">${fmt(ganancia)} <span style="font-size:10.5px;opacity:.7">(${margen.toFixed(0)}%)</span></span></div>
       ${p.modalidad==='stock'?`
       <div style="margin-top:8px">
         <div class="stock-label"><span>Stock total: <b style="color:${isLow?'var(--red)':'var(--green)'}">${p.stock} und.</b></span><span>Mín: ${p.stockMin}</span></div>
         <div class="stock-bar"><div class="stock-bar-fill" style="width:${pctStock}%;background:${isLow?'var(--red)':'var(--green)'}"></div></div>
         ${p.variantes&&p.variantes.length?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${p.variantes.map(v=>`<span style="background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;color:${v.stock<=0?'var(--red)':'var(--text2)'}"><b>${v.nombre}</b>: ${v.stock}</span>`).join('')}</div>`:''}
-        <div class="stock-label" style="margin-top:2px"><span>Vendidos (período): <b>${vendidos}</b></span></div>
+        <div class="stock-label" style="margin-top:4px">
+          <span>Vendidos (período): <b>${vendidos} u.</b></span>
+          ${ingPeriodo>0?`<span class="mono" style="color:var(--green);font-weight:700">${fmt(ingPeriodo)}</span>`:''}
+        </div>
         ${cicloHtml}
         <div style="display:flex;gap:6px;margin-top:10px">
           <button class="btn btn-ghost btn-sm" onclick="ajustarStock(${p.id},-1)">− 1</button>
@@ -5451,13 +5466,16 @@ function renderComisiones(){
         const aProv=aEnt.filter(p=>p.zona==='provincia');
         const comLima=aLima.length*(a.comLima||CFG.comLima||1);
         const comProv=aProv.length*(a.comProv||CFG.comProv||2);
-        const total=comLima+comProv+a.sueldo;
+        const totalCom=comLima+comProv;
+        const total=totalCom+a.sueldo;
         const ef=aPeds.length>0?Math.round(aEnt.length/aPeds.length*100):0;
+        const ingGenerado=aEnt.reduce((s,p)=>s+p.precio,0);
+        const roi=total>0?(ingGenerado/total):0;
         return `<div class="card" style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px">
             <div>
               <div style="font-size:17px;font-weight:700">👤 ${a.nombre}</div>
-              <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Com. Lima S/${a.comLima} · Provincia S/${a.comProv} · Fijo S/${a.sueldo}/día</div>
+              <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Com. Lima S/${a.comLima} · Provincia S/${a.comProv} · Fijo S/${a.sueldo}</div>
             </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost btn-sm" onclick="openModalAsesor(${a.id})">✏️ Editar</button>
@@ -5465,20 +5483,31 @@ function renderComisiones(){
             </div>
           </div>
           <div class="metrics-grid">
-            <div class="mcard mc-blue"><div class="mcard-label">Pedidos registrados</div><div class="mcard-val mv-blue">${aPeds.length}</div><div class="mcard-sub">${aEnt.length} entregados</div></div>
-            <div class="mcard mc-${ef>=70?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=70?'green':'red'}">${ef}%</div><div class="mcard-sub">${aDev.length} devueltos</div></div>
+            <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos generados</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(ingGenerado)}</div><div class="mcard-sub">ROI: ${roi.toFixed(1)}x</div></div>
+            <div class="mcard mc-${ef>=70?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=70?'green':'red'}">${ef}%</div><div class="mcard-sub">${aPeds.length} ped · ${aDev.length} dev</div></div>
             <div class="mcard mc-accent"><div class="mcard-label">Entregas Lima</div><div class="mcard-val mv-accent">${aLima.length}</div><div class="mcard-sub">${fmt(comLima)}</div></div>
             <div class="mcard mc-purple"><div class="mcard-label">Entregas Prov.</div><div class="mcard-val mv-purple">${aProv.length}</div><div class="mcard-sub">${fmt(comProv)}</div></div>
             <div class="mcard mc-amber"><div class="mcard-label">Sueldo fijo</div><div class="mcard-val mv-amber">${fmt(a.sueldo)}</div><div class="mcard-sub">S/${a.pagoDia}/día</div></div>
-            <div class="mcard mc-green"><div class="mcard-label">💰 Total a pagar</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(total)}</div></div>
+            <div class="mcard mc-red"><div class="mcard-label">💸 Total a pagar</div><div class="mcard-val mv-red" style="font-size:20px">${fmt(total)}</div><div class="mcard-sub">${fmt(totalCom)} com + ${fmt(a.sueldo)} fijo</div></div>
           </div>
         </div>`;
       }).join('')
     :`<div class="empty" style="padding:24px">Sin vendedores registrados. Agrega asesores/vendedores para medir su rendimiento y calcular comisiones.</div>`;
 
+  // ── RESUMEN TOTAL A PAGAR ──
+  const totalComisiones=DB.asesores.reduce((s,a)=>{
+    const aEnt2=todos.filter(p=>p.estado==='entregado'&&p.vendedor===String(a.id));
+    return s+aEnt2.filter(p=>p.zona==='lima').length*(a.comLima||CFG.comLima||1)
+            +aEnt2.filter(p=>p.zona==='provincia').length*(a.comProv||CFG.comProv||2);
+  },0);
+  const totalSueldos=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
+  const totalIngEquipo=DB.asesores.reduce((s,a)=>{
+    return s+todos.filter(p=>p.estado==='entregado'&&p.vendedor===String(a.id)).reduce((ss,p)=>ss+p.precio,0);
+  },0);
+
   const html=`
   <div class="section-header">
-    <div><div class="section-title">👥 Equipo & Usuarios</div><div class="section-sub">Deliveries, vendedores, comisiones y accesos al workspace</div></div>
+    <div><div class="section-title">👥 Equipo & Comisiones</div><div class="section-sub">Deliveries, vendedores, comisiones y accesos al workspace</div></div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
       <div class="fg-filter">
         <label>Período de rendimiento</label>
@@ -5496,6 +5525,13 @@ function renderComisiones(){
       `:''}
     </div>
   </div>
+  ${DB.asesores.length?`
+  <div class="metrics-grid" style="margin-bottom:16px">
+    <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos generados</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(totalIngEquipo)}</div><div class="mcard-sub">por vendedores del equipo</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">💸 Com. a pagar</div><div class="mcard-val mv-red" style="font-size:19px">${fmt(totalComisiones)}</div><div class="mcard-sub">por entregas del período</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label">💼 Sueldos fijos</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt(totalSueldos)}</div><div class="mcard-sub">total del equipo</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">👤 Vendedores</div><div class="mcard-val mv-blue">${DB.asesores.length}</div><div class="mcard-sub">${ent.length} entregas en período</div></div>
+  </div>`:''}
   ${deliveriesHtml}
   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px">📊 Rendimiento por vendedor</div>
   ${vendedoresHtml}`;
@@ -7169,6 +7205,7 @@ function renderRotuloCard(p,showNegocio,negocioName,withSelect){
         <span class="rotulo-label">Sede</span><span class="rotulo-val">${p.prov||'—'}</span>
       `}
       <span class="rotulo-label">Producto</span><span class="rotulo-val" style="font-weight:700">${p.producto} × ${p.cantidad}</span>
+      ${!isLima&&(p.pendiente||0)>0?`<span class="rotulo-label" style="color:var(--red);font-weight:700">💰 Cobrar</span><span class="rotulo-val" style="font-weight:900;font-size:15px;color:var(--red)">S/ ${p.pendiente}</span>`:''}
     </div>
     <div style="margin-top:6px;text-align:center;font-size:10px;color:var(--text3)">${p.fecha}</div>
   </div>`;
@@ -7212,6 +7249,7 @@ function generarRotuloPrintHTML(pedidos,isRotado){
         `}
         <div class="label-row"><span class="label-key">Producto</span><span class="label-val producto">${p.producto}</span></div>
         <div class="label-val cantidad">× ${p.cantidad}</div>
+        ${!isLima&&(p.pendiente||0)>0?`<div class="label-row" style="margin-top:2mm;border-top:0.5mm solid #f00;padding-top:2mm"><span class="label-key" style="color:#f00;font-weight:900">COD</span><span class="label-val" style="font-weight:900;font-size:5.5mm;color:#f00">S/ ${p.pendiente}</span></div>`:''}
       </div>
       <div class="label-notas">
         <div class="label-notas-title">NOTAS :</div>

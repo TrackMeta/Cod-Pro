@@ -3149,14 +3149,14 @@ function renderDashboard(){
     <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">📈</div><div class="stat-txt"><div class="stat-label">ROAS</div><div class="stat-val mv-blue">${roas.toFixed(2)}x</div></div></div>
     <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL)">💸</div><div class="stat-txt"><div class="stat-label">Gasto publicidad</div><div class="stat-val mv-purple">${fmt(pub)}</div></div></div>
     <div class="stat-row"><div class="stat-ico" style="background:var(--greenL)">🎟️</div><div class="stat-txt"><div class="stat-label">Ticket promedio</div><div class="stat-val mv-green">${fmt(ticketProm)}</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--cyanL)">🔄</div><div class="stat-txt"><div class="stat-label">Recompras</div><div class="stat-val mv-cyan">${recompra.pct}% <span style="font-size:12px;color:var(--text3)">(${recompra.count})</span></div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">👥</div><div class="stat-txt"><div class="stat-label">Comisiones</div><div class="stat-val mv-amber">${fmt(ccom)}</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--cyanL)">🔄</div><div class="stat-txt"><div class="stat-label">Recompras (historial)</div><div class="stat-val mv-cyan">${recompra.pct}% <span style="font-size:12px;color:var(--text3)">(${recompra.count})</span></div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">📊</div><div class="stat-txt"><div class="stat-label">Margen neto</div><div class="stat-val mv-${util>=0&&ing>0&&(util/ing*100)>=15?'green':util>=0?'amber':'red'}">${ing>0?(util/ing*100).toFixed(1):0}%</div></div></div>
   </div>
 
   <div class="g2" style="margin-bottom:14px">
     <div class="card">
-      <div class="card-title">Efectividad Lima vs Provincia</div>
-      ${renderEfChart(p)}
+      <div class="card-title">Lima vs Provincia</div>
+      ${renderEfChart(p,ent)}
     </div>
     <div class="card">
       <div class="card-title">🛵 Efectividad por Delivery (Lima)</div>
@@ -3218,18 +3218,37 @@ function renderDashboard(){
   setContent(html);
 }
 
-function renderEfChart(p){
+function renderEfChart(p,ent){
   const lima=p.filter(x=>x.zona==='lima'),prov=p.filter(x=>x.zona==='provincia');
-  const efL=lima.length>0?Math.round(lima.filter(x=>x.estado==='entregado').length/lima.length*100):0;
-  const efP=prov.length>0?Math.round(prov.filter(x=>x.estado==='entregado').length/prov.length*100):0;
-  return `<div style="margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--text2)">Lima</span><b class="mono">${efL}%</b></div>
-    <div style="background:var(--surface3);border-radius:6px;height:26px;overflow:hidden"><div style="width:${efL}%;background:var(--blue);height:100%;border-radius:6px;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:700;color:#fff">${efL>8?efL+'%':''}</div></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:3px">${lima.length} pedidos · ${lima.filter(x=>x.estado==='entregado').length} ent. · ${lima.filter(x=>x.estado==='devuelto').length} dev.</div>
-  </div><div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--text2)">Provincia</span><b class="mono">${efP}%</b></div>
-    <div style="background:var(--surface3);border-radius:6px;height:26px;overflow:hidden"><div style="width:${efP}%;background:var(--accent);height:100%;border-radius:6px;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:700;color:#fff">${efP>8?efP+'%':''}</div></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:3px">${prov.length} pedidos · ${prov.filter(x=>x.estado==='entregado').length} ent. · ${prov.filter(x=>x.estado==='devuelto').length} dev.</div>
+  const limaEnt=lima.filter(x=>x.estado==='entregado');
+  const provEnt=prov.filter(x=>x.estado==='entregado');
+  const efL=lima.length>0?Math.round(limaEnt.length/lima.length*100):0;
+  const efP=prov.length>0?Math.round(provEnt.length/prov.length*100):0;
+  const ingL=limaEnt.reduce((s,x)=>s+x.precio,0);
+  const ingP=provEnt.reduce((s,x)=>s+x.precio,0);
+  const ingTotal=ingL+ingP||1;
+  return `
+  <div style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:5px">
+      <span style="color:var(--text2);font-weight:600">🏙️ Lima</span>
+      <div style="text-align:right"><b class="mono" style="color:var(--blue)">${efL}%</b> <span style="color:var(--text3);font-size:10.5px">efectividad</span></div>
+    </div>
+    <div style="background:var(--surface3);border-radius:6px;height:24px;overflow:hidden"><div style="width:${efL}%;background:var(--blue);height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;color:#fff">${efL>10?efL+'%':''}</div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:3px">
+      <span>${lima.length} pedidos · ${limaEnt.length} ent. · ${lima.filter(x=>x.estado==='devuelto').length} dev.</span>
+      <span class="mono" style="color:var(--blue)">${fmt(ingL)} <span style="color:var(--text3)">(${Math.round(ingL/ingTotal*100)}%)</span></span>
+    </div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:5px">
+      <span style="color:var(--text2);font-weight:600">📦 Provincia</span>
+      <div style="text-align:right"><b class="mono" style="color:var(--accent)">${efP}%</b> <span style="color:var(--text3);font-size:10.5px">efectividad</span></div>
+    </div>
+    <div style="background:var(--surface3);border-radius:6px;height:24px;overflow:hidden"><div style="width:${efP}%;background:var(--accent);height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;color:#fff">${efP>10?efP+'%':''}</div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:3px">
+      <span>${prov.length} pedidos · ${provEnt.length} ent. · ${prov.filter(x=>x.estado==='devuelto').length} dev.</span>
+      <span class="mono" style="color:var(--accent)">${fmt(ingP)} <span style="color:var(--text3)">(${Math.round(ingP/ingTotal*100)}%)</span></span>
+    </div>
   </div>`;
 }
 
@@ -4872,84 +4891,120 @@ function renderFinanzas(){
   if(per==='custom')filtro={tipo:'custom',desde,hasta};
   else if(per==='exacta'){const dia=document.getElementById('fin-fecha-dia')?.value||hoy();filtro={tipo:'custom',desde:dia,hasta:dia};}
   else filtro=per;
+
   const ent=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),filtro);
   const allP=filtrarPeriodo(DB.pedidos,filtro);
   const pub=filtrarPeriodo(DB.publicidad,filtro);
+  const gastosExtra=filtrarPeriodo(DB.gastos||[],filtro);
+
   const ing=ent.reduce((s,p)=>s+p.precio,0);
   const cprod=ent.reduce((s,p)=>s+(p.cprod||0),0);
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
-  const cemb=ent.reduce((s,p)=>s+(p.emb||0)*p.cantidad,0);
+  const cemb=ent.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
   const cpub=pub.reduce((s,p)=>s+p.monto,0);
-  const gastosExtra=filtrarPeriodo(DB.gastos||[],filtro);
   const cgastos=gastosExtra.reduce((s,g)=>s+(g.monto||0),0);
-  const ccom=DB.asesores.reduce((s,a)=>s+a.sueldo,0)+ent.filter(p=>p.zona==='lima').length*(CFG.comLima||1)+ent.filter(p=>p.zona==='provincia').length*(CFG.comProv||2);
-  const util=ing-cprod-cenv-cemb-cpub-cgastos-ccom;
+  const ccom=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0)
+    +ent.filter(p=>p.zona==='lima').length*(CFG.comLima||1)
+    +ent.filter(p=>p.zona==='provincia').length*(CFG.comProv||2);
+  const totalCosts=cprod+cenv+cemb+cpub+cgastos+ccom;
+  const util=ing-totalCosts;
+
   const cpaReal=ent.length>0?(cpub/ent.length):0;
   const roas=cpub>0?(ing/cpub):0;
-  const roi=cpub+cprod+cenv>0?(util/(cpub+cprod+cenv)*100):0;
-  const totalLeads=pub.reduce((s,p)=>s+p.leads,0);
+  const roi=totalCosts>0?((util/totalCosts)*100):0;
+  const totalLeads=pub.reduce((s,p)=>s+(p.leads||0),0);
+  const cpl=totalLeads>0?(cpub/totalLeads):0;
   const ef=allP.length>0?Math.round(ent.length/allP.length*100):0;
-  const upsellRev=DB.pedidos.filter(p=>p.upsellRes==='aceptado').reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?u.precio:0);},0);
   const ticket=ent.length>0?ing/ent.length:0;
-  const margenNetoReal=ing>0?((ing-cprod-cenv-cemb)/ing*100):0;
+  const margenBruto=ing>0?((ing-cprod-cenv-cemb)/ing*100):0;
+  const margenNeto=ing>0?(util/ing*100):0;
+  const upsellEnt=filtrarPeriodo(DB.pedidos.filter(p=>p.upsellRes==='aceptado'),filtro);
+  const upsellRev=upsellEnt.reduce((s,p)=>{const u=DB.upsells.find(x=>x.id==p.upsellProd);return s+(u?u.precio:0);},0);
+  const ingLima=ent.filter(p=>p.zona==='lima').reduce((s,p)=>s+p.precio,0);
+  const ingProv=ent.filter(p=>p.zona==='provincia').reduce((s,p)=>s+p.precio,0);
 
   const html=`
-  <div class="section-header"><div><div class="section-title">Finanzas</div></div>
+  <div class="section-header"><div><div class="section-title">💰 Finanzas & ROI</div><div class="section-sub">${ent.length} entregas · ${allP.length} pedidos totales · Efectividad ${ef}%</div></div>
   <div class="section-actions">
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <select id="fin-per" onchange="toggleFinFechas();renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text);font-family:var(--font);outline:none">
-        <option value="todo">Todo</option>
-        <option value="hoy">Hoy</option>
-        <option value="semana">7 días</option>
-        <option value="mes">30 días</option>
-        <option value="custom">📅 Rango</option>
+        <option value="todo" ${per==='todo'?'selected':''}>Todo</option>
+        <option value="hoy" ${per==='hoy'?'selected':''}>Hoy</option>
+        <option value="semana" ${per==='semana'?'selected':''}>7 días</option>
+        <option value="mes" ${per==='mes'?'selected':''}>30 días</option>
+        <option value="exacta" ${per==='exacta'?'selected':''}>📅 Fecha exacta</option>
+        <option value="custom" ${per==='custom'?'selected':''}>↔️ Rango</option>
       </select>
-      <span id="fin-fechas" style="display:none;align-items:center;gap:4px">
-        <input type="date" id="fin-desde" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+      <span id="fin-fecha-exacta" style="display:${per==='exacta'?'flex':'none'};align-items:center;gap:4px">
+        <input type="date" id="fin-fecha-dia" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+      </span>
+      <span id="fin-fechas" style="display:${per==='custom'?'flex':'none'};align-items:center;gap:4px">
+        <input type="date" id="fin-desde" value="${desde}" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
         <span style="color:var(--text3);font-size:12px">→</span>
-        <input type="date" id="fin-hasta" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+        <input type="date" id="fin-hasta" value="${hasta}" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
       </span>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">+ Gasto pub.</button>
     <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()">+ Gasto extra</button>
   </div></div>
+
   <div class="metrics-grid">
-    <div class="mcard mc-green"><div class="mcard-label">Ingresos</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(ing)}</div><div class="mcard-sub">pedidos entregados</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">C. Productos</div><div class="mcard-val mv-red">${fmt(cprod)}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">C. Envíos</div><div class="mcard-val mv-red">${fmt(cenv+cemb)}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Publicidad</div><div class="mcard-val mv-red">${fmt(cpub)}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Comisiones</div><div class="mcard-val mv-red">${fmt(ccom)}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Gastos extras</div><div class="mcard-val mv-red">${fmt(cgastos)}</div></div>
-    <div class="mcard mc-${util>=0?'green':'red'}"><div class="mcard-label">Utilidad neta</div><div class="mcard-val mv-${util>=0?'green':'red'}" style="font-size:20px">${fmt(util)}</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos brutos</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(ing)}</div><div class="mcard-sub">${ent.length} pedidos entregados</div></div>
+    <div class="mcard mc-${util>=0?'green':'red'}"><div class="mcard-label">✅ Utilidad neta</div><div class="mcard-val mv-${util>=0?'green':'red'}" style="font-size:20px">${fmtN(util)}</div><div class="mcard-sub">Margen: ${margenNeto.toFixed(1)}%</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">📦 Costo productos</div><div class="mcard-val mv-red">${fmt(cprod)}</div><div class="mcard-sub">${ing>0?((cprod/ing)*100).toFixed(0):'0'}% del ingreso</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">🚚 Envíos + Embalaje</div><div class="mcard-val mv-red">${fmt(cenv+cemb)}</div><div class="mcard-sub">${ing>0?(((cenv+cemb)/ing)*100).toFixed(0):'0'}% del ingreso</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">📢 Publicidad</div><div class="mcard-val mv-red">${fmt(cpub)}</div><div class="mcard-sub">${ing>0?((cpub/ing)*100).toFixed(0):'0'}% del ingreso</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">📋 Otros gastos</div><div class="mcard-val mv-red">${fmt(cgastos+ccom)}</div><div class="mcard-sub">Extras + comisiones</div></div>
   </div>
-  <div class="g3">
+
+  <div class="g3" style="margin-bottom:0">
     <div class="stat-row"><div class="stat-ico" style="background:var(--accentL)">📢</div><div class="stat-txt"><div class="stat-label">CPA real / entrega</div><div class="stat-val mv-accent">${fmt(cpaReal)}</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">📈</div><div class="stat-txt"><div class="stat-label">ROAS</div><div class="stat-val mv-blue">${roas.toFixed(2)}x</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--greenL)">💹</div><div class="stat-txt"><div class="stat-label">ROI</div><div class="stat-val mv-${roi>=0?'green':'red'}">${roi.toFixed(1)}%</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL)">⬆️</div><div class="stat-txt"><div class="stat-label">Rev. upsells</div><div class="stat-val mv-purple">${fmt(upsellRev)}</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">📈</div><div class="stat-txt"><div class="stat-label">ROAS (pub)</div><div class="stat-val mv-${roas>=CFG.roas_min?'blue':'red'}">${roas.toFixed(2)}x <span style="font-size:10px;color:var(--text3)">meta: ${CFG.roas_min}x</span></div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--greenL)">💹</div><div class="stat-txt"><div class="stat-label">ROI sobre costos</div><div class="stat-val mv-${roi>=0?'green':'red'}">${roi.toFixed(1)}%</div></div></div>
     <div class="stat-row"><div class="stat-ico" style="background:var(--tealL)">🎟️</div><div class="stat-txt"><div class="stat-label">Ticket promedio</div><div class="stat-val mv-teal">${fmt(ticket)}</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">📊</div><div class="stat-txt"><div class="stat-label">Margen neto real</div><div class="stat-val mv-${margenNetoReal>=30?'green':margenNetoReal>=15?'amber':'red'}">${margenNetoReal.toFixed(1)}%</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">📊</div><div class="stat-txt"><div class="stat-label">Margen bruto</div><div class="stat-val mv-${margenBruto>=40?'green':margenBruto>=25?'amber':'red'}">${margenBruto.toFixed(1)}% <span style="font-size:10px;color:var(--text3)">(sin pub/gastos)</span></div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL)">👥</div><div class="stat-txt"><div class="stat-label">Leads · CPL</div><div class="stat-val mv-purple">${totalLeads} leads · ${cpl>0?fmt(cpl):'—'}</div></div></div>
   </div>
+
   <div class="g2" style="margin-top:16px">
     <div class="card">
-      <div class="card-title">P&L — Estado de resultados</div>
-      <div class="fr"><span class="fr-label">💰 Ingresos</span><span class="fr-val fv-pos">${fmt(ing)}</span></div>
-      <div class="fr"><span class="fr-label">📦 C. Productos</span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
-      <div class="fr"><span class="fr-label">🚚 C. Envíos + Embalaje</span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
-      <div class="fr"><span class="fr-label">📢 Publicidad</span><span class="fr-val fv-neg">−${fmt(cpub)}</span></div>
-      <div class="fr"><span class="fr-label">👥 Comisiones</span><span class="fr-val fv-neg">−${fmt(ccom)}</span></div>
-      <div class="fr"><span class="fr-label">📋 Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>
+      <div class="card-title">📊 P&L — Estado de resultados</div>
+      <div class="fr"><span class="fr-label">💰 Ingresos brutos</span><span class="fr-val fv-pos">${fmt(ing)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">📦 Costo productos</span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">🚚 C. Envíos + Embalaje</span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
+      <div class="fr" style="border-top:1px dashed var(--border2);margin-top:4px;padding-top:4px"><span class="fr-label" style="font-style:italic">= Margen bruto</span><span class="fr-val" style="color:${(ing-cprod-cenv-cemb)>=0?'var(--blue)':'var(--red)'}">${fmt(ing-cprod-cenv-cemb)} <span style="font-size:10px">(${margenBruto.toFixed(1)}%)</span></span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">📢 Publicidad</span><span class="fr-val fv-neg">−${fmt(cpub)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">👥 Comisiones equipo</span><span class="fr-val fv-neg">−${fmt(ccom)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">📋 Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>
       <div style="margin-top:10px;padding:14px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:8px;border:1px solid ${util>=0?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)'}">
-        <div class="fr" style="border:none;padding:0"><span style="font-weight:700;font-size:15px">UTILIDAD NETA</span><span style="font-size:22px;font-weight:700;font-family:var(--mono);color:${util>=0?'var(--green)':'var(--red)'}">${fmt(util)}</span></div>
+        <div class="fr" style="border:none;padding:0">
+          <div><span style="font-weight:700;font-size:14px">UTILIDAD NETA</span><div style="font-size:10px;color:var(--text3);margin-top:1px">Margen neto: ${margenNeto.toFixed(1)}%</div></div>
+          <span style="font-size:24px;font-weight:700;font-family:var(--mono);color:${util>=0?'var(--green)':'var(--red)'}">${fmtN(util)}</span>
+        </div>
       </div>
+      ${ingLima>0||ingProv>0?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Ingresos por zona</div>
+        <div class="fr"><span class="fr-label">🏙️ Lima</span><span class="fr-val" style="color:var(--blue)">${fmt(ingLima)} <span style="font-size:10px;color:var(--text3)">(${ing>0?((ingLima/ing)*100).toFixed(0):0}%)</span></span></div>
+        <div class="fr"><span class="fr-label">📦 Provincia</span><span class="fr-val" style="color:var(--accent)">${fmt(ingProv)} <span style="font-size:10px;color:var(--text3)">(${ing>0?((ingProv/ing)*100).toFixed(0):0}%)</span></span></div>
+        ${upsellRev>0?`<div class="fr"><span class="fr-label">⬆️ Upsells</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
+      </div>`:''}
     </div>
     <div class="card">
-      <div class="card-title">ROI por producto (Top 5)</div>
-      ${roiPorProducto()}
+      <div class="card-title">🏆 ROI por producto (Top 5)</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px">Basado en pedidos entregados del período seleccionado</div>
+      ${roiPorProducto(filtro)}
     </div>
   </div>
+
   <div class="card" style="margin-top:16px">
-    <div class="card-title">Gastos de publicidad</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">📢 Gastos de publicidad</div>
+      <div style="display:flex;gap:6px">
+        ${cpub>0?`<span class="mono" style="font-size:12px;color:var(--red);font-weight:700">${fmt(cpub)} total</span>`:''}
+        ${totalLeads>0?`<span style="font-size:12px;color:var(--text3)">${totalLeads} leads · CPL: ${fmt(cpl)}</span>`:''}
+        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">+ Agregar</button>
+      </div>
+    </div>
     <div class="tw"><table><thead><tr><th>Fecha</th><th>Plataforma</th><th>Campaña</th><th>Monto</th><th>Leads</th><th>CPL</th><th>Acción</th></tr></thead>
     <tbody>${pub.length?[...pub].sort((a,b)=>b.id-a.id).map(p=>`<tr>
       <td style="color:var(--text2)">${p.fecha}</td>
@@ -4957,36 +5012,72 @@ function renderFinanzas(){
       <td style="color:var(--text2)">${p.campana||'—'}</td>
       <td class="mono" style="color:var(--red);font-weight:700">${fmt(p.monto)}</td>
       <td class="mono">${p.leads||0}</td>
-      <td class="mono" style="color:var(--accent)">${p.leads>0?fmt(p.monto/p.leads):'—'}</td>
+      <td class="mono" style="color:var(--accent)">${(p.leads||0)>0?fmt(p.monto/p.leads):'—'}</td>
       <td><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${p.id})">🗑️</button></td>
-    </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Sin gastos registrados</td></tr>`}
+    </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Sin gastos de publicidad registrados en este período</td></tr>`}
     </tbody></table></div>
-  </div>`;
+  </div>
+
+  ${gastosExtra.length?`<div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">📋 Gastos extras / operativos</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="mono" style="font-size:12px;color:var(--red);font-weight:700">${fmt(cgastos)} total</span>
+        <button class="btn btn-ghost btn-xs" onclick="abrirModalGastoExtra()">+ Agregar</button>
+      </div>
+    </div>
+    <div class="tw"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Acción</th></tr></thead>
+    <tbody>${[...gastosExtra].sort((a,b)=>b.id-a.id).map(g=>`<tr>
+      <td style="color:var(--text2)">${g.fecha}</td>
+      <td><span class="bdg bdg-enviado">${g.categoria||'Otro'}</span></td>
+      <td style="color:var(--text2);font-size:12px">${g.descripcion||'—'}</td>
+      <td class="mono" style="color:var(--red);font-weight:700">${fmt(g.monto)}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="eliminarGastoExtra(${g.id})">🗑️</button></td>
+    </tr>`).join('')}
+    </tbody></table></div>
+  </div>`:`<div style="margin-top:8px;text-align:center">
+    <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()" style="font-size:12px;color:var(--text3)">+ Registrar gasto extra (embalaje, almacén, transporte…)</button>
+  </div>`}`;
   setContent(html);
 }
 
 function toggleFinFechas(){
-  const per=document.getElementById('fin-per')?.value;
-  const f=document.getElementById('fin-fechas');
-  const fe=document.getElementById('fin-fecha-exacta');
-  if(f)f.style.display=per==='custom'?'flex':'none';
-  if(fe)fe.style.display=per==='exacta'?'flex':'none';
+  // renderFinanzas rebuilds the HTML with correct display states already set
+  renderFinanzas();
 }
 
-function roiPorProducto(){
+function roiPorProducto(filtro){
+  const base=filtro?filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),filtro):DB.pedidos.filter(p=>p.estado==='entregado');
   const prodMap={};
-  DB.pedidos.filter(p=>p.estado==='entregado').forEach(p=>{
+  base.forEach(p=>{
     const key=p.producto||'Sin nombre';
-    if(!prodMap[key])prodMap[key]={ing:0,cost:0,cnt:0};
+    if(!prodMap[key])prodMap[key]={ing:0,cost:0,util:0,cnt:0};
+    const costos=(p.cprod||0)+(p.cenv||0)+(p.emb||0)*(p.cantidad||1);
     prodMap[key].ing+=p.precio;
-    prodMap[key].cost+=(p.cprod||0)+(p.cenv||0)+(p.emb||0)*(p.cantidad||1);
-    prodMap[key].cnt+=p.cantidad;
+    prodMap[key].cost+=costos;
+    prodMap[key].util+=p.precio-costos;
+    prodMap[key].cnt+=(p.cantidad||1);
   });
   const top=Object.entries(prodMap).sort((a,b)=>b[1].ing-a[1].ing).slice(0,5);
-  if(!top.length)return`<div style="font-size:12px;color:var(--text3)">Sin ventas aún</div>`;
+  if(!top.length)return`<div style="font-size:12px;color:var(--text3);padding:16px 0">Sin ventas en este período</div>`;
   return top.map(([name,d])=>{
     const margin=d.ing>0?((d.ing-d.cost)/d.ing*100).toFixed(1):0;
-    return `<div class="fr"><span class="fr-label">${name.length>20?name.substring(0,18)+'…':name}</span><span style="font-size:12px;font-family:var(--mono);color:${parseFloat(margin)>=30?'var(--green)':parseFloat(margin)>=15?'var(--amber)':'var(--red)'}">${margin}% margen · ${d.cnt} und.</span></div>`;
+    const mColor=parseFloat(margin)>=30?'var(--green)':parseFloat(margin)>=15?'var(--amber)':'var(--red)';
+    const short=name.length>22?name.substring(0,20)+'…':name;
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+        <span style="font-size:12.5px;font-weight:600;color:var(--text)">${short}</span>
+        <span style="font-size:11px;font-family:var(--mono);color:${mColor};font-weight:700">${margin}% margen</span>
+      </div>
+      <div style="background:var(--surface3);border-radius:4px;height:10px;overflow:hidden;margin-bottom:3px">
+        <div style="width:${Math.min(parseFloat(margin),100)}%;background:${mColor};height:100%;border-radius:4px;opacity:.8"></div>
+      </div>
+      <div style="display:flex;gap:10px;font-size:10.5px;color:var(--text3)">
+        <span>📦 ${d.cnt} und.</span>
+        <span>💰 ${fmt(d.ing)}</span>
+        <span style="color:${d.util>=0?'var(--green)':'var(--red)'}">Util: ${fmtN(d.util)}</span>
+      </div>
+    </div>`;
   }).join('');
 }
 
@@ -5418,45 +5509,76 @@ function renderFlujoContent(){
     const cenvD=entDia.reduce((s,p)=>s+(p.cenv||0),0);
     const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
-    return {dia,ing,pub,util:ing-cprodD-cenvD-cembD-pub,ent:entDia.length};
+    const gastosDia=(DB.gastos||[]).filter(g=>g.fecha===dia).reduce((s,g)=>s+(g.monto||0),0);
+    return {dia,ing,pub,gastos:gastosDia,util:ing-cprodD-cenvD-cembD-pub-gastosDia,ent:entDia.length};
   });
   const maxIng=Math.max(...porDia.map(d=>d.ing),1);
-  const promDiario=dias.length>0?porDia.reduce((s,d)=>s+d.ing,0)/dias.length:0;
-  const promUtil=dias.length>0?porDia.reduce((s,d)=>s+d.util,0)/dias.length:0;
+  // Only count days with activity for averages
+  const diasConActividad=porDia.filter(d=>d.ing>0||d.pub>0);
+  const promDiario=diasConActividad.length>0?diasConActividad.reduce((s,d)=>s+d.ing,0)/diasConActividad.length:0;
+  const promUtil=diasConActividad.length>0?diasConActividad.reduce((s,d)=>s+d.util,0)/diasConActividad.length:0;
   const ingTotal=porDia.reduce((s,d)=>s+d.ing,0);
   const pubTotal=porDia.reduce((s,d)=>s+d.pub,0);
   const utilTotal=porDia.reduce((s,d)=>s+d.util,0);
+  const mejorDia=diasConActividad.length?diasConActividad.reduce((a,b)=>a.ing>b.ing?a:b):null;
+  const peorDia=diasConActividad.filter(d=>d.ing>0).length>1?diasConActividad.filter(d=>d.ing>0).reduce((a,b)=>a.ing<b.ing?a:b):null;
 
   const v=document.getElementById('flujo-content');if(!v)return;
   v.innerHTML=`
   <div class="metrics-grid">
-    <div class="mcard mc-accent"><div class="mcard-label">Capital en tránsito</div><div class="mcard-val mv-accent" style="font-size:20px">${fmt(capitalCongelado)}</div><div class="mcard-sub">${env.length+conf.length} pedidos sin cobrar</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">Adelantos por cobrar</div><div class="mcard-val mv-blue" style="font-size:20px">${fmt(adelantosPend)}</div><div class="mcard-sub">Provincia: adelanto recibido sin entrega</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Ingresos (período)</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(ingTotal)}</div><div class="mcard-sub">Prom: ${fmt(promDiario)}/día</div></div>
-    <div class="mcard mc-${utilTotal>=0?'green':'red'}"><div class="mcard-label">Utilidad (período)</div><div class="mcard-val mv-${utilTotal>=0?'green':'red'}" style="font-size:20px">${fmtN(utilTotal)}</div><div class="mcard-sub">Prom: ${fmtN(promUtil)}/día</div></div>
+    <div class="mcard mc-accent"><div class="mcard-label">💰 Capital en tránsito</div><div class="mcard-val mv-accent" style="font-size:20px">${fmt(capitalCongelado)}</div><div class="mcard-sub">${env.length+conf.length} pedidos sin cobrar</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">📥 Adelantos provincia</div><div class="mcard-val mv-blue" style="font-size:20px">${fmt(adelantosPend)}</div><div class="mcard-sub">Cobrado, pendiente de entrega</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">📈 Ingresos (período)</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(ingTotal)}</div><div class="mcard-sub">Prom: ${fmt(promDiario)}/día activo</div></div>
+    <div class="mcard mc-${utilTotal>=0?'green':'red'}"><div class="mcard-label">✅ Utilidad (período)</div><div class="mcard-val mv-${utilTotal>=0?'green':'red'}" style="font-size:20px">${fmtN(utilTotal)}</div><div class="mcard-sub">Prom: ${fmtN(promUtil)}/día activo</div></div>
   </div>
+  ${mejorDia?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px;padding:10px 14px;background:var(--greenL);border:1px solid rgba(34,197,94,.25);border-radius:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em">🏆 Mejor día</div>
+      <div style="font-size:15px;font-weight:700;margin-top:3px">${mejorDia.dia.slice(5)} · <span class="mono" style="color:var(--green)">${fmt(mejorDia.ing)}</span></div>
+      <div style="font-size:10.5px;color:var(--text3)">${mejorDia.ent} entregas · util: ${fmtN(mejorDia.util)}</div>
+    </div>
+    ${peorDia?`<div style="flex:1;min-width:180px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">📉 Día más bajo</div>
+      <div style="font-size:15px;font-weight:700;margin-top:3px">${peorDia.dia.slice(5)} · <span class="mono" style="color:var(--amber)">${fmt(peorDia.ing)}</span></div>
+      <div style="font-size:10.5px;color:var(--text3)">${peorDia.ent} entregas · util: ${fmtN(peorDia.util)}</div>
+    </div>`:''}
+  </div>`:''}
   <div class="g2">
     <div class="card">
-      <div class="card-title">Ingresos por día (${dias.length} días)</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin:0">📅 Ingresos por día</div>
+        <div style="font-size:10.5px;color:var(--text3)"><span style="color:var(--green)">■</span> Ingreso &nbsp;<span style="color:var(--red)">■</span> Pub. &nbsp;<span style="color:var(--amber)">■</span> Gasto</div>
+      </div>
       <div style="max-height:380px;overflow-y:auto">
-        ${porDia.map(d=>`
-          <div style="margin-bottom:8px">
+        ${porDia.length?porDia.map(d=>`
+          <div style="margin-bottom:9px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text2)">${d.dia.slice(5)} <span style="font-size:10px;color:var(--text3)">${d.ent} ent.</span></span>
-              <div style="display:flex;gap:8px">
-                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)'}">${fmt(d.ing)}</span>
-                ${d.pub>0?`<span class="mono" style="color:var(--red);font-size:11px">−${fmt(d.pub)}</span>`:''}
+              <span style="color:${d.ing>0?'var(--text)':'var(--text3)'};font-weight:${d.ing>0?'600':'400'}">${d.dia.slice(5)} <span style="font-size:10px;color:var(--text3);font-weight:400">${d.ent>0?d.ent+' ent.':''}</span></span>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)';font-size:11.5px}">${d.ing>0?fmt(d.ing):'—'}</span>
+                ${d.pub>0?`<span class="mono" style="color:var(--red);font-size:10.5px">−${fmt(d.pub)}</span>`:''}
+                ${d.gastos>0?`<span class="mono" style="color:var(--amber);font-size:10.5px">−${fmt(d.gastos)}</span>`:''}
+                ${d.ing>0?`<span class="mono" style="font-size:10px;color:${d.util>=0?'var(--green)':'var(--red)'}">${fmtN(d.util)}</span>`:''}
               </div>
             </div>
-            <div style="background:var(--surface3);border-radius:4px;height:14px;overflow:hidden;position:relative">
-              <div style="width:${d.ing/maxIng*100}%;background:var(--green);height:100%;border-radius:4px;opacity:.85"></div>
-              ${d.pub>0?`<div style="position:absolute;right:0;top:0;width:${Math.min(d.pub/maxIng*100,100)}%;background:var(--red);height:100%;border-radius:4px;opacity:.5"></div>`:''}
+            <div style="background:var(--surface3);border-radius:4px;height:12px;overflow:hidden;position:relative">
+              <div style="width:${d.ing/maxIng*100}%;background:var(--green);height:100%;border-radius:4px;opacity:.8"></div>
+              ${d.pub>0?`<div style="position:absolute;right:${Math.min(d.gastos/maxIng*100,40)}%;top:0;width:${Math.min(d.pub/maxIng*100,60)}%;background:var(--red);height:100%;opacity:.6"></div>`:''}
+              ${d.gastos>0?`<div style="position:absolute;right:0;top:0;width:${Math.min(d.gastos/maxIng*100,40)}%;background:var(--amber);height:100%;opacity:.6"></div>`:''}
             </div>
-          </div>`).join('')}
+          </div>`).join(''):'<div class="empty" style="padding:30px">Sin datos en este período</div>'}
+        ${porDia.some(d=>d.ing>0)?`<div style="padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
+          <span>Totales</span>
+          <div style="display:flex;gap:12px">
+            <span class="mono" style="color:var(--green)">${fmt(ingTotal)}</span>
+            ${pubTotal>0?`<span class="mono" style="color:var(--red)">−${fmt(pubTotal)}</span>`:''}
+            <span class="mono" style="color:${utilTotal>=0?'var(--green)':'var(--red)'}">${fmtN(utilTotal)}</span>
+          </div>
+        </div>`:''}
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Pedidos en tránsito (sin cobrar)</div>
+      <div class="card-title">⏳ Capital en tránsito (sin cobrar)</div>
       ${env.concat(conf).length?`<div class="tw" style="max-height:380px;overflow-y:auto"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Estado</th><th>Zona</th></tr></thead><tbody>
         ${[...env,...conf].sort((a,b)=>b.id-a.id).slice(0,20).map(p=>`<tr>
           <td class="mono" style="color:var(--text3)">#${p.id}</td>
@@ -5466,25 +5588,38 @@ function renderFlujoContent(){
           <td>${badge(p.estado)}</td>
           <td style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'};font-size:11px">${p.zona==='lima'?'Lima':'Prov.'}</td>
         </tr>`).join('')}
-      </tbody></table></div>`:`<div class="empty" style="padding:30px">Sin pedidos en tránsito</div>`}
+      </tbody></table></div>`:`<div class="empty" style="padding:30px">Sin pedidos en tránsito — todo cobrado ✅</div>`}
     </div>
   </div>
-  <div class="card" style="margin-top:0">
-    <div class="card-title">Proyección próximos 7 días (basado en promedio del período)</div>
+  ${promDiario>0?`<div class="card" style="margin-top:0">
+    <div class="card-title">🔮 Proyección próximos 7 días</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Basado en promedio de días con actividad (${diasConActividad.length} días activos del período). Los fines de semana/días reales pueden variar.</div>
     <div class="g2">
       <div>
         ${Array.from({length:7},(_,i)=>{
           const d=new Date();d.setDate(d.getDate()+i+1);
-          return `<div class="cf-row"><span style="color:var(--text2)">${d.toISOString().split('T')[0].slice(5)}</span><span class="mono" style="color:var(--green)">${fmt(promDiario)}</span></div>`;
+          const label=d.toISOString().split('T')[0].slice(5);
+          const dow=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
+          return `<div class="cf-row" style="${d.getDay()===0||d.getDay()===6?'opacity:.6':''}">
+            <span style="color:var(--text2)">${dow} ${label}</span>
+            <div style="display:flex;gap:10px">
+              <span class="mono" style="color:var(--green)">${fmt(promDiario)}</span>
+              <span class="mono" style="font-size:11px;color:${promUtil>=0?'var(--text3)':'var(--red)'}">${fmtN(promUtil)}</span>
+            </div>
+          </div>`;
         }).join('')}
       </div>
-      <div style="padding:20px;background:var(--surface2);border-radius:10px;display:flex;flex-direction:column;justify-content:center;gap:12px">
-        <div><div style="font-size:12px;color:var(--text3)">Ingresos proyectados 7d</div><div style="font-size:24px;font-weight:700;color:var(--green);font-family:var(--mono)">${fmt(promDiario*7)}</div></div>
-        <div><div style="font-size:12px;color:var(--text3)">Utilidad proyectada 7d</div><div style="font-size:24px;font-weight:700;color:${promUtil>=0?'var(--green)':'var(--red)'};font-family:var(--mono)">${fmtN(promUtil*7)}</div></div>
-        <div style="font-size:11px;color:var(--text3)">* Basado en promedio de los ${dias.length} días seleccionados</div>
+      <div style="padding:20px;background:var(--surface2);border-radius:10px;display:flex;flex-direction:column;justify-content:center;gap:14px">
+        <div><div style="font-size:11px;color:var(--text3)">💰 Ingresos proyectados (7d)</div><div style="font-size:26px;font-weight:700;color:var(--green);font-family:var(--mono)">${fmt(promDiario*7)}</div></div>
+        <div><div style="font-size:11px;color:var(--text3)">✅ Utilidad proyectada (7d)</div><div style="font-size:26px;font-weight:700;color:${promUtil>=0?'var(--green)':'var(--red)'};font-family:var(--mono)">${fmtN(promUtil*7)}</div></div>
+        <div style="padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">📅 Proyectado mensual (30d)</div>
+          <div style="font-size:18px;font-weight:700;color:var(--blue);font-family:var(--mono)">${fmt(promDiario*30)}</div>
+        </div>
       </div>
     </div>
-  </div>`;
+  </div>`:''}
+  `;
 }
 
 // =====================================================================
@@ -5504,35 +5639,50 @@ function renderLiquidacion(){
     byCourier[c].pedidos.push(p);
     byCourier[c].monto+=p.precio||0;
   });
+  // Comisión por entrega Lima
+  const comxEnt=CFG.comLima||1;
+  const comTotalPend=pendLiq.length*comxEnt;
+  const netoARecibir=montoPend-comTotalPend;
+
   const html=`
   <div class="section-header"><div><div class="section-title">💵 Liquidación Courier</div><div class="section-sub">Control del efectivo que deben liquidarte los motorizados Lima</div></div></div>
   <div class="metrics-grid">
-    <div class="mcard mc-accent"><div class="mcard-label">Pendiente de cobro</div><div class="mcard-val mv-accent" style="font-size:20px">${fmt(montoPend)}</div><div class="mcard-sub">${pendLiq.length} pedidos entregados sin liquidar</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Ya liquidado</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(montoLiq)}</div><div class="mcard-sub">${liquidados.length} pedidos</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">Couriers activos</div><div class="mcard-val mv-blue">${Object.keys(byCourier).length}</div></div>
+    <div class="mcard mc-accent"><div class="mcard-label">📦 Bruto pendiente</div><div class="mcard-val mv-accent" style="font-size:20px">${fmt(montoPend)}</div><div class="mcard-sub">${pendLiq.length} pedidos sin liquidar</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">👥 Com. a descontar</div><div class="mcard-val mv-red">${fmt(comTotalPend)}</div><div class="mcard-sub">S/${comxEnt} × ${pendLiq.length} entregas</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">💰 Neto a recibir</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(netoARecibir)}</div><div class="mcard-sub">Bruto − comisiones</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">✅ Ya liquidado</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(montoLiq)}</div><div class="mcard-sub">${liquidados.length} pedidos</div></div>
   </div>
   ${Object.keys(byCourier).length?`
   <div style="margin-bottom:16px">
-    ${Object.entries(byCourier).sort((a,b)=>b[1].monto-a[1].monto).map(([courier,data])=>`
-    <div class="card" style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div>
-          <div style="font-size:15px;font-weight:700">🛵 ${courier}</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px">${data.pedidos.length} pedido(s) · debe liquidar <span style="color:var(--accent);font-weight:700;font-family:var(--mono)">${fmt(data.monto)}</span></div>
+    ${Object.entries(byCourier).sort((a,b)=>b[1].monto-a[1].monto).map(([courier,data])=>{
+      const comC=data.pedidos.length*comxEnt;
+      const netoC=data.monto-comC;
+      return `<div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <div>
+            <div style="font-size:15px;font-weight:700">🛵 ${courier}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${data.pedidos.length} entrega(s)</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--text3)">Bruto: <span class="mono" style="color:var(--accent)">${fmt(data.monto)}</span> − Com: <span class="mono" style="color:var(--red)">${fmt(comC)}</span></div>
+            <div style="font-size:17px;font-weight:700;font-family:var(--mono);color:var(--green)">Neto: ${fmt(netoC)}</div>
+          </div>
         </div>
-        <button class="btn btn-success btn-sm" onclick="liquidarCourier('${courier.replace(/'/g,"\\'")}')">✅ Marcar todo liquidado</button>
-      </div>
-      <div class="tw"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr></thead>
-      <tbody>${data.pedidos.map(p=>`<tr>
-        <td class="td-mono" style="color:var(--text3)">#${p.id}</td>
-        <td style="font-weight:600">${p.nombre}</td>
-        <td style="font-size:12px">${p.producto}</td>
-        <td class="td-mono" style="color:var(--accent);font-weight:700">${fmt(p.precio)}</td>
-        <td class="td-sm">${p.fecha}</td>
-        <td><button class="btn btn-ghost btn-xs" onclick="liquidarPedido(${p.id})">💵 Liquidado</button></td>
-      </tr>`).join('')}</tbody></table></div>
-    </div>`).join('')}
-  </div>`:`<div class="card"><div class="empty">✅ Sin pedidos Lima pendientes de liquidar</div></div>`}
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          <button class="btn btn-success btn-sm" onclick="liquidarCourier('${courier.replace(/'/g,"\\'")}')">✅ Marcar todo liquidado</button>
+        </div>
+        <div class="tw"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr></thead>
+        <tbody>${data.pedidos.map(p=>`<tr>
+          <td class="td-mono" style="color:var(--text3)">#${p.id}</td>
+          <td style="font-weight:600">${p.nombre}</td>
+          <td style="font-size:12px">${p.producto}</td>
+          <td class="td-mono" style="color:var(--accent);font-weight:700">${fmt(p.precio)}</td>
+          <td class="td-sm">${p.fecha}</td>
+          <td><button class="btn btn-ghost btn-xs" onclick="liquidarPedido(${p.id})">💵 Liquidado</button></td>
+        </tr>`).join('')}</tbody></table></div>
+      </div>`;
+    }).join('')}
+  </div>`:`<div class="card" style="margin-bottom:16px"><div class="empty">✅ Sin pedidos Lima pendientes de liquidar</div></div>`}
   ${liquidados.length?`
   <div class="card">
     <div class="card-title">Historial liquidado (${liquidados.length})</div>

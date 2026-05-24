@@ -257,7 +257,9 @@ input[type=date]{color-scheme:dark}
 
 /* ── TABLE ──────────────────────────────────── */
 .tw{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--border)}
-.ts{max-height:520px;overflow-y:auto}
+.ts{max-height:620px;overflow-y:auto}
+.ped-date-sep>td{background:var(--surface2);padding:7px 13px;border-top:2px solid var(--border2)!important}
+.ped-date-sep:first-child>td{border-top:none!important}
 table{width:100%;border-collapse:collapse;background:var(--card-bg)}
 th{background:var(--surface2);padding:9px 13px;text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border)}
 td{padding:10px 13px;border-top:1px solid var(--border);vertical-align:middle;font-size:12.5px;color:var(--text)}
@@ -3335,13 +3337,27 @@ function renderPedidosContent(){
     <span id="ped-sel-count" style="font-size:12px;color:var(--text3)"></span>
     <button id="btn-del-sel" onclick="eliminarSeleccionados()" style="display:none;background:var(--red);border:none;border-radius:7px;color:#fff;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">🗑️ Eliminar seleccionados</button>
   </div>`;
-  view.innerHTML=selBar+`<div class="tw ts"><table><thead><tr><th></th><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Fuente</th><th>Acciones</th></tr></thead>
-  <tbody>${arr.length?arr.map(p=>`<tr id="ped-row-${p.id}">
+  // Agrupar por fecha
+  const byDate={};
+  arr.forEach(p=>{const d=p.fecha||'—';if(!byDate[d])byDate[d]=[];byDate[d].push(p);});
+  const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+  const tableBody=arr.length?dates.map(dia=>{
+    const its=byDate[dia];
+    const total=its.reduce((s,p)=>s+(p.precio||0),0);
+    const cnt={confirmado:0,enviado:0,entregado:0,devuelto:0,rechazado:0};
+    its.forEach(p=>{if(cnt[p.estado]!==undefined)cnt[p.estado]++;});
+    const badges=[
+      cnt.confirmado?`<span style="color:var(--green);font-size:11px">✅ ${cnt.confirmado} conf.</span>`:'',
+      cnt.enviado?`<span style="color:var(--purple);font-size:11px">🚚 ${cnt.enviado} env.</span>`:'',
+      cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado} ent.</span>`:'',
+      (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado} dev.</span>`:''
+    ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
+    const sepRow=`<tr class="ped-date-sep"><td colspan="13"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
+    const rows=its.map(p=>`<tr id="ped-row-${p.id}">
     <td style="padding:6px 8px;text-align:center"><input type="checkbox" class="ped-chk" data-id="${p.id}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onchange="actualizarSelPed()"></td>
     <td class="mono" style="color:var(--text3)">#${p.id}</td>
-    <td style="color:var(--text2)">${p.fecha}</td>
     <td><div style="font-weight:600">${p.nombre}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
-    <td>${p.producto} <span style="color:var(--text3)">x${p.cantidad}</span></td>
+    <td>${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td>${bdgMod(p.modalidad||'stock')}</td>
     <td style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b>${p.zona==='lima'?'🏙️ Lima':'📦 Prov.'}</b></td>
     <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
@@ -3349,15 +3365,18 @@ function renderPedidosContent(){
     <td class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
     <td>${badge(p.estado)}</td>
     <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span style="font-size:11px;color:var(--text3)">rechazado</span>':''}</td>
-    <td style="font-size:11px;color:var(--text3)">${p.fuente||'-'}<br>${detectarDuplicado(p.celular,p.id)?'<span class="dup-badge">⚠️ DUP</span>':''}</td>
+    <td style="font-size:11px;color:var(--text3)">${p.fuente||'-'}${detectarDuplicado(p.celular,p.id)?'<br><span class="dup-badge">⚠️ DUP</span>':''}</td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarPedido(${p.id})" title="Eliminar">🗑️</button>
       ${p.zona==='provincia'&&p.orden&&p.codigo?`<a href="https://shalom.com.pe/rastrea/${p.orden}/${p.codigo}" target="_blank" class="btn btn-blue btn-xs">📦</a>`:''}
     </div></td>
-  </tr>`).join(''):`<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`}
-  </tbody></table></div>`;
+  </tr>`).join('');
+    return sepRow+rows;
+  }).join(''):`<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
+  view.innerHTML=selBar+`<div class="tw ts"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Fuente</th><th>Acciones</th></tr></thead>
+  <tbody>${tableBody}</tbody></table></div>`;
 }
 
 function toggleTodosPed(checked, ids){
@@ -4320,10 +4339,24 @@ function renderLimaContent(){
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('lima-view');if(!v)return;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
-  <tbody>${arr.length?arr.map(p=>`<tr>
+  // Agrupar por fecha
+  const byDateL={};
+  arr.forEach(p=>{const d=p.fecha||'—';if(!byDateL[d])byDateL[d]=[];byDateL[d].push(p);});
+  const datesL=Object.keys(byDateL).sort((a,b)=>b.localeCompare(a));
+  const limaBody=arr.length?datesL.map(dia=>{
+    const its=byDateL[dia];
+    const total=its.reduce((s,p)=>s+(p.precio||0),0);
+    const cnt={confirmado:0,enviado:0,entregado:0,devuelto:0,rechazado:0};
+    its.forEach(p=>{if(cnt[p.estado]!==undefined)cnt[p.estado]++;});
+    const badges=[
+      cnt.confirmado?`<span style="color:var(--green);font-size:11px">✅ ${cnt.confirmado}</span>`:'',
+      cnt.enviado?`<span style="color:var(--purple);font-size:11px">🚚 ${cnt.enviado}</span>`:'',
+      cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado}</span>`:'',
+      (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado}</span>`:''
+    ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
+    const sepRow=`<tr class="ped-date-sep"><td colspan="10"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
+    const rows=its.map(p=>`<tr>
     <td class="mono" style="color:var(--text3)">#${p.id}</td>
-    <td style="color:var(--text2);font-size:11.5px">${p.fecha}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.dist||'-'}</td>
@@ -4360,8 +4393,11 @@ function renderLimaContent(){
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
     </div></td>
-  </tr>`).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`}
-  </tbody></table></div>`;
+  </tr>`).join('');
+    return sepRow+rows;
+  }).join(''):`<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`;
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
+  <tbody>${limaBody}</tbody></table></div>`;
 }
 
 function openCourier(id){
@@ -4499,12 +4535,27 @@ function renderProvinciaContent(){
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('prov-view');if(!v)return;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>N°Orden</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave Recojo</th><th>Estado (editable)</th><th>Tracking</th><th>Acciones</th></tr></thead>
-  <tbody>${arr.length?arr.map(p=>{
-    const entregado=p.estado==='entregado';
-    return `<tr>
+  // Agrupar por fecha
+  const byDateP={};
+  arr.forEach(p=>{const d=p.fecha||'—';if(!byDateP[d])byDateP[d]=[];byDateP[d].push(p);});
+  const datesP=Object.keys(byDateP).sort((a,b)=>b.localeCompare(a));
+  const provBody=arr.length?datesP.map(dia=>{
+    const its=byDateP[dia];
+    const total=its.reduce((s,p)=>s+(p.precio||0),0);
+    const adelantoTotal=its.reduce((s,p)=>s+(p.adelanto||0),0);
+    const cnt={confirmado:0,enviado:0,entregado:0,devuelto:0,rechazado:0};
+    its.forEach(p=>{if(cnt[p.estado]!==undefined)cnt[p.estado]++;});
+    const badges=[
+      cnt.confirmado?`<span style="color:var(--green);font-size:11px">✅ ${cnt.confirmado}</span>`:'',
+      cnt.enviado?`<span style="color:var(--purple);font-size:11px">🚚 ${cnt.enviado}</span>`:'',
+      cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado}</span>`:'',
+      (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado}</span>`:''
+    ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
+    const sepRow=`<tr class="ped-date-sep"><td colspan="13"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
+    const rows=its.map(p=>{
+      const entregado=p.estado==='entregado';
+      return `<tr>
     <td class="mono" style="color:var(--text3)">#${p.id}</td>
-    <td style="color:var(--text2);font-size:11.5px">${p.fecha}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
@@ -4514,10 +4565,7 @@ function renderProvinciaContent(){
     <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.pendiente||0)}</td>
     <td class="mono" style="font-size:12px">${p.orden||'<span style="color:var(--text3);font-size:11px">—</span>'}</td>
     <td style="background:${p.clave?'rgba(155,110,240,.08)':'transparent'}">${p.clave
-      ?`<div style="display:flex;align-items:center;gap:5px">
-           <span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span>
-           <button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button>
-         </div>`
+      ?`<div style="display:flex;align-items:center;gap:5px"><span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span><button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button></div>`
       :`<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:var(--text3)">+ Agregar</button>`
     }</td>
     <td style="min-width:145px">
@@ -4531,17 +4579,18 @@ function renderProvinciaContent(){
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
     <td>
-      ${p.orden&&p.codigo
-        ?`<a href="https://shalom.com.pe/rastrea/${p.orden}/${p.codigo}" target="_blank" class="btn btn-blue btn-xs">📦 Rastrear</a>`
-        :`<span style="font-size:11px;color:var(--text3)">Sin tracking</span>`}
+      ${p.orden&&p.codigo?`<a href="https://shalom.com.pe/rastrea/${p.orden}/${p.codigo}" target="_blank" class="btn btn-blue btn-xs">📦 Rastrear</a>`:`<span style="font-size:11px;color:var(--text3)">Sin tracking</span>`}
       ${!entregado?`<button class="btn btn-ghost btn-xs" style="margin-top:3px;display:block" onclick="openTracking(${p.id})">📝 ${p.orden?'Editar':'Registrar'}</button>`:''}
     </td>
     <td><div style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})">🕐</button>
     </div></td>
-  </tr>`;}).join(''):`<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`}
-  </tbody></table></div>`;
+  </tr>`;}).join('');
+    return sepRow+rows;
+  }).join(''):`<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>N°Orden</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado (editable)</th><th>Tracking</th><th>Acciones</th></tr></thead>
+  <tbody>${provBody}</tbody></table></div>`;
 }
 
 function openTracking(id){
@@ -5298,6 +5347,7 @@ function renderFlujo(){
     <div><div class="section-title">Flujo de Caja</div><div class="section-sub">Capital en movimiento y proyecciones</div></div>
     <div class="section-actions">
       <select id="flujo-per" onchange="toggleFlujoPer();renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text);font-family:var(--font);outline:none">
+        <option value="hoy">Hoy</option>
         <option value="7">Últimos 7 días</option>
         <option value="14">Últimos 14 días</option>
         <option value="30">Últimos 30 días</option>
@@ -5351,6 +5401,8 @@ function renderFlujoContent(){
     } else {
       const h=new Date();for(let i=6;i>=0;i--){const d=new Date(h);d.setDate(d.getDate()-i);dias.push(d.toISOString().split('T')[0]);}
     }
+  } else if(per==='hoy'){
+    dias=[hoy()];
   } else {
     const n=parseInt(per)||7;const h=new Date();
     for(let i=n-1;i>=0;i--){const d=new Date(h);d.setDate(d.getDate()-i);dias.push(d.toISOString().split('T')[0]);}

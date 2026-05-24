@@ -2781,46 +2781,52 @@ function syncAsesoresConWorkers(workers){
 }
 
 async function guardarTrabajador(editUserId){
-  const nombre=document.getElementById('tw-nombre').value.trim();
-  const email=document.getElementById('tw-email').value.trim().toLowerCase();
-  const pass=document.getElementById('tw-pass').value;
-  if(!nombre||!email){alert('Nombre y email son obligatorios.');return;}
+  const nombre=document.getElementById('tw-nombre')?.value.trim()||'';
+  if(!nombre){alert('El nombre es obligatorio.');return;}
   const wsId=SESSION.workspace_id;
+  const initials=nombre.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
   if(editUserId){
-    // Editar trabajador existente — solo actualizar nombre
-    const initials=nombre.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    // Editar — solo nombre
+    const btn=document.querySelector('#modal-trabajador .btn-primary');
+    if(btn){btn.disabled=true;btn.textContent='Guardando...';}
     await _supabase.from('user_profiles').update({name:nombre,initials}).eq('id',editUserId);
-    if(pass&&pass.length>=6){
-      // Admin no puede cambiar contraseña de otros via client — mostrar aviso
-      alert('Para cambiar la contraseña del trabajador, el trabajador debe usar "Olvidé mi contraseña" en el login.');
-    }
+    // Sync asesor name too
+    const asesor=DB.asesores.find(a=>a.workerId===editUserId);
+    if(asesor){asesor.nombre=nombre;save();}
+    if(btn){btn.disabled=false;}
     document.getElementById('modal-trabajador')?.remove();
+    showToast('✅ Nombre actualizado');
     renderUsuarios();
     return;
   }
-  if(!pass||pass.length<6){alert('Contraseña mínimo 6 caracteres.');return;}
+  // Nuevo trabajador
+  const email=document.getElementById('tw-email')?.value.trim().toLowerCase()||'';
+  const pass=document.getElementById('tw-pass')?.value||'';
+  if(!email){alert('El email es obligatorio.');return;}
+  if(!pass||pass.length<6){alert('La contraseña debe tener mínimo 6 caracteres.');return;}
   const btn=document.querySelector('#modal-trabajador .btn-primary');
-  if(btn){btn.disabled=true;btn.textContent='Creando...';}
-  // Crear usuario en Supabase Auth (admin service key necesaria para esto)
-  // Por ahora: crear con signUp y luego actualizar perfil
+  if(btn){btn.disabled=true;btn.textContent='Creando cuenta...';}
   const{data,error}=await _supabase.auth.signUp({email,password:pass,options:{data:{full_name:nombre}}});
   if(error){
-    if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
-    alert('Error: '+error.message);return;
+    if(btn){btn.disabled=false;btn.textContent='💾 Crear trabajador';}
+    alert('Error al crear: '+error.message);return;
   }
   const uid=data.user?.id;
   if(uid){
-    const initials=nombre.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
     await _supabase.from('user_profiles').upsert({id:uid,name:nombre,initials,role:'worker',workspace_id:wsId});
   }
-  if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
+  if(btn){btn.disabled=false;}
   document.getElementById('modal-trabajador')?.remove();
+  showToast('✅ Trabajador creado · puede ingresar con su email y contraseña');
   renderUsuarios();
 }
 
 async function eliminarTrabajador(userId){
-  if(!confirm('¿Eliminar este trabajador? Ya no podrá iniciar sesión.'))return;
+  const asesor=DB.asesores.find(a=>a.workerId===userId);
+  const nombre=asesor?.nombre||'este trabajador';
+  if(!confirm(`¿Eliminar a ${nombre}?\n\nYa no podrá ingresar al sistema. Sus pedidos registrados se mantendrán.`))return;
   await _supabase.from('user_profiles').delete().eq('id',userId);
+  showToast(`🗑️ ${nombre} eliminado del workspace`,'warn');
   renderUsuarios();
 }
 
@@ -5737,36 +5743,79 @@ function renderComisiones(){
     return s+todos.filter(p=>p.estado==='entregado'&&p.vendedor===String(a.id)).reduce((ss,p)=>ss+p.precio,0);
   },0);
 
+  // Pedidos sin vendedor asignado en el período
+  const sinVendedor=todos.filter(p=>!p.vendedor||p.vendedor==='');
+  const totalAPagar=totalComisiones+totalSueldos;
+  const roiEquipo=totalAPagar>0?(totalIngEquipo/totalAPagar):0;
+
   const html=`
   <div class="section-header">
-    <div><div class="section-title">👥 Equipo & Comisiones</div><div class="section-sub">Deliveries, vendedores, comisiones y accesos al workspace</div></div>
+    <div>
+      <div class="section-title">👥 Equipo & Comisiones</div>
+      <div class="section-sub">${DB.asesores.length} vendedor(es) · ${DB.deliveries.length} delivery(s) · período: ${comPer==='mes'?'30 días':comPer==='semana'?'7 días':comPer==='hoy'?'hoy':comPer==='custom'?`${comDesde||'?'} → ${comHasta||hoy()}`:'todo'}</div>
+    </div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
       <div class="fg-filter">
-        <label>Período de rendimiento</label>
+        <label>Período</label>
         <select onchange="setComFiltro('per',this.value)">
           <option value="hoy" ${comPer==='hoy'?'selected':''}>Hoy</option>
-          <option value="semana" ${comPer==='semana'?'selected':''}>Últimos 7 días</option>
-          <option value="mes" ${comPer==='mes'?'selected':''}>Últimos 30 días</option>
-          <option value="todo" ${comPer==='todo'?'selected':''}>Todo el historial</option>
-          <option value="custom" ${comPer==='custom'?'selected':''}>↔️ Rango de fechas</option>
+          <option value="semana" ${comPer==='semana'?'selected':''}>7 días</option>
+          <option value="mes" ${comPer==='mes'?'selected':''}>30 días</option>
+          <option value="todo" ${comPer==='todo'?'selected':''}>Todo</option>
+          <option value="custom" ${comPer==='custom'?'selected':''}>↔️ Rango</option>
         </select>
       </div>
       ${comPer==='custom'?`
       <div class="fg-filter"><label>Desde</label><input type="date" value="${comDesde}" onchange="setComFiltro('desde',this.value)"></div>
-      <div class="fg-filter"><label>Hasta</label><input type="date" value="${comHasta}" onchange="setComFiltro('hasta',this.value)"></div>
+      <div class="fg-filter"><label>Hasta</label><input type="date" value="${comHasta||hoy()}" onchange="setComFiltro('hasta',this.value)"></div>
       `:''}
+      <button class="btn btn-primary btn-sm" onclick="openModalAsesor()">+ Vendedor</button>
     </div>
   </div>
+
   ${DB.asesores.length?`
+  <!-- MÉTRICAS RESUMEN -->
   <div class="metrics-grid" style="margin-bottom:16px">
-    <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos generados</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(totalIngEquipo)}</div><div class="mcard-sub">por vendedores del equipo</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">💸 Com. a pagar</div><div class="mcard-val mv-red" style="font-size:19px">${fmt(totalComisiones)}</div><div class="mcard-sub">por entregas del período</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label">💼 Sueldos fijos</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt(totalSueldos)}</div><div class="mcard-sub">total del equipo</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">👤 Vendedores</div><div class="mcard-val mv-blue">${DB.asesores.length}</div><div class="mcard-sub">${ent.length} entregas en período</div></div>
-  </div>`:''}
+    <div class="mcard mc-green">
+      <div class="mcard-label">💰 Ingresos generados</div>
+      <div class="mcard-val mv-green" style="font-size:19px">${fmt(totalIngEquipo)}</div>
+      <div class="mcard-sub">${ent.length} entregas en el período</div>
+    </div>
+    <div class="mcard mc-red">
+      <div class="mcard-label">💸 Comisiones a pagar</div>
+      <div class="mcard-val mv-red" style="font-size:19px">${fmt(totalComisiones)}</div>
+      <div class="mcard-sub">Solo por entregas del período</div>
+    </div>
+    <div class="mcard mc-amber">
+      <div class="mcard-label">💼 Sueldos fijos</div>
+      <div class="mcard-val mv-amber" style="font-size:19px">${fmt(totalSueldos)}</div>
+      <div class="mcard-sub">${DB.asesores.length} vendedor(es)</div>
+    </div>
+    <div class="mcard mc-${totalAPagar>0?'purple':'blue'}">
+      <div class="mcard-label">💳 Total a pagar equipo</div>
+      <div class="mcard-val mv-${totalAPagar>0?'purple':'blue'}" style="font-size:19px">${fmt(totalAPagar)}</div>
+      <div class="mcard-sub">ROI del equipo: ${roiEquipo.toFixed(1)}x</div>
+    </div>
+  </div>
+  ${sinVendedor.length>0?`<div class="abox abox-amber" style="margin-bottom:12px"><span class="abox-icon">⚠️</span><div class="abox-text"><b>${sinVendedor.length} pedido(s) sin vendedor asignado</b> en este período — no se contabilizan en el rendimiento individual</div></div>`:''}
+  `:''}
+
   ${deliveriesHtml}
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px">📊 Rendimiento por vendedor</div>
-  ${vendedoresHtml}`;
+
+  <!-- VENDEDORES -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">📊 Rendimiento por vendedor</div>
+    <button class="btn btn-ghost btn-sm" onclick="openModalAsesor()">+ Agregar vendedor</button>
+  </div>
+  ${DB.asesores.length
+    ?vendedoresHtml
+    :`<div class="card"><div class="empty" style="padding:28px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">👤</div>
+        <div style="font-weight:700;margin-bottom:6px">Sin vendedores registrados</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Agrega vendedores para medir su rendimiento y calcular comisiones automáticamente</div>
+        <button class="btn btn-primary btn-sm" onclick="openModalAsesor()">+ Agregar primer vendedor</button>
+      </div></div>`
+  }`;
   setContent(html);
 }
 // ── DELIVERIES CRUD ────────────────────────────────────────────────────
@@ -7238,34 +7287,76 @@ async function renderUsuarios(){
     const wList=workers||[];
     // Sync asesores/vendedores with workspace workers automatically
     syncAsesoresConWorkers(wList);
+    // Para cada worker, buscar su asesor vinculado y últimos pedidos
     const workersHtml=`
     <div class="card" style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="card-title" style="margin:0">👤 Accesos al workspace (${wList.length+1} usuarios)</div>
-        <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar acceso</button>
-      </div>
-      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text"><b>Acceso de trabajadores:</b> Pueden registrar pedidos, confirmar entregas e imprimir rótulos. No ven Dashboard, Finanzas, Productos ni Configuración.</div></div>
-      <div class="card" style="margin-bottom:8px;background:var(--surface2)">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:40px;height:40px;border-radius:50%;background:var(--accentL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);border:2px solid var(--accentL);flex-shrink:0">${SESSION?.initials||'AD'}</div>
-          <div style="flex:1"><div style="font-weight:700">${SESSION.name}</div><div style="font-size:11px;color:var(--text3)">${SESSION.email}</div></div>
-          <span class="bdg bdg-confirmado">Administrador</span>
-          <span style="font-size:11px;color:var(--accent)">← Tú</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="card-title" style="margin:0">🔑 Accesos al workspace</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${wList.length+1} usuario(s) activo(s) · solo admins ven Finanzas, Config y Dashboard</div>
         </div>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar trabajador</button>
       </div>
-      ${wList.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
-        ${wList.map(w=>`<div class="card" style="background:var(--surface2)">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <div style="width:38px;height:38px;border-radius:50%;background:var(--blueL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);border:2px solid rgba(77,142,240,.2);flex-shrink:0;font-size:13px">${w.initials||w.name?.slice(0,2)?.toUpperCase()||'??'}</div>
-            <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${w.name||'Sin nombre'}</div><div style="font-size:11px;color:var(--text3)">${w.id}</div></div>
-            <span class="bdg bdg-enviado">Trabajador</span>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" onclick="abrirModalTrabajador('${w.id}','${w.name||''}')">✏️ Editar</button>
-            <button class="btn btn-danger btn-sm" onclick="eliminarTrabajador('${w.id}')">🗑️ Eliminar</button>
-          </div>
-        </div>`).join('')}
-      </div>`:'<div class="empty" style="padding:24px">Sin trabajadores registrados aún.</div>'}
+      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text"><b>Trabajadores:</b> pueden registrar pedidos, cambiar estados e imprimir rótulos. No tienen acceso a Dashboard, Finanzas, Productos ni Configuración.</div></div>
+
+      <!-- Admin (tú) -->
+      <div style="padding:10px 14px;background:var(--accentL);border:1px solid rgba(255,85,0,.2);border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex-shrink:0;font-size:14px">${SESSION?.initials||'AD'}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">${SESSION.name}</div>
+          <div style="font-size:11px;color:var(--text3)">${SESSION.email}</div>
+        </div>
+        <span class="bdg bdg-confirmado" style="font-size:11px">⭐ Admin</span>
+        <span style="font-size:11px;color:var(--accent);font-weight:700">← Tú</span>
+      </div>
+
+      <!-- Workers -->
+      ${wList.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
+        ${wList.map(w=>{
+          const asesor=DB.asesores.find(a=>a.workerId===w.id);
+          // Últimas actividad: último pedido registrado por este worker
+          const wPeds=DB.pedidos.filter(p=>p.vendedor===String(asesor?.id||'')).slice(-1);
+          const ultimaAct=wPeds[0]?.fecha||null;
+          // Entregas del mes (últimos 30 días)
+          const hace30=new Date();hace30.setDate(hace30.getDate()-30);
+          const entMes=DB.pedidos.filter(p=>p.vendedor===String(asesor?.id||'')&&p.estado==='entregado'&&p.fecha&&new Date(p.fecha+'T12:00:00')>=hace30).length;
+          const initials=w.initials||w.name?.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()||'??';
+          return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <div style="width:40px;height:40px;border-radius:50%;background:var(--blueL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);border:2px solid rgba(77,142,240,.2);flex-shrink:0;font-size:14px">${initials}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:13px">${w.name||'Sin nombre'}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:1px">${asesor?`Com: S/${asesor.comLima} Lima · S/${asesor.comProv} Prov`:'Sin perfil de asesor'}</div>
+              </div>
+              <span class="bdg bdg-enviado" style="font-size:10px">Trabajador</span>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <div style="flex:1;text-align:center;padding:6px 4px;background:var(--surface3);border-radius:7px">
+                <div style="font-size:10px;color:var(--text3)">📦 Ent. (30d)</div>
+                <div style="font-size:16px;font-weight:700;color:var(--green)">${entMes}</div>
+              </div>
+              <div style="flex:1;text-align:center;padding:6px 4px;background:var(--surface3);border-radius:7px">
+                <div style="font-size:10px;color:var(--text3)">💰 Sueldo fijo</div>
+                <div style="font-size:14px;font-weight:700;color:var(--amber)">S/${asesor?.sueldo||0}</div>
+              </div>
+              <div style="flex:1;text-align:center;padding:6px 4px;background:var(--surface3);border-radius:7px">
+                <div style="font-size:10px;color:var(--text3)">🕐 Última act.</div>
+                <div style="font-size:11px;font-weight:700;color:var(--text2)">${ultimaAct?ultimaAct.slice(5):'Sin ped.'}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="abrirModalTrabajador('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">✏️ Editar acceso</button>
+              ${asesor?`<button class="btn btn-ghost btn-sm" onclick="openModalAsesor(${asesor.id})">💰 Comisiones</button>`:''}
+              <button class="btn btn-danger btn-sm" onclick="eliminarTrabajador('${w.id}')">🗑️</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`:`<div style="text-align:center;padding:28px;color:var(--text3)">
+        <div style="font-size:24px;margin-bottom:8px">👥</div>
+        <div style="font-weight:600;margin-bottom:6px">Sin trabajadores aún</div>
+        <div style="font-size:12px;margin-bottom:12px">Agrega trabajadores para que puedan gestionar pedidos</div>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar primer trabajador</button>
+      </div>`}
     </div>`;
     ca.insertAdjacentHTML('beforeend',workersHtml);
   }catch(e){
@@ -7276,19 +7367,38 @@ async function renderUsuarios(){
 function abrirModalTrabajador(editUserId, editName){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-trabajador';
   mod.innerHTML=`<div class="modal sm">
-    <div class="modal-h"><div class="modal-title">${editUserId?'Editar trabajador':'Nuevo trabajador'}</div><div class="mc" onclick="document.getElementById('modal-trabajador').remove()">×</div></div>
-    <div class="abox abox-blue" style="margin-bottom:12px"><span class="abox-icon">ℹ️</span><div class="abox-text">El trabajador recibirá sus credenciales por email para ingresar al sistema.</div></div>
+    <div class="modal-h">
+      <div>
+        <div class="modal-title">${editUserId?'✏️ Editar trabajador':'👤 Nuevo trabajador'}</div>
+        <div class="modal-sub">${editUserId?'Cambia el nombre del trabajador':'Crea acceso para un nuevo miembro del equipo'}</div>
+      </div>
+      <div class="mc" onclick="document.getElementById('modal-trabajador').remove()">×</div>
+    </div>
+    ${!editUserId?`<div class="abox abox-blue" style="margin-bottom:12px"><span class="abox-icon">ℹ️</span><div class="abox-text">El trabajador usará su <b>email y contraseña</b> para ingresar al sistema. Solo verá Pedidos, Lima, Provincia y Rótulos.</div></div>`:''}
+    ${editUserId?`<div class="abox abox-amber" style="margin-bottom:12px"><span class="abox-icon">🔒</span><div class="abox-text">Solo puedes cambiar el <b>nombre</b>. Para cambiar la contraseña, el trabajador debe usar <b>"Olvidé mi contraseña"</b> en el login.</div></div>`:''}
     <div class="form-grid">
-      <div class="fg" style="grid-column:1/-1"><label>Nombre completo</label><input type="text" id="tw-nombre" value="${editName||''}" placeholder="Ej: Carlos López"></div>
-      ${!editUserId?`<div class="fg" style="grid-column:1/-1"><label>Email del trabajador</label><input type="email" id="tw-email" placeholder="trabajador@email.com"></div>`:''}
-      <div class="fg" style="grid-column:1/-1"><label>${editUserId?'Nueva contraseña (vacío = no cambiar)':'Contraseña'}</label><input type="password" id="tw-pass" value="" placeholder="Mínimo 6 caracteres"></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Nombre completo</label>
+        <input type="text" id="tw-nombre" value="${editName||''}" placeholder="Ej: Carlos López" autofocus>
+      </div>
+      ${!editUserId?`
+      <div class="fg" style="grid-column:1/-1">
+        <label>Email del trabajador</label>
+        <input type="email" id="tw-email" placeholder="trabajador@gmail.com">
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Contraseña inicial <span style="font-size:10px;color:var(--text3);font-weight:400">(mínimo 6 caracteres)</span></label>
+        <input type="password" id="tw-pass" placeholder="Mínimo 6 caracteres">
+      </div>
+      `:'<input type="hidden" id="tw-email" value=""><input type="hidden" id="tw-pass" value="">'}
     </div>
     <div style="display:flex;gap:10px;margin-top:20px">
-      <button class="btn btn-primary" id="btn-save-worker" onclick="guardarTrabajador('${editUserId||''}')">💾 Guardar</button>
+      <button class="btn btn-primary" id="btn-save-worker" onclick="guardarTrabajador('${editUserId||''}')">💾 ${editUserId?'Actualizar nombre':'Crear trabajador'}</button>
       <button class="btn btn-ghost" onclick="document.getElementById('modal-trabajador').remove()">Cancelar</button>
     </div>
   </div>`;
   document.body.appendChild(mod);
+  setTimeout(()=>document.getElementById('tw-nombre')?.focus(),100);
 }
 
 // guardarTrabajador y eliminarTrabajador están definidos en el bloque AUTH arriba

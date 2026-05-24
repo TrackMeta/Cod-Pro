@@ -4448,13 +4448,14 @@ function renderLima(){
     </button>
     <button class="btn btn-primary" onclick="showPage('pedidos');setTimeout(()=>{document.getElementById('p-zona').value='lima';toggleZona();openNuevoPedido()},100)">+ Pedido Lima</button>
   </div></div>
+  ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">🛵</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
   <div class="metrics-grid">
-    <div class="mcard mc-blue"><div class="mcard-label">Total Lima</div><div class="mcard-val mv-blue">${arr.length}</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label">Costo envíos</div><div class="mcard-val mv-amber">${fmt(arr.reduce((s,p)=>s+(p.cenv||0),0))}</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">Total Lima</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
+    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
+    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">💰 Valor activo</div><div class="mcard-val mv-green" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+p.precio,0))}</div><div class="mcard-sub">en entregas pendientes</div></div>
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -4647,13 +4648,14 @@ function renderProvincia(){
     </button>
     <button class="btn btn-primary" onclick="showPage('pedidos');setTimeout(()=>{document.getElementById('p-zona').value='provincia';toggleZona();openNuevoPedido()},100)">+ Pedido Provincia</button>
   </div></div>
+  ${(()=>{const activos=[...conf,...env];const sinTracking=activos.filter(p=>!p.clave||!p.clave.trim());const hD=new Date(hoy()+'T12:00:00');const viejos=activos.filter(p=>{if(!p.fecha)return false;const dif=Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24));return dif>=7;});const alerts=[];if(sinTracking.length)alerts.push(`<b>${sinTracking.length} sin tracking</b> — Agrega el código de rastreo para poder monitorear`);if(viejos.length)alerts.push(`<b>${viejos.length} pedido(s) con 7+ días</b> en tránsito sin entrega confirmada`);return alerts.map(a=>`<div class="abox abox-amber"><span class="abox-icon">⚠️</span><div class="abox-text">${a}</div></div>`).join('');})()}
   <div class="metrics-grid">
-    <div class="mcard mc-blue"><div class="mcard-label">Total Provincia</div><div class="mcard-val mv-blue">${arr.length}</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label">Adelantos cobrados</div><div class="mcard-val mv-amber">${fmt(totalAdel)}</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">Total Provincia</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
+    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
+    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label">💰 Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+(p.pendiente||0),0))}</div><div class="mcard-sub">pendiente en tránsito</div></div>
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -4740,8 +4742,12 @@ function renderProvinciaContent(){
     const sepRow=`<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
     const rows=its.map(p=>{
       const entregado=p.estado==='entregado';
-      return `<tr>
-    <td class="mono" style="color:var(--text3)">#${p.id}</td>
+      const hD=new Date(hoy()+'T12:00:00');
+      const diasT=p.fecha&&!entregado?Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24)):0;
+      const urgente=diasT>=7,advertencia=diasT>=4;
+      const rowBg=urgente?'background:rgba(239,68,68,.05)':advertencia?'background:rgba(245,158,11,.05)':'';
+      return `<tr style="${rowBg}">
+    <td class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
@@ -4749,9 +4755,9 @@ function renderProvinciaContent(){
     <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
     <td class="mono" style="color:var(--accent);font-weight:700">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.adelanto||0)}</td>
     <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.pendiente||0)}</td>
-    <td style="background:${p.clave?'rgba(155,110,240,.08)':'transparent'}">${p.clave
+    <td style="background:${p.clave?'rgba(155,110,240,.08)':urgente?'rgba(239,68,68,.08)':'transparent'}">${p.clave
       ?`<div style="display:flex;align-items:center;gap:5px"><span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span><button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button><button onclick="openTracking(${p.id})" style="background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 6px">✏️</button></div>`
-      :`<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:var(--text3)">+ Agregar</button>`
+      :`<div style="display:flex;flex-direction:column;gap:3px"><button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:${urgente?'var(--red)':'var(--text3)'}">${urgente?'⚠️ ':''}+ Agregar</button>${urgente?'<span style="font-size:9px;color:var(--red);font-weight:700">Urgente</span>':''}</div>`
     }</td>
     <td style="min-width:145px">
       <select onchange="cambiarEstadoRapido(${p.id},this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">

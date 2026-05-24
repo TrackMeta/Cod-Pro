@@ -892,6 +892,8 @@ td{padding:11px 14px;font-size:13px}
 <div class="modal" style="max-width:780px">
   <div class="modal-h"><div class="modal-title" id="mp-title">Nuevo Pedido</div><div class="mc" onclick="closeModal('modal-pedido')">×</div></div>
   <input type="hidden" id="p-id">
+  <!-- Fecha de registro (solo en modo edición) -->
+  <div id="fg-fecha-reg" style="display:none;margin-bottom:6px;padding:6px 10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)">📋 Registrado el: <span id="p-fecha-creado" style="color:var(--text2);font-weight:600"></span></div>
   <!-- Cliente -->
   <div class="form-grid">
     <div class="fg"><label>Fecha</label><input type="date" id="p-fecha"></div>
@@ -1990,6 +1992,7 @@ td{padding:11px 14px;font-size:13px}
         <option value="POS">POS</option>
       </select>
     </div>
+    <div class="fg"><label>📅 Fecha entrega Lima <span style="font-size:10px;color:var(--text3)">(opcional)</span></label><input type="date" id="p-fecha-entrega-lima"></div>
   </div>
 
   <!-- PROVINCIA: adelanto -->
@@ -3508,6 +3511,8 @@ function openNuevoPedido(){
   document.getElementById('p-zona').value='lima';
   document.getElementById('p-estado').value='confirmado';
   document.getElementById('p-upsell-res').value='';
+  const felEl=document.getElementById('p-fecha-entrega-lima');if(felEl)felEl.value='';
+  const fregBox=document.getElementById('fg-fecha-reg');if(fregBox)fregBox.style.display='none';
   pedidoItems=[];
   agregarItemPedido();
   fillUpsellSelect();
@@ -3543,6 +3548,16 @@ function editarPedido(id){
   } else {
     // Legacy single-product
     pedidoItems=[{productoId:p.productoId||'',nombre:p.producto||'',variante:p.variante||'',cantidad:p.cantidad||1,precio:p.precio||0,cprod:p.cprod||0,cali:p.cali||0,sku:p.sku||''}];
+  }
+  // Fecha entrega Lima
+  const felEl=document.getElementById('p-fecha-entrega-lima');if(felEl)felEl.value=p.fechaEntregaLima||'';
+  // Mostrar fecha de registro
+  const fregBox=document.getElementById('fg-fecha-reg');
+  const fregSpan=document.getElementById('p-fecha-creado');
+  if(fregBox&&fregSpan&&p.fechaCreado){
+    const d=new Date(p.fechaCreado);
+    fregSpan.textContent=d.toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    fregBox.style.display='block';
   }
   fillUpsellSelect(p.upsellProd);
   fillVendedorSelect(p.vendedor);
@@ -3665,6 +3680,7 @@ function guardarPedido(){
     liquidado:id?DB.pedidos.find(x=>x.id===parseInt(id))?.liquidado||false:false,
     fechaLiq:id?DB.pedidos.find(x=>x.id===parseInt(id))?.fechaLiq||'':'',
     fechaCreado:id?DB.pedidos.find(x=>x.id===parseInt(id))?.fechaCreado:new Date().toISOString(),
+    fechaEntregaLima:zona==='lima'?(document.getElementById('p-fecha-entrega-lima')?.value||''):''
     historial:id?DB.pedidos.find(x=>x.id===parseInt(id))?.historial||[]:[]
   };
   // Historial de estado
@@ -3690,10 +3706,10 @@ function guardarPedido(){
   if(p.estado==='entregado'&&p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
   if(id){const idx=DB.pedidos.findIndex(x=>x.id===parseInt(id));DB.pedidos[idx]=p;}
   else DB.pedidos.push(p);
-  save();closeModal('modal-pedido');renderPedidosContent();updateSidebarBadges();renderNotifications();
+  save();closeModal('modal-pedido');renderPedidosContent();updateSidebarBadges();renderNotifications();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
 }
-function eliminarPedido(id){if(!confirm('¿Eliminar pedido #'+id+'?'))return;DB.pedidos=DB.pedidos.filter(x=>x.id!==id);save();renderPedidosContent();updateSidebarBadges();}
+function eliminarPedido(id){if(!confirm('¿Eliminar pedido #'+id+'?'))return;DB.pedidos=DB.pedidos.filter(x=>x.id!==id);save();renderPedidosContent();updateSidebarBadges();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();}
 function cambiarEstado(id,estado){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   const prev=p.estado;
@@ -4302,13 +4318,14 @@ function renderLimaContent(){
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('lima-view');if(!v)return;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
   <tbody>${arr.length?arr.map(p=>`<tr>
     <td class="mono" style="color:var(--text3)">#${p.id}</td>
     <td style="color:var(--text2);font-size:11.5px">${p.fecha}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.dist||'-'}</td>
+    <td style="font-size:11.5px;color:${p.fechaEntregaLima?'var(--accent)':'var(--text3)'};font-weight:${p.fechaEntregaLima?'600':'400'}">${p.fechaEntregaLima||'—'}</td>
     <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
     <td>
       ${p.courier
@@ -4341,7 +4358,7 @@ function renderLimaContent(){
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
     </div></td>
-  </tr>`).join(''):`<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`}
+  </tr>`).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`}
   </tbody></table></div>`;
 }
 
@@ -4908,7 +4925,7 @@ function roiPorProducto(){
     const key=p.producto||'Sin nombre';
     if(!prodMap[key])prodMap[key]={ing:0,cost:0,cnt:0};
     prodMap[key].ing+=p.precio;
-    prodMap[key].cost+=(p.cprod||0)+(p.cenv||0);
+    prodMap[key].cost+=(p.cprod||0)+(p.cenv||0)+(p.emb||0)*(p.cantidad||1);
     prodMap[key].cnt+=p.cantidad;
   });
   const top=Object.entries(prodMap).sort((a,b)=>b[1].ing-a[1].ing).slice(0,5);
@@ -5340,8 +5357,11 @@ function renderFlujoContent(){
   const porDia=dias.map(dia=>{
     const entDia=ent.filter(p=>p.fecha===dia);
     const ing=entDia.reduce((s,p)=>s+(p.precio||0),0);
+    const cprodD=entDia.reduce((s,p)=>s+(p.cprod||0),0);
+    const cenvD=entDia.reduce((s,p)=>s+(p.cenv||0),0);
+    const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
-    return {dia,ing,pub,util:ing-pub,ent:entDia.length};
+    return {dia,ing,pub,util:ing-cprodD-cenvD-cembD-pub,ent:entDia.length};
   });
   const maxIng=Math.max(...porDia.map(d=>d.ing),1);
   const promDiario=dias.length>0?porDia.reduce((s,d)=>s+d.ing,0)/dias.length:0;

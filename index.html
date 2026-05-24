@@ -4350,66 +4350,68 @@ function renderLimaContent(){
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('lima-view');if(!v)return;
+  // Helper: formatear fechaCreado
+  function fmtReg(iso){if(!iso)return'—';const p=iso.split('T');const d=(p[0]||'').slice(5).split('-').reverse().join('/');const t=(p[1]||'').substring(0,5);return d+(t?' · '+t:'');}
   // Agrupar por fecha
   const byDateL={};
-  arr.forEach(p=>{const d=p.fecha||'—';if(!byDateL[d])byDateL[d]=[];byDateL[d].push(p);});
-  const datesL=Object.keys(byDateL).sort((a,b)=>b.localeCompare(a));
-  const limaBody=arr.length?datesL.map(dia=>{
-    const its=byDateL[dia];
-    const total=its.reduce((s,p)=>s+(p.precio||0),0);
-    const cnt={confirmado:0,enviado:0,entregado:0,devuelto:0,rechazado:0};
-    its.forEach(p=>{if(cnt[p.estado]!==undefined)cnt[p.estado]++;});
-    const badges=[
-      cnt.confirmado?`<span style="color:var(--green);font-size:11px">✅ ${cnt.confirmado}</span>`:'',
-      cnt.enviado?`<span style="color:var(--purple);font-size:11px">🚚 ${cnt.enviado}</span>`:'',
-      cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado}</span>`:'',
-      (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado}</span>`:''
-    ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
-    const rows=its.map(p=>{const fcReg=p.fechaCreado?new Date(p.fechaCreado).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})+' <span style="color:var(--text3)">'+new Date(p.fechaCreado).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})+'</span>':'—';return`<tr>
-    <td class="mono" style="color:var(--text3)">#${p.id}</td>
-    <td style="font-size:11px;white-space:nowrap">${fcReg}</td>
-    <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
-    <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
-    <td style="color:var(--text2);font-size:12px">${p.dist||'-'}</td>
-    <td style="font-size:11.5px;color:${p.fechaEntregaLima?'var(--accent)':'var(--text3)'};font-weight:${p.fechaEntregaLima?'600':'400'}">${p.fechaEntregaLima||'—'}</td>
-    <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
-    <td>
-      ${p.courier
-        ?`<div style="font-size:12px;font-weight:600;color:var(--text2)">${p.courier}</div><button class="btn btn-ghost btn-xs" onclick="openCourier(${p.id})">🔄 Cambiar</button>`
-        :`<button class="btn btn-ghost btn-xs" onclick="openCourier(${p.id})">+ Asignar</button>`}
-    </td>
-    <td style="min-width:95px">
-      ${['devuelto','rechazado'].includes(p.estado)
-        ?`<div style="text-align:center">
-            <div class="mono" style="font-size:12px;font-weight:700;color:${p.cenvCobrado===false?'var(--green)':'var(--red)'}">
-              ${p.cenvCobrado===false?'S/ 0':'−'+fmt(p.cenv||0)}
-            </div>
-            <button onclick="toggleCenvCobrado(${p.id})" style="margin-top:4px;font-size:10.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border2);background:${p.cenvCobrado===false?'var(--greenL)':'var(--redL)'};color:${p.cenvCobrado===false?'var(--green)':'var(--red)'};cursor:pointer;font-family:var(--font)">
-              ${p.cenvCobrado===false?'✅ Sin cobro':'💸 Cobrado'}
-            </button>
-          </div>`
-        :`<span class="mono" style="color:var(--red);font-size:12px">−${fmt(p.cenv||0)}</span>`}
-    </td>
-    <td style="min-width:145px">
-      <select onchange="cambiarEstadoRapido(${p.id},this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
-        <option value="confirmado" ${p.estado==='confirmado'?'selected':''}>✅ Confirmado</option>
-        <option value="enviado"    ${p.estado==='enviado'   ?'selected':''}>🚚 Enviado</option>
-        <option value="entregado"  ${p.estado==='entregado' ?'selected':''}>📦 Entregado</option>
-        <option value="devuelto"   ${p.estado==='devuelto'  ?'selected':''}>↩️ Devuelto</option>
-        <option value="rechazado"  ${p.estado==='rechazado' ?'selected':''}>❌ Rechazado</option>
-      </select>
-      ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
-    </td>
-    <td><div style="display:flex;gap:4px">
-      <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
-      <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
-    </div></td>
-  </tr>`;}).join('');
-    return sepRow+rows;
-  }).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Envío</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
-  <tbody>${limaBody}</tbody></table></div>`;
+  arr.forEach(function(p){const d=p.fecha||'—';if(!byDateL[d])byDateL[d]=[];byDateL[d].push(p);});
+  const datesL=Object.keys(byDateL).sort(function(a,b){return b.localeCompare(a);});
+  let limaHtml='';
+  if(!arr.length){
+    limaHtml='<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>';
+  } else {
+    datesL.forEach(function(dia){
+      const its=byDateL[dia];
+      const total=its.reduce(function(s,p){return s+(p.precio||0);},0);
+      const cnt={confirmado:0,enviado:0,entregado:0,devuelto:0,rechazado:0};
+      its.forEach(function(p){if(cnt[p.estado]!==undefined)cnt[p.estado]++;});
+      const bdg=[];
+      if(cnt.confirmado)bdg.push('<span style="color:var(--green);font-size:11px">✅ '+cnt.confirmado+'</span>');
+      if(cnt.enviado)bdg.push('<span style="color:var(--purple);font-size:11px">🚚 '+cnt.enviado+'</span>');
+      if(cnt.entregado)bdg.push('<span style="color:var(--blue);font-size:11px">📦 '+cnt.entregado+'</span>');
+      if(cnt.devuelto+cnt.rechazado)bdg.push('<span style="color:var(--red);font-size:11px">↩️ '+(cnt.devuelto+cnt.rechazado)+'</span>');
+      limaHtml+='<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">&#128197; '+dia+'</b><span style="color:var(--text3);font-size:11px">&#183; '+its.length+' pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">'+bdg.join('<span style="color:var(--border2);margin:0 4px">|</span>')+'<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">'+fmt(total)+'</b></div></div></td></tr>';
+      its.forEach(function(p){
+        const cenvDev=['devuelto','rechazado'].includes(p.estado);
+        const cenvColor=p.cenvCobrado===false?'var(--green)':'var(--red)';
+        const cenvVal=p.cenvCobrado===false?'S/ 0':'−'+fmt(p.cenv||0);
+        const cenvBtnBg=p.cenvCobrado===false?'var(--greenL)':'var(--redL)';
+        const cenvBtnTxt=p.cenvCobrado===false?'✅ Sin cobro':'💸 Cobrado';
+        const courierHtml=p.courier
+          ?'<div style="font-size:12px;font-weight:600;color:var(--text2)">'+p.courier+'</div><button class="btn btn-ghost btn-xs" onclick="openCourier('+p.id+')">&#128260; Cambiar</button>'
+          :'<button class="btn btn-ghost btn-xs" onclick="openCourier('+p.id+')">+ Asignar</button>';
+        const cenvHtml=cenvDev
+          ?'<div style="text-align:center"><div class="mono" style="font-size:12px;font-weight:700;color:'+cenvColor+'">'+cenvVal+'</div><button onclick="toggleCenvCobrado('+p.id+')" style="margin-top:4px;font-size:10.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border2);background:'+cenvBtnBg+';color:'+cenvColor+';cursor:pointer;font-family:var(--font)">'+cenvBtnTxt+'</button></div>'
+          :'<span class="mono" style="color:var(--red);font-size:12px">−'+fmt(p.cenv||0)+'</span>';
+        const felColor=p.fechaEntregaLima?'var(--accent)':'var(--text3)';
+        const felWeight=p.fechaEntregaLima?'600':'400';
+        const motivo=p.motivoDevolucion?'<div style="font-size:10px;color:var(--red);margin-top:2px">'+p.motivoDevolucion+'</div>':'';
+        limaHtml+='<tr>'
+          +'<td class="mono" style="color:var(--text3)">#'+p.id+'</td>'
+          +'<td style="font-size:11px;white-space:nowrap">'+fmtReg(p.fechaCreado)+'</td>'
+          +'<td><div style="font-weight:600;font-size:12.5px">'+p.nombre+'</div><div style="font-size:10.5px;color:var(--text3)">'+p.celular+'</div></td>'
+          +'<td style="font-size:12px">'+p.producto+' <span style="color:var(--text3)">\xD7'+p.cantidad+'</span></td>'
+          +'<td style="color:var(--text2);font-size:12px">'+(p.dist||'-')+'</td>'
+          +'<td style="font-size:11.5px;color:'+felColor+';font-weight:'+felWeight+'">'+(p.fechaEntregaLima||'—')+'</td>'
+          +'<td class="mono" style="font-weight:700">'+fmt(p.precio)+'</td>'
+          +'<td>'+courierHtml+'</td>'
+          +'<td style="min-width:95px">'+cenvHtml+'</td>'
+          +'<td style="min-width:145px"><select onchange="cambiarEstadoRapido('+p.id+',this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">'
+          +'<option value="confirmado" '+(p.estado==='confirmado'?'selected':'')+'>&#9989; Confirmado</option>'
+          +'<option value="enviado" '+(p.estado==='enviado'?'selected':'')+'>&#128666; Enviado</option>'
+          +'<option value="entregado" '+(p.estado==='entregado'?'selected':'')+'>&#128230; Entregado</option>'
+          +'<option value="devuelto" '+(p.estado==='devuelto'?'selected':'')+'>&#8617;&#65039; Devuelto</option>'
+          +'<option value="rechazado" '+(p.estado==='rechazado'?'selected':'')+'>&#10060; Rechazado</option>'
+          +'</select>'+motivo+'</td>'
+          +'<td><div style="display:flex;gap:4px">'
+          +'<button class="btn btn-ghost btn-xs" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
+          +'<button class="btn btn-ghost btn-xs" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'
+          +'</div></td>'
+          +'</tr>';
+      });
+    });
+  }
+  v.innerHTML='<div class="tw ts"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado (editable)</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
 }
 
 function openCourier(id){

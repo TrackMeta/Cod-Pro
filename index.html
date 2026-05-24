@@ -268,20 +268,20 @@ tr:hover td{background:var(--surface2)}
 .td-sm{font-size:11.5px;color:var(--text2)}
 
 /* ── BADGES ─────────────────────────────────── */
-.bdg{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700;white-space:nowrap;letter-spacing:.02em}
-.bdg-nuevo{background:var(--blueL);color:var(--blue)}
-.bdg-confirmado{background:var(--greenL);color:var(--green)}
-.bdg-no-contesta{background:var(--amberL);color:var(--amber)}
-.bdg-rechazado{background:var(--redL);color:var(--red)}
-.bdg-enviado{background:var(--purpleL);color:var(--purple)}
-.bdg-entregado{background:var(--greenL);color:var(--green)}
-.bdg-devuelto{background:var(--redL);color:var(--red)}
-.bdg-reprogramado{background:var(--amberL);color:var(--amber)}
-.bdg-stock{background:var(--blueL);color:var(--blue)}
-.bdg-aliclick{background:var(--purpleL);color:var(--purple)}
-.bdg-ok{background:var(--greenL);color:var(--green)}
-.bdg-warn{background:var(--amberL);color:var(--amber)}
-.bdg-crit{background:var(--redL);color:var(--red)}
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10.5px;font-weight:700;white-space:nowrap;letter-spacing:.02em;border:1px solid transparent}
+.bdg-nuevo{background:rgba(74,143,245,.16);color:var(--blue);border-color:rgba(74,143,245,.35)}
+.bdg-confirmado{background:rgba(16,212,106,.16);color:var(--green);border-color:rgba(16,212,106,.35)}
+.bdg-no-contesta{background:rgba(240,165,32,.16);color:var(--amber);border-color:rgba(240,165,32,.35)}
+.bdg-rechazado{background:rgba(240,68,85,.16);color:var(--red);border-color:rgba(240,68,85,.35)}
+.bdg-enviado{background:rgba(155,110,240,.16);color:var(--purple);border-color:rgba(155,110,240,.35)}
+.bdg-entregado{background:rgba(22,191,168,.16);color:var(--teal);border-color:rgba(22,191,168,.35)}
+.bdg-devuelto{background:rgba(240,68,85,.16);color:var(--red);border-color:rgba(240,68,85,.35)}
+.bdg-reprogramado{background:rgba(240,165,32,.16);color:var(--amber);border-color:rgba(240,165,32,.35)}
+.bdg-stock{background:rgba(74,143,245,.16);color:var(--blue);border-color:rgba(74,143,245,.35)}
+.bdg-aliclick{background:rgba(155,110,240,.16);color:var(--purple);border-color:rgba(155,110,240,.35)}
+.bdg-ok{background:rgba(16,212,106,.16);color:var(--green);border-color:rgba(16,212,106,.35)}
+.bdg-warn{background:rgba(240,165,32,.16);color:var(--amber);border-color:rgba(240,165,32,.35)}
+.bdg-crit{background:rgba(240,68,85,.16);color:var(--red);border-color:rgba(240,68,85,.35)}
 
 /* ── STATUS PILL (larger) ────────────────────── */
 .spill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
@@ -336,13 +336,24 @@ tr:hover td{background:var(--surface2)}
 .abox-amber{background:var(--amberL);border:1px solid rgba(240,160,32,.2);color:var(--amber)}
 
 /* ── KANBAN ─────────────────────────────────── */
-.kanban{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:11px;align-items:start}
-.kcol{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);padding:11px}
-.kcol-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-.kcard{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;margin-bottom:5px;cursor:pointer;transition:all .12s}
-.kcard:hover{border-color:var(--border3);transform:translateY(-1px);box-shadow:var(--shadow)}
-.kcard-name{font-size:12px;font-weight:600;margin-bottom:3px}
-.kcard-detail{font-size:11px;color:var(--text2);margin-top:2px}
+.kanban{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;align-items:start}
+.kcol{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.kcol-header{padding:12px 13px 10px;border-bottom:1px solid var(--border)}
+.kcol-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.kcol-cnt{background:var(--surface3);padding:1px 8px;border-radius:10px;font-size:10px;color:var(--text2);font-weight:700;flex-shrink:0}
+.kcol-total{font-size:11.5px;font-weight:700;font-family:var(--mono);color:var(--text2);margin-top:5px}
+.kcol-body{padding:10px}
+.kcol-empty{text-align:center;padding:24px 10px;color:var(--text3);font-size:11px}
+.kcard{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;margin-bottom:7px;cursor:pointer;transition:all .15s;overflow:hidden;position:relative;display:flex}
+.kcard:hover{border-color:var(--border3);transform:translateY(-2px);box-shadow:0 6px 22px rgba(0,0,0,.2)}
+.kcard-accent{width:4px;flex-shrink:0}
+.kcard-inner{padding:10px 12px;flex:1;min-width:0}
+.kcard-name{font-size:12.5px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kcard-phone{font-size:10.5px;color:var(--text3);margin-bottom:6px}
+.kcard-product{font-size:11px;color:var(--text2);margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kcard-footer{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.kcard-price{font-size:13px;font-weight:800;font-family:var(--mono)}
+.kcard-meta{font-size:10px;font-weight:700}
 
 /* ── CONFIG ─────────────────────────────────── */
 .cfg-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);gap:12px}
@@ -3147,8 +3158,18 @@ function filtrarPeriodo(arr,per){
   return arr;
 }
 function badge(est){
-  const m={nuevo:'bdg-nuevo',confirmado:'bdg-confirmado','no-contesta':'bdg-no-contesta',rechazado:'bdg-rechazado',enviado:'bdg-enviado',entregado:'bdg-entregado',devuelto:'bdg-devuelto',reprogramado:'bdg-reprogramado'};
-  return `<span class="bdg ${m[est]||'bdg-nuevo'}">${est.replace(/-/g,' ')}</span>`;
+  const cfg={
+    nuevo:       {cls:'bdg-nuevo',       e:'🔵'},
+    confirmado:  {cls:'bdg-confirmado',  e:'✅'},
+    'no-contesta':{cls:'bdg-no-contesta',e:'📵'},
+    rechazado:   {cls:'bdg-rechazado',   e:'❌'},
+    enviado:     {cls:'bdg-enviado',     e:'🚚'},
+    entregado:   {cls:'bdg-entregado',   e:'📦'},
+    devuelto:    {cls:'bdg-devuelto',    e:'↩️'},
+    reprogramado:{cls:'bdg-reprogramado',e:'📅'}
+  };
+  const d=cfg[est]||{cls:'bdg-nuevo',e:'•'};
+  return `<span class="bdg ${d.cls}">${d.e} ${est.replace(/-/g,' ')}</span>`;
 }
 function bdgMod(m){return m==='aliclick'?'<span class="bdg bdg-aliclick">🔗 Aliclick</span>':'<span class="bdg bdg-stock">📦 Stock</span>';}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -3519,9 +3540,38 @@ function renderPedidosContent(){
   const view=document.getElementById('ped-view');if(!view)return;
   if(pVista==='kanban'){
     const cols=['nuevo','confirmado','no-contesta','enviado','entregado','devuelto','rechazado','reprogramado'];
-    const cColorsK={'nuevo':'var(--blue)',confirmado:'var(--green)','no-contesta':'var(--amber)',enviado:'var(--purple)',entregado:'var(--teal)',devuelto:'var(--red)',rechazado:'var(--red)',reprogramado:'var(--amber)'};
-    const colEmoji={'nuevo':'🆕',confirmado:'✅','no-contesta':'📵',enviado:'🚚',entregado:'📦',devuelto:'↩️',rechazado:'❌',reprogramado:'📅'};
-    view.innerHTML=`<div class="kanban">${cols.map(c=>{const items=arr.filter(p=>p.estado===c);if(!items.length&&!['confirmado','enviado'].includes(c))return '';return `<div class="kcol"><div class="kcol-title" style="color:${cColorsK[c]}">${colEmoji[c]||''} ${c.replace(/-/g,' ')}<span style="background:var(--surface3);padding:1px 7px;border-radius:10px;font-size:10px;color:var(--text2)">${items.length}</span></div>${items.map(p=>`<div class="kcard" onclick="editarPedido(${p.id})"><div class="kcard-name">${p.nombre}</div><div class="kcard-detail">${p.producto} · ${fmt(p.precio)}</div><div class="kcard-detail" style="margin-top:3px">${bdgMod(p.modalidad||'stock')} <span style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${p.zona==='lima'?'Lima':'Prov.'}</span></div></div>`).join('')}</div>`;}).filter(Boolean).join('')}</div>`;
+    const cColorsK={nuevo:'var(--blue)',confirmado:'var(--green)','no-contesta':'var(--amber)',enviado:'var(--purple)',entregado:'var(--teal)',devuelto:'var(--red)',rechazado:'var(--red)',reprogramado:'var(--amber)'};
+    const colEmoji={nuevo:'🔵',confirmado:'✅','no-contesta':'📵',enviado:'🚚',entregado:'📦',devuelto:'↩️',rechazado:'❌',reprogramado:'📅'};
+    const colLabel={nuevo:'Nuevo',confirmado:'Confirmado','no-contesta':'No contesta',enviado:'Enviado',entregado:'Entregado',devuelto:'Devuelto',rechazado:'Rechazado',reprogramado:'Reprogramado'};
+    view.innerHTML=`<div class="kanban">${cols.map(c=>{
+      const items=arr.filter(p=>p.estado===c);
+      if(!items.length&&!['nuevo','confirmado','enviado'].includes(c))return '';
+      const total=items.reduce((s,p)=>s+(p.precio||0),0);
+      const color=cColorsK[c];
+      const cards=items.length?items.map(p=>`
+        <div class="kcard" onclick="editarPedido(${p.id})">
+          <div class="kcard-accent" style="background:${color}"></div>
+          <div class="kcard-inner">
+            <div class="kcard-name">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge">⚠️</span>':''}</div>
+            <div class="kcard-phone">${p.celular}</div>
+            <div class="kcard-product">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></div>
+            <div class="kcard-footer">
+              <span class="kcard-price" style="color:${color}">${fmt(p.precio)}</span>
+              <span class="kcard-meta" style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${p.zona==='lima'?'🏙️ Lima':'📦 Prov.'}</span>
+            </div>
+          </div>
+        </div>`).join(''):`<div class="kcol-empty">Sin pedidos</div>`;
+      return `<div class="kcol" style="border-top:3px solid ${color}">
+        <div class="kcol-header">
+          <div class="kcol-title" style="color:${color}">
+            <span>${colEmoji[c]} ${colLabel[c]}</span>
+            <span class="kcol-cnt">${items.length}</span>
+          </div>
+          ${total>0?`<div class="kcol-total">${fmt(total)}</div>`:''}
+        </div>
+        <div class="kcol-body">${cards}</div>
+      </div>`;
+    }).filter(Boolean).join('')}</div>`;
     return;
   }
   // Barra de selección masiva

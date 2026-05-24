@@ -788,24 +788,26 @@ td{padding:11px 14px;font-size:13px}
         </div>
       </div>
       <nav class="sidebar-nav" id="sidebar-nav">
-        <div class="nav-section">Principal</div>
-        <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico">📊</span>Dashboard</div>
-        <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico">📦</span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
-        <div class="nav-section">Control de envío</div>
+        <!-- OPERACIONES (todos) -->
+        <div class="nav-section">Operaciones</div>
+        <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico">📋</span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
         <div class="nav-item" onclick="showPage('lima',this)"><span class="ico">🏙️</span>Lima</div>
         <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico">📦</span>Provincia</div>
-        <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico">💵</span>Liquidación</div>
-        <div class="nav-section admin-only">Productos</div>
-        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico">🏪</span>Catálogo & Stock</div>
-        <div class="nav-item admin-only" onclick="showPage('upsells',this)"><span class="ico">⬆️</span>Upsells / Bumps</div>
-        <div class="nav-section admin-only">Finanzas</div>
-        <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico">💰</span>Finanzas</div>
-        <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico">💸</span>Flujo de Caja</div>
-        <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico">👥</span>Equipo & Usuarios</div>
-        <div class="nav-section">Herramientas</div>
-        <div class="nav-item" onclick="showPage('rotulos',this)"><span class="ico">🏷️</span>Rótulos</div>
+        <div class="nav-item" onclick="showPage('rotulos',this)"><span class="ico">🏷️</span>Rótulos de Envío</div>
         <div class="nav-item" onclick="showPage('whatsapp',this)"><span class="ico">💬</span>Plantillas WA</div>
         <div class="nav-item" onclick="showPage('importar',this)"><span class="ico">📥</span>Importar CSV</div>
+        <!-- ANÁLISIS & FINANZAS (admin) -->
+        <div class="nav-section admin-only">Análisis & Finanzas</div>
+        <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico">📊</span>Dashboard</div>
+        <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico">💰</span>Finanzas</div>
+        <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico">💸</span>Flujo de Caja</div>
+        <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico">💵</span>Liquidación</div>
+        <!-- GESTIÓN (admin) -->
+        <div class="nav-section admin-only">Gestión</div>
+        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico">🏪</span>Catálogo & Stock</div>
+        <div class="nav-item admin-only" onclick="showPage('upsells',this)"><span class="ico">⬆️</span>Upsells / Bumps</div>
+        <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico">👥</span>Equipo & Usuarios</div>
+        <!-- SISTEMA (admin) -->
         <div class="nav-section admin-only">Sistema</div>
         <div class="nav-item admin-only" onclick="showPage('config',this)"><span class="ico">⚙️</span>Configuración</div>
       </nav>

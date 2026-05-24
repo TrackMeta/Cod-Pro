@@ -4796,30 +4796,84 @@ function guardarTracking(){
 // =====================================================================
 // PRODUCTOS & STOCK
 // =====================================================================
+let prodVista='cards'; // 'cards' | 'tabla'
+let prodOrden='vendidos'; // 'vendidos'|'stock_bajo'|'ganancia'|'nombre'|'agotado'
+
 function renderProductos(){
+  const cats=[...new Set(DB.productos.map(p=>p.categoria||'General'))].sort();
+  const agotados=DB.productos.filter(p=>p.modalidad==='stock'&&p.stock<=0).length;
+  const criticos=DB.productos.filter(p=>p.modalidad==='stock'&&p.stock>0&&p.stock<=p.stockMin).length;
+  const ganPot=DB.productos.reduce((s,p)=>s+(p.precio-p.costo)*(p.stock||0),0);
+  const valCosto=DB.productos.reduce((s,p)=>s+p.costo*(p.stock||0),0);
+  const valVenta=DB.productos.reduce((s,p)=>s+p.precio*(p.stock||0),0);
+
   const html=`
-  <div class="section-header"><div><div class="section-title">Catálogo & Stock</div><div class="section-sub">${DB.productos.length} productos registrados</div></div>
+  <div class="section-header"><div><div class="section-title">Catálogo & Stock</div><div class="section-sub">${DB.productos.length} producto(s) registrado(s)</div></div>
   <div class="section-actions">
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <select id="prod-per" onchange="toggleProdFechas();renderProductosStats()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-        <option value="todo">Ventas: Todo</option><option value="hoy">Hoy</option><option value="semana">7 días</option><option value="mes">30 días</option><option value="custom">📅 Rango</option>
-      </select>
-      <span id="prod-fechas" style="display:none;align-items:center;gap:4px">
-        <input type="date" id="prod-desde" onchange="renderProductosStats()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-        <span style="color:var(--text3);font-size:12px">→</span>
-        <input type="date" id="prod-hasta" onchange="renderProductosStats()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-      </span>
-    </div>
     <button class="btn btn-primary" onclick="openModalProd()">+ Agregar producto</button>
   </div></div>
-  <div class="metrics-grid" id="prod-stats-grid">
-    <div class="mcard mc-blue"><div class="mcard-label">Total productos</div><div class="mcard-val mv-blue">${DB.productos.length}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Stock crítico</div><div class="mcard-val mv-red">${DB.productos.filter(p=>p.stock<=p.stockMin&&p.modalidad==='stock').length}</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Valor en stock</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(DB.productos.reduce((s,p)=>s+p.costo*p.stock,0))}</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Valor venta stock</div><div class="mcard-val mv-accent" style="font-size:18px">${fmt(DB.productos.reduce((s,p)=>s+p.precio*p.stock,0))}</div></div>
+
+  <div class="metrics-grid" style="margin-bottom:14px">
+    <div class="mcard mc-blue"><div class="mcard-label">Total productos</div><div class="mcard-val mv-blue">${DB.productos.length}</div><div class="mcard-sub">${cats.length} categoría(s)</div></div>
+    <div class="mcard mc-${agotados>0?'red':'green'}"><div class="mcard-label">Agotados</div><div class="mcard-val mv-${agotados>0?'red':'green'}">${agotados}</div><div class="mcard-sub">stock = 0</div></div>
+    <div class="mcard mc-${criticos>0?'amber':'green'}"><div class="mcard-label">Stock crítico</div><div class="mcard-val mv-${criticos>0?'amber':'green'}">${criticos}</div><div class="mcard-sub">bajo mínimo</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">💰 Ganancia potencial</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(ganPot)}</div><div class="mcard-sub">si vendes todo el stock</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">Valor costo stock</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(valCosto)}</div><div class="mcard-sub">capital invertido</div></div>
+    <div class="mcard mc-accent"><div class="mcard-label">Valor venta stock</div><div class="mcard-val mv-accent" style="font-size:18px">${fmt(valVenta)}</div><div class="mcard-sub">a precio de venta</div></div>
   </div>
-  <div class="prod-grid" id="prod-grid">${renderProdCards()}</div>`;
+
+  <div class="fbar" style="margin-bottom:12px">
+    <div class="fg-filter">
+      <label>Buscar</label>
+      <input type="text" id="prod-q" placeholder="Nombre, SKU..." oninput="renderProdGrid()" style="min-width:140px">
+    </div>
+    <div class="fg-filter">
+      <label>Categoría</label>
+      <select id="prod-cat-f" onchange="renderProdGrid()">
+        <option value="">Todas</option>
+        ${cats.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg-filter">
+      <label>Stock</label>
+      <select id="prod-stock-f" onchange="renderProdGrid()">
+        <option value="">Todos</option>
+        <option value="agotado">⛔ Agotados</option>
+        <option value="critico">⚠️ Crítico</option>
+        <option value="ok">✅ OK</option>
+      </select>
+    </div>
+    <div class="fg-filter">
+      <label>Ordenar por</label>
+      <select id="prod-orden" onchange="prodOrden=this.value;renderProdGrid()">
+        <option value="vendidos">Más vendidos</option>
+        <option value="ganancia">Mayor ganancia/u</option>
+        <option value="stock_bajo">Stock más bajo</option>
+        <option value="agotado">Agotados primero</option>
+        <option value="nombre">Nombre A→Z</option>
+      </select>
+    </div>
+    <div class="fg-filter">
+      <label>Ventas período</label>
+      <select id="prod-per" onchange="toggleProdFechas();renderProdGrid()">
+        <option value="todo">Todo</option><option value="hoy">Hoy</option><option value="semana">7 días</option><option value="mes">30 días</option><option value="custom">📅 Rango</option>
+      </select>
+    </div>
+    <span id="prod-fechas" style="display:none;align-items:center;gap:4px">
+      <input type="date" id="prod-desde" onchange="renderProdGrid()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+      <span style="color:var(--text3);font-size:12px">→</span>
+      <input type="date" id="prod-hasta" onchange="renderProdGrid()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+    </span>
+    <div style="margin-left:auto">
+      <div class="tgrp">
+        <button class="tbtn ${prodVista==='cards'?'active':''}" onclick="prodVista='cards';document.querySelectorAll('#prod-vista-btns .tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderProdGrid()" id="prod-btn-cards">▦ Tarjetas</button>
+        <button class="tbtn ${prodVista==='tabla'?'active':''}" onclick="prodVista='tabla';document.querySelectorAll('#prod-vista-btns .tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderProdGrid()" id="prod-btn-tabla">≡ Tabla</button>
+      </div>
+    </div>
+  </div>
+  <div id="prod-grid"></div>`;
   setContent(html);
+  renderProdGrid();
 }
 
 function toggleProdFechas(){
@@ -4829,14 +4883,23 @@ function toggleProdFechas(){
 }
 
 function renderProductosStats(){
-  // Re-render just the product cards with updated period for sales stats
-  const grid=document.getElementById('prod-grid');
-  if(grid)grid.innerHTML=renderProdCards();
+  renderProdGrid();
 }
-function renderProdCards(){
-  if(!DB.productos.length)return`<div class="empty" style="grid-column:1/-1">Sin productos. Agrega uno arriba.</div>`;
-  // Get period filter
+
+function renderProdGrid(){
+  const grid=document.getElementById('prod-grid');
+  if(grid)grid.innerHTML=prodVista==='tabla'?renderProdTabla():renderProdCards();
+}
+// ── Helpers compartidos filtros/sort ──────────────────────────────────
+function getProdFiltrados(){
+  if(!DB.productos.length)return[];
+  const q=(document.getElementById('prod-q')?.value||'').toLowerCase().trim();
+  const catF=document.getElementById('prod-cat-f')?.value||'';
+  const stockF=document.getElementById('prod-stock-f')?.value||'';
   const per=document.getElementById('prod-per')?.value||'todo';
+  const orden=document.getElementById('prod-orden')?.value||prodOrden;
+
+  // Pedidos filtrados por período
   let pedFiltrados;
   if(per==='custom'){
     const desde=document.getElementById('prod-desde')?.value||'';
@@ -4845,31 +4908,54 @@ function renderProdCards(){
   } else {
     pedFiltrados=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),per);
   }
-  const diasActivos=per==='hoy'?1:per==='semana'?7:per==='mes'?30:30;
-  // Calcular ventas en período por producto y ordenar por más vendido
-  const prodData=DB.productos.map(p=>{
+  const diasActivos=per==='hoy'?1:per==='semana'?7:per==='mes'?30:90;
+
+  let arr=DB.productos.map(p=>{
     const pedProd=pedFiltrados.filter(x=>x.productoId===p.id);
     const vendidos=pedProd.reduce((s,x)=>s+x.cantidad,0);
     const ingPeriodo=pedProd.reduce((s,x)=>s+x.precio,0);
     const totalVendidos=DB.pedidos.filter(x=>x.productoId===p.id&&x.estado==='entregado').reduce((s,x)=>s+x.cantidad,0);
-    return{p,vendidos,ingPeriodo,totalVendidos};
-  });
-  prodData.sort((a,b)=>b.vendidos-a.vendidos||(b.p.stock||0)-(a.p.stock||0));
-  const maxVendidos=prodData[0]?.vendidos||0;
-  return prodData.map(({p,vendidos,ingPeriodo,totalVendidos},rank)=>{
-    const pctStock=p.stock<=0?0:Math.min(100,Math.round(p.stock/(p.stock+totalVendidos)*100));
-    const isLow=p.stock<=p.stockMin&&p.modalidad==='stock';
-    const promDia=vendidos/diasActivos;
-    const diasRestantes=promDia>0?Math.floor(p.stock/promDia):null;
     const ganancia=p.precio-p.costo;
+    const promDia=vendidos/diasActivos;
+    const diasRestantes=p.modalidad==='stock'&&promDia>0?Math.floor(p.stock/promDia):null;
+    const agotado=p.modalidad==='stock'&&p.stock<=0;
+    const isLow=p.modalidad==='stock'&&p.stock>0&&p.stock<=p.stockMin;
+    return{p,vendidos,ingPeriodo,totalVendidos,ganancia,diasRestantes,agotado,isLow,diasActivos};
+  });
+
+  // Filtrar
+  if(q)arr=arr.filter(({p})=>(p.nombre||'').toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q));
+  if(catF)arr=arr.filter(({p})=>(p.categoria||'General')===catF);
+  if(stockF==='agotado')arr=arr.filter(d=>d.agotado);
+  else if(stockF==='critico')arr=arr.filter(d=>d.isLow);
+  else if(stockF==='ok')arr=arr.filter(d=>!d.agotado&&!d.isLow);
+
+  // Ordenar
+  if(orden==='vendidos')arr.sort((a,b)=>b.vendidos-a.vendidos);
+  else if(orden==='ganancia')arr.sort((a,b)=>b.ganancia-a.ganancia);
+  else if(orden==='stock_bajo')arr.sort((a,b)=>(a.p.stock||0)-(b.p.stock||0));
+  else if(orden==='agotado')arr.sort((a,b)=>(a.agotado?0:1)-(b.agotado?0:1)||(a.p.stock||0)-(b.p.stock||0));
+  else if(orden==='nombre')arr.sort((a,b)=>a.p.nombre.localeCompare(b.p.nombre));
+
+  return arr;
+}
+
+function renderProdCards(){
+  const arr=getProdFiltrados();
+  if(!arr.length)return`<div class="empty" style="grid-column:1/-1;padding:40px">Sin productos que coincidan con los filtros.</div>`;
+  const maxVendidos=arr[0]?.vendidos||0;
+  return`<div class="prod-grid">`+arr.map(({p,vendidos,ingPeriodo,totalVendidos,ganancia,diasRestantes,agotado,isLow},rank)=>{
     const margen=p.precio>0?((ganancia/p.precio)*100):0;
+    const pctStock=p.stock<=0?0:Math.min(100,Math.round(p.stock/(p.stock+totalVendidos)*100));
     const cicloHtml=p.modalidad==='stock'&&diasRestantes!==null?`<div style="font-size:11px;margin-top:4px;color:${diasRestantes<=7?'var(--red)':diasRestantes<=14?'var(--amber)':'var(--text3)'}">⏱ ${diasRestantes<=0?'Stock agotado en ventas actuales':`~${diasRestantes} días de stock restante`}</div>`:'';
     const isTop=rank===0&&maxVendidos>0;
-    return `<div class="prod-card" style="${isLow?'border-color:rgba(239,68,68,.4)':''}${isTop?';box-shadow:0 0 0 2px rgba(139,92,246,.25)':''}">
+    const borderStyle=agotado?'border-color:rgba(239,68,68,.6);background:rgba(239,68,68,.03)':isLow?'border-color:rgba(245,158,11,.5)':isTop?'box-shadow:0 0 0 2px rgba(139,92,246,.3)':'';
+    return `<div class="prod-card" style="${borderStyle}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div class="prod-name">${p.nombre}</div><div class="prod-sku">${p.sku||'Sin SKU'}</div></div>
-        <div style="display:flex;gap:4px">
-          ${isTop?'<span style="font-size:11px;font-weight:700;color:var(--purple);padding:2px 6px;background:var(--purpleL);border-radius:5px">🏆 Top</span>':''}
+        <div style="flex:1;min-width:0"><div class="prod-name">${p.nombre}</div><div class="prod-sku">${p.sku||'Sin SKU'}</div></div>
+        <div style="display:flex;gap:4px;flex-shrink:0;margin-left:6px">
+          ${isTop?'<span style="font-size:11px;font-weight:700;color:var(--purple);padding:2px 6px;background:var(--purpleL);border-radius:5px">🏆</span>':''}
+          ${agotado?'<span style="font-size:11px;font-weight:700;color:var(--red);padding:2px 6px;background:var(--redL);border-radius:5px">⛔</span>':''}
           <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">🗑️</button>
         </div>
@@ -4877,19 +4963,19 @@ function renderProdCards(){
       <div class="prod-meta">
         ${bdgMod(p.modalidad||'stock')}
         <span class="bdg" style="background:var(--tealL);color:var(--teal)">${p.categoria||'General'}</span>
-        ${isLow?`<span class="bdg bdg-crit">⚠️ Stock bajo</span>`:''}
+        ${agotado?`<span class="bdg bdg-crit">⛔ Agotado</span>`:isLow?`<span class="bdg bdg-crit">⚠️ Stock bajo</span>`:''}
       </div>
       <div class="fr" style="padding:5px 0"><span style="font-size:12px;color:var(--text2)">Precio venta</span><span class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</span></div>
       <div class="fr" style="padding:5px 0"><span style="font-size:12px;color:var(--text2)">Costo</span><span class="mono" style="color:var(--red)">${fmt(p.costo)}</span></div>
       <div class="fr" style="padding:5px 0;border:none"><span style="font-size:12px;color:var(--text2)">Ganancia / u.</span><span class="mono" style="color:var(--accent);font-weight:700">${fmt(ganancia)} <span style="font-size:10.5px;opacity:.7">(${margen.toFixed(0)}%)</span></span></div>
       ${p.modalidad==='stock'?`
       <div style="margin-top:8px">
-        <div class="stock-label"><span>Stock total: <b style="color:${isLow?'var(--red)':'var(--green)'}">${p.stock} und.</b></span><span>Mín: ${p.stockMin}</span></div>
-        <div class="stock-bar"><div class="stock-bar-fill" style="width:${pctStock}%;background:${isLow?'var(--red)':'var(--green)'}"></div></div>
+        <div class="stock-label"><span>Stock: <b style="color:${agotado?'var(--red)':isLow?'var(--amber)':'var(--green)'}">${p.stock} und.</b></span><span style="font-size:11px;color:var(--text3)">Mín: ${p.stockMin}</span></div>
+        <div class="stock-bar"><div class="stock-bar-fill" style="width:${agotado?100:pctStock}%;background:${agotado?'var(--red)':isLow?'var(--amber)':'var(--green)'}"></div></div>
         ${p.variantes&&p.variantes.length?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${p.variantes.map(v=>`<span style="background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;color:${v.stock<=0?'var(--red)':'var(--text2)'}"><b>${v.nombre}</b>: ${v.stock}</span>`).join('')}</div>`:''}
         <div class="stock-label" style="margin-top:4px">
-          <span>Vendidos (período): <b>${vendidos} u.</b></span>
-          ${ingPeriodo>0?`<span class="mono" style="color:var(--green);font-weight:700">${fmt(ingPeriodo)}</span>`:''}
+          <span style="font-size:11px">Vendidos (período): <b>${vendidos} u.</b></span>
+          ${ingPeriodo>0?`<span class="mono" style="color:var(--green);font-weight:700;font-size:11px">${fmt(ingPeriodo)}</span>`:''}
         </div>
         ${cicloHtml}
         <div style="display:flex;gap:6px;margin-top:10px">
@@ -4899,10 +4985,44 @@ function renderProdCards(){
         </div>
       </div>`:'<div style="margin-top:8px;font-size:12px;color:var(--text3)">Dropshipping — Sin stock local</div>'}
     </div>`;
-  }).join('');
+  }).join('')+`</div>`;
 }
-function ajustarStock(id,delta){const p=DB.productos.find(x=>x.id===id);if(p){p.stock=Math.max(0,p.stock+delta);save();renderProductos();renderNotifications();}}
-function ajustarStockInput(id){const p=DB.productos.find(x=>x.id===id);if(!p)return;const v=parseInt(prompt(`Stock actual: ${p.stock}\nNuevo stock:`));if(!isNaN(v)&&v>=0){p.stock=v;save();renderProductos();renderNotifications();}}
+
+function renderProdTabla(){
+  const arr=getProdFiltrados();
+  if(!arr.length)return`<div class="empty" style="padding:40px">Sin productos que coincidan con los filtros.</div>`;
+  const rows=arr.map(({p,vendidos,ingPeriodo,ganancia,diasRestantes,agotado,isLow},rank)=>{
+    const margen=p.precio>0?((ganancia/p.precio)*100):0;
+    const stockColor=agotado?'var(--red)':isLow?'var(--amber)':'var(--green)';
+    const diasHtml=diasRestantes!==null?`<span style="font-size:11px;color:${diasRestantes<=7?'var(--red)':diasRestantes<=14?'var(--amber)':'var(--text3)'}">~${diasRestantes}d</span>`:'—';
+    return`<tr style="${agotado?'background:rgba(239,68,68,.05)':isLow?'background:rgba(245,158,11,.04)':''}">
+      <td style="font-weight:600">${rank===0&&vendidos>0?'🏆 ':agotado?'⛔ ':isLow?'⚠️ ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></td>
+      <td><span class="bdg" style="background:var(--tealL);color:var(--teal);font-size:10px">${p.categoria||'General'}</span></td>
+      <td class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</td>
+      <td class="mono" style="color:var(--red)">${fmt(p.costo)}</td>
+      <td class="mono" style="color:var(--accent);font-weight:700">${fmt(ganancia)} <span style="font-size:10px;opacity:.7">${margen.toFixed(0)}%</span></td>
+      <td>${p.modalidad==='stock'?`<span style="font-weight:700;color:${stockColor}">${p.stock}</span> <span style="font-size:10.5px;color:var(--text3)">/ ${p.stockMin} mín</span>`:'<span style="color:var(--text3)">Drop</span>'}</td>
+      <td class="mono">${vendidos>0?`<b>${vendidos} u.</b>`:'—'} ${ingPeriodo>0?`<div style="font-size:10.5px;color:var(--green)">${fmt(ingPeriodo)}</div>`:''}</td>
+      <td>${p.modalidad==='stock'?diasHtml:'—'}</td>
+      <td>
+        ${p.modalidad==='stock'?`<div style="display:flex;gap:4px;align-items:center">
+          <button class="btn btn-ghost btn-xs" onclick="ajustarStock(${p.id},-1)" title="−1">−</button>
+          <button class="btn btn-success btn-xs" onclick="ajustarStock(${p.id},1)" title="+1">+</button>
+          <button class="btn btn-ghost btn-xs" onclick="ajustarStockInput(${p.id})" title="Ajustar">✏️</button>
+        </div>`:''}
+      </td>
+      <td><div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  return`<div class="tw ts"><table><thead><tr>
+    <th>Producto</th><th>Categoría</th><th>Precio</th><th>Costo</th><th>Ganancia/u</th><th>Stock</th><th>Vendidos (per.)</th><th>Días rest.</th><th>Stock</th><th>Acciones</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function ajustarStock(id,delta){const p=DB.productos.find(x=>x.id===id);if(p){p.stock=Math.max(0,p.stock+delta);save();renderProdGrid();renderNotifications();}}
+function ajustarStockInput(id){const p=DB.productos.find(x=>x.id===id);if(!p)return;const v=parseInt(prompt(`Stock actual: ${p.stock}\nNuevo stock:`));if(!isNaN(v)&&v>=0){p.stock=v;save();renderProdGrid();renderNotifications();}}
 // ── VARIANT HELPERS ────────────────────────────────────────────────────
 let prodVariantes=[]; // [{nombre:'Rojo L', stock:10}]
 let prodOfertas=[];   // [{cantidad:1,precio:79}]
@@ -5002,9 +5122,9 @@ function guardarProducto(){
   };
   if(id){const idx=DB.productos.findIndex(x=>x.id===parseInt(id));DB.productos[idx]=p;}
   else DB.productos.push(p);
-  save();closeModal('modal-prod');renderProductos();renderNotifications();
+  save();closeModal('modal-prod');renderProductos();renderProdGrid();renderNotifications();
 }
-function eliminarProducto(id){if(!confirm('¿Eliminar producto?'))return;DB.productos=DB.productos.filter(x=>x.id!==id);save();renderProductos();}
+function eliminarProducto(id){if(!confirm('¿Eliminar producto?'))return;DB.productos=DB.productos.filter(x=>x.id!==id);save();renderProductos();renderProdGrid();}
 
 // =====================================================================
 // UPSELLS

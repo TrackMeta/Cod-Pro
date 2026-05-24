@@ -5881,77 +5881,187 @@ function renderFlujoContent(){
 // LIQUIDACIÓN COURIER
 // =====================================================================
 function renderLiquidacion(){
+  const hoyStr=hoy();
+  const comxEnt=CFG.comLima||1;
+
+  // Base: solo Lima entregados
   const limaEnt=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado');
   const pendLiq=limaEnt.filter(p=>!p.liquidado);
   const liquidados=limaEnt.filter(p=>p.liquidado);
-  const montoPend=pendLiq.reduce((s,p)=>s+(p.precio||0),0);
-  const montoLiq=liquidados.reduce((s,p)=>s+(p.precio||0),0);
+
+  // Totales pendientes
+  const brutoPend=pendLiq.reduce((s,p)=>s+(p.precio||0),0);
+  const comPend=pendLiq.length*comxEnt;
+  const netoPend=brutoPend-comPend;
+
+  // Totales liquidados (histórico)
+  const brutoLiq=liquidados.reduce((s,p)=>s+(p.precio||0),0);
+  const comLiq=liquidados.length*comxEnt;
+  const netoLiq=brutoLiq-comLiq;
+
+  // Pedidos con más días sin liquidar
+  const maxDias=pendLiq.length?Math.max(...pendLiq.map(p=>{
+    const f=p.fecha||hoyStr;
+    return Math.floor((new Date()-new Date(f+'T12:00:00'))/(1000*60*60*24));
+  })):0;
+  const alertaNivel=maxDias>=3?'red':maxDias>=1?'amber':'green';
+
   // Agrupar pendientes por courier
   const byCourier={};
   pendLiq.forEach(p=>{
     const c=p.courier||'Sin asignar';
-    if(!byCourier[c])byCourier[c]={pedidos:[],monto:0};
+    if(!byCourier[c])byCourier[c]={pedidos:[],bruto:0};
     byCourier[c].pedidos.push(p);
-    byCourier[c].monto+=p.precio||0;
+    byCourier[c].bruto+=p.precio||0;
   });
-  // Comisión por entrega Lima
-  const comxEnt=CFG.comLima||1;
-  const comTotalPend=pendLiq.length*comxEnt;
-  const netoARecibir=montoPend-comTotalPend;
+
+  // Agrupar historial por fecha de liquidación
+  const byFechaLiq={};
+  liquidados.forEach(p=>{
+    const f=p.fechaLiq||'Sin fecha';
+    if(!byFechaLiq[f])byFechaLiq[f]={pedidos:[],bruto:0};
+    byFechaLiq[f].pedidos.push(p);
+    byFechaLiq[f].bruto+=p.precio||0;
+  });
 
   const html=`
-  <div class="section-header"><div><div class="section-title">💵 Liquidación Courier</div><div class="section-sub">Control del efectivo que deben liquidarte los motorizados Lima</div></div></div>
-  <div class="metrics-grid">
-    <div class="mcard mc-accent"><div class="mcard-label">📦 Bruto pendiente</div><div class="mcard-val mv-accent" style="font-size:20px">${fmt(montoPend)}</div><div class="mcard-sub">${pendLiq.length} pedidos sin liquidar</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">👥 Com. a descontar</div><div class="mcard-val mv-red">${fmt(comTotalPend)}</div><div class="mcard-sub">S/${comxEnt} × ${pendLiq.length} entregas</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">💰 Neto a recibir</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(netoARecibir)}</div><div class="mcard-sub">Bruto − comisiones</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">✅ Ya liquidado</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(montoLiq)}</div><div class="mcard-sub">${liquidados.length} pedidos</div></div>
+  <div class="section-header">
+    <div><div class="section-title">💵 Liquidación Courier</div>
+    <div class="section-sub">Control del efectivo que los motorizados Lima deben entregarte</div></div>
   </div>
-  ${Object.keys(byCourier).length?`
-  <div style="margin-bottom:16px">
-    ${Object.entries(byCourier).sort((a,b)=>b[1].monto-a[1].monto).map(([courier,data])=>{
-      const comC=data.pedidos.length*comxEnt;
-      const netoC=data.monto-comC;
-      return `<div class="card" style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-          <div>
-            <div style="font-size:15px;font-weight:700">🛵 ${courier}</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:3px">${data.pedidos.length} entrega(s)</div>
+
+  <!-- MÉTRICAS GLOBALES -->
+  <div class="metrics-grid">
+    <div class="mcard mc-${alertaNivel==='red'?'red':alertaNivel==='amber'?'accent':'green'}">
+      <div class="mcard-label">💰 Neto por recibir</div>
+      <div class="mcard-val mv-${alertaNivel==='red'?'red':alertaNivel==='amber'?'accent':'green'}" style="font-size:22px">${fmt(netoPend)}</div>
+      <div class="mcard-sub">${pendLiq.length} entregas · ${maxDias>0?`más antiguo: ${maxDias}d`:'al día ✅'}</div>
+    </div>
+    <div class="mcard mc-blue">
+      <div class="mcard-label">📦 Bruto cobrado (pendiente)</div>
+      <div class="mcard-val mv-blue" style="font-size:20px">${fmt(brutoPend)}</div>
+      <div class="mcard-sub">Los clientes ya pagaron este monto</div>
+    </div>
+    <div class="mcard mc-red">
+      <div class="mcard-label">🔧 Comisiones a descontar</div>
+      <div class="mcard-val mv-red">${fmt(comPend)}</div>
+      <div class="mcard-sub">S/${comxEnt} × ${pendLiq.length} entregas</div>
+    </div>
+    <div class="mcard mc-green">
+      <div class="mcard-label">✅ Total ya liquidado</div>
+      <div class="mcard-val mv-green" style="font-size:18px">${fmt(netoLiq)}</div>
+      <div class="mcard-sub">${liquidados.length} pedidos · bruto ${fmt(brutoLiq)}</div>
+    </div>
+  </div>
+
+  <!-- ALERTA si hay pedidos muy antiguos -->
+  ${maxDias>=2?`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${maxDias>=3?'var(--redL)':'rgba(245,158,11,.1)'};border:1px solid ${maxDias>=3?'rgba(239,68,68,.3)':'rgba(245,158,11,.3)'};border-radius:8px;margin-bottom:12px">
+    <span style="font-size:20px">${maxDias>=3?'🔴':'🟡'}</span>
+    <div>
+      <div style="font-weight:700;font-size:13px;color:${maxDias>=3?'var(--red)':'var(--amber)'}">Hay pedidos sin liquidar hace ${maxDias} días</div>
+      <div style="font-size:11px;color:var(--text3)">Revisa los couriers con pedidos más antiguos — el efectivo lleva tiempo en su poder</div>
+    </div>
+  </div>`:''}
+
+  <!-- COURIERS PENDIENTES -->
+  ${Object.keys(byCourier).length?
+    Object.entries(byCourier).sort((a,b)=>{
+      // Ordenar por días del pedido más antiguo (más urgente primero)
+      const maxA=Math.max(...a[1].pedidos.map(p=>Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24))));
+      const maxB=Math.max(...b[1].pedidos.map(p=>Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24))));
+      return maxB-maxA;
+    }).map(([courier,data])=>{
+      const com=data.pedidos.length*comxEnt;
+      const neto=data.bruto-com;
+      const diasMax=Math.max(...data.pedidos.map(p=>Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24))));
+      const urgente=diasMax>=3;
+      const advertencia=diasMax>=1&&diasMax<3;
+      // Ordenar pedidos del courier: más antiguos primero
+      const pedOrd=[...data.pedidos].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+      return`<div class="card" style="margin-bottom:10px;border-left:3px solid ${urgente?'var(--red)':advertencia?'var(--amber)':'var(--border)'}">
+        <!-- HEADER COURIER -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:${urgente?'var(--redL)':advertencia?'rgba(245,158,11,.15)':'var(--accentL)'};display:flex;align-items:center;justify-content:center;font-size:18px">🛵</div>
+            <div>
+              <div style="font-size:15px;font-weight:700">${courier}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${data.pedidos.length} entrega(s) · pedido más antiguo hace <span style="color:${urgente?'var(--red)':advertencia?'var(--amber)':'var(--green)'};font-weight:700">${diasMax}d</span></div>
+            </div>
           </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:var(--text3)">Bruto: <span class="mono" style="color:var(--accent)">${fmt(data.monto)}</span> − Com: <span class="mono" style="color:var(--red)">${fmt(comC)}</span></div>
-            <div style="font-size:17px;font-weight:700;font-family:var(--mono);color:var(--green)">Neto: ${fmt(netoC)}</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="text-align:right">
+              <div style="font-size:11px;color:var(--text3)">Bruto <span class="mono">${fmt(data.bruto)}</span> − Com <span class="mono" style="color:var(--red)">${fmt(com)}</span></div>
+              <div style="font-size:20px;font-weight:800;font-family:var(--mono);color:var(--green)">S/ ${neto.toFixed(2)}</div>
+            </div>
+            <button class="btn btn-success btn-sm" onclick="liquidarCourier('${courier.replace(/'/g,"\\'")}',${neto})">✅ Liquidar todo<br><span style="font-size:10px;opacity:.8">Recibir S/${neto.toFixed(2)}</span></button>
           </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-          <button class="btn btn-success btn-sm" onclick="liquidarCourier('${courier.replace(/'/g,"\\'")}')">✅ Marcar todo liquidado</button>
+        <!-- TABLA PEDIDOS DEL COURIER -->
+        <div class="tw"><table>
+          <thead><tr><th>Fecha</th><th>Días</th><th>#</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th><th style="text-align:right">Com.</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
+          <tbody>${pedOrd.map(p=>{
+            const dias=Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24));
+            const dColor=dias>=3?'var(--red)':dias>=1?'var(--amber)':'var(--green)';
+            const rowBg=dias>=3?'background:rgba(239,68,68,.04)':dias>=1?'background:rgba(245,158,11,.04)':'';
+            return`<tr style="${rowBg}">
+              <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(p.fecha||'').slice(5)||'—'}</td>
+              <td style="text-align:center"><span style="font-size:11px;font-weight:700;color:${dColor}">${dias}d</span></td>
+              <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+              <td style="font-weight:600;font-size:12px">${p.nombre}</td>
+              <td style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
+              <td class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
+              <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(comxEnt)}</td>
+              <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-comxEnt)}</td>
+              <td><button class="btn btn-ghost btn-xs" onclick="liquidarPedido(${p.id})">💵 Liq.</button></td>
+            </tr>`;
+          }).join('')}</tbody>
+          <tfoot><tr style="background:var(--surface3)">
+            <td colspan="5" style="font-size:11px;font-weight:700;padding:6px 8px">Subtotal ${courier}</td>
+            <td class="mono" style="text-align:right;font-weight:700">${fmt(data.bruto)}</td>
+            <td class="mono" style="text-align:right;color:var(--red)">−${fmt(com)}</td>
+            <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt(neto)}</td>
+            <td></td>
+          </tr></tfoot>
+        </table></div>
+      </div>`;
+    }).join('')
+  :`<div class="card" style="margin-bottom:16px"><div class="empty" style="padding:30px">✅ Ningún pedido Lima pendiente de liquidar</div></div>`}
+
+  <!-- HISTORIAL LIQUIDACIONES -->
+  ${Object.keys(byFechaLiq).length?`
+  <div class="card" style="margin-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div class="card-title" style="margin:0">📋 Historial de liquidaciones</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">${liquidados.length} pedidos · neto total recibido: <span class="mono" style="color:var(--green);font-weight:700">${fmt(netoLiq)}</span></div>
+      </div>
+    </div>
+    ${Object.entries(byFechaLiq).sort((a,b)=>b[0].localeCompare(a[0])).map(([fecha,data])=>{
+      const comF=data.pedidos.length*comxEnt;
+      const netoF=data.bruto-comF;
+      const esMostrar=fecha!=='Sin fecha';
+      return`<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface3);border-radius:6px;margin-bottom:6px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <div style="font-weight:700;font-size:13px">📅 ${esMostrar?fecha:'Sin fecha registrada'} <span style="font-size:11px;font-weight:400;color:var(--text3)">${data.pedidos.length} pedidos</span></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:11px;color:var(--text3)">Bruto <span class="mono">${fmt(data.bruto)}</span> − Com <span class="mono" style="color:var(--red)">${fmt(comF)}</span> = <span class="mono" style="color:var(--green);font-weight:700">${fmt(netoF)}</span></span>
+            <span style="color:var(--text3);font-size:11px">▼</span>
+          </div>
         </div>
-        <div class="tw"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr></thead>
-        <tbody>${data.pedidos.map(p=>`<tr>
-          <td class="td-mono" style="color:var(--text3)">#${p.id}</td>
-          <td style="font-weight:600">${p.nombre}</td>
-          <td style="font-size:12px">${p.producto}</td>
-          <td class="td-mono" style="color:var(--accent);font-weight:700">${fmt(p.precio)}</td>
-          <td class="td-sm">${p.fecha}</td>
-          <td><button class="btn btn-ghost btn-xs" onclick="liquidarPedido(${p.id})">💵 Liquidado</button></td>
-        </tr>`).join('')}</tbody></table></div>
+        <div class="tw">
+          <table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Courier</th><th style="text-align:right">Precio</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
+          <tbody>${[...data.pedidos].sort((a,b)=>(a.courier||'').localeCompare(b.courier||'')).map(p=>`<tr>
+            <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+            <td style="font-size:12px;font-weight:600">${p.nombre}</td>
+            <td style="font-size:11px;color:var(--text3)">${p.producto}</td>
+            <td style="font-size:11px;color:var(--text2)">${p.courier||'—'}</td>
+            <td class="mono" style="text-align:right;color:var(--text2)">${fmt(p.precio||0)}</td>
+            <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-comxEnt)}</td>
+            <td><button class="btn btn-ghost btn-xs" onclick="revertirLiquidacion(${p.id})" title="Revertir">↩️</button></td>
+          </tr>`).join('')}</tbody></table>
+        </div>
       </div>`;
     }).join('')}
-  </div>`:`<div class="card" style="margin-bottom:16px"><div class="empty">✅ Sin pedidos Lima pendientes de liquidar</div></div>`}
-  ${liquidados.length?`
-  <div class="card">
-    <div class="card-title">Historial liquidado (${liquidados.length})</div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Courier</th><th>Fecha liq.</th><th>Acción</th></tr></thead>
-    <tbody>${[...liquidados].sort((a,b)=>(b.fechaLiq||'').localeCompare(a.fechaLiq||'')).slice(0,20).map(p=>`<tr>
-      <td class="td-mono" style="color:var(--text3)">#${p.id}</td>
-      <td>${p.nombre}</td>
-      <td style="font-size:12px">${p.producto}</td>
-      <td class="td-mono" style="color:var(--green)">${fmt(p.precio)}</td>
-      <td style="color:var(--text2)">${p.courier||'—'}</td>
-      <td class="td-sm">${p.fechaLiq||'—'}</td>
-      <td><button class="btn btn-ghost btn-xs" onclick="revertirLiquidacion(${p.id})" title="Revertir a No Liquidado">↩️ Revertir</button></td>
-    </tr>`).join('')}
-    </tbody></table></div>
   </div>`:''}`;
   setContent(html);
 }
@@ -5962,8 +6072,9 @@ function liquidarPedido(id){
   p.liquidado=true;p.fechaLiq=hoy();
   save();renderLiquidacion();
 }
-function liquidarCourier(courier){
-  if(!confirm(`¿Marcar todos los pedidos de ${courier} como liquidados?`))return;
+function liquidarCourier(courier,neto){
+  const count=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado'&&(p.courier||'Sin asignar')===courier&&!p.liquidado).length;
+  if(!confirm(`✅ LIQUIDAR — ${courier}\n\n${count} pedido(s)\nNeto a recibir: S/ ${(neto||0).toFixed(2)}\n\n¿Confirmar?`))return;
   DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado'&&(p.courier||'Sin asignar')===courier&&!p.liquidado)
     .forEach(p=>{p.liquidado=true;p.fechaLiq=hoy();});
   save();renderLiquidacion();

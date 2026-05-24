@@ -2217,6 +2217,17 @@ async function save(){
   if(!SESSION?.workspace_id)return;
   if(SESSION.saViewMode){console.log('SA view mode — save blocked');return;}
   try{localStorage.setItem(getWsKey('db'),JSON.stringify(DB));}catch(e){}
+  if(!isAdmin()){
+    try{
+      await _supabase.from('worker_changes').upsert({
+        workspace_id:SESSION.workspace_id,
+        worker_id:SESSION.id,
+        db_data:DB,
+        updated_at:new Date().toISOString()
+      },{onConflict:'workspace_id,worker_id'});
+    }catch(e){console.warn('Worker sync error:',e);}
+    return;
+  }
   try{
     const{error}=await _supabase.from('workspaces').update({
       db_data:DB,cfg_data:CFG,updated_at:new Date().toISOString()
@@ -2228,18 +2239,26 @@ async function save(){
 async function syncWorkerChanges(){
   if(!isAdmin()||!SESSION?.workspace_id)return;
   try{
-    const wsKey=`cod_ws_${SESSION.workspace_id}_db`;
-    const localRaw=localStorage.getItem(wsKey);
-    if(!localRaw)return;
-    const localDB=JSON.parse(localRaw);
-    if(!localDB.pedidos||!localDB.pedidos.length)return;
+    const{data:changes}=await _supabase.from('worker_changes')
+      .select('*').eq('workspace_id',SESSION.workspace_id);
+    if(!changes||!changes.length)return;
     const supabaseIds=new Set((DB.pedidos||[]).map(p=>p.id));
-    const nuevos=localDB.pedidos.filter(p=>!supabaseIds.has(p.id));
-    if(!nuevos.length)return;
-    DB.pedidos=[...(DB.pedidos||[]),...nuevos];
+    let changed=false;
+    changes.forEach(ch=>{
+      const wDB=ch.db_data;
+      if(!wDB?.pedidos)return;
+      const nuevos=wDB.pedidos.filter(p=>!supabaseIds.has(p.id));
+      if(nuevos.length){
+        DB.pedidos=[...(DB.pedidos||[]),...nuevos];
+        nuevos.forEach(p=>supabaseIds.add(p.id));
+        changed=true;
+      }
+    });
+    if(!changed)return;
     const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
     if(maxId>=DB.nextId)DB.nextId=maxId+1;
     await _supabase.from('workspaces').update({db_data:DB,updated_at:new Date().toISOString()}).eq('id',SESSION.workspace_id);
+    await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id);
   }catch(e){console.warn('syncWorkerChanges:',e);}
 }
 
@@ -3425,7 +3444,7 @@ function renderItemsPedido(){
         <div class="fg"><label>Cantidad</label><input type="number" value="${cant}" min="1" oninput="actualizarCantidadItem(${idx},this.value)"></div>
         <div class="fg"><label>💰 Precio total S/</label><input type="number" value="${precioTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].precio=parseFloat(this.value)||0;recalcPend()"></div>
         ${cant>1&&precioTotal>0?`<div class="fg"><label style="color:var(--text3);font-size:11px">Precio unit. (ref.)</label><input type="number" value="${(precioTotal/cant).toFixed(2)}" readonly style="opacity:.55;cursor:not-allowed"></div>`:''}
-        <div class="fg"><label>Costo total S/</label><input type="number" value="${cprodTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].cprod=parseFloat(this.value)||0"></div>
+        ${isAdmin()?`<div class="fg"><label>Costo total S/</label><input type="number" value="${cprodTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].cprod=parseFloat(this.value)||0"></div>`:''}
       </div>
       ${ofertasHtml}
       ${desgloseHtml}
@@ -3482,6 +3501,7 @@ function openNuevoPedido(){
   document.getElementById('p-fecha').value=hoy();
   document.getElementById('p-cenv').value=CFG.courier||14;
   document.getElementById('p-emb').value='';
+  ['p-cenv','p-emb'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=!isAdmin();e.style.opacity=isAdmin()?'':'0.6';e.style.cursor=isAdmin()?'':'not-allowed';}});
   document.getElementById('p-adelanto').value=CFG.adelanto||20;
   document.getElementById('p-adv-default').textContent=CFG.adelanto||20;
   document.getElementById('p-pendiente').value='';
@@ -3515,6 +3535,7 @@ function editarPedido(id){
   if(p.upsellRes)document.getElementById('p-upsell-res').value=p.upsellRes;
   document.getElementById('p-cenv').value=p.cenv||0;
   document.getElementById('p-emb').value=p.emb||0;
+  ['p-cenv','p-emb'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=!isAdmin();e.style.opacity=isAdmin()?'':'0.6';e.style.cursor=isAdmin()?'':'not-allowed';}});
   document.getElementById('p-adv-default').textContent=CFG.adelanto||20;
   // Load items
   if(p.items&&p.items.length){
@@ -6119,6 +6140,7 @@ function guardarNotaRapida(id){
 }
 
 function resetearDatos(){
+  if(!isAdmin())return;
   if(!confirm('⚠️ ¿Eliminar TODOS los datos? No se puede deshacer.'))return;
   DB={pedidos:[],asesores:[],publicidad:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA.map(t=>({...t}))};
   save();updateSidebarBadges();renderDashboard();alert('Datos eliminados.');

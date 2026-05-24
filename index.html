@@ -2032,12 +2032,10 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL TRACKING SHALOM -->
 <div class="overlay" id="modal-tracking">
 <div class="modal sm">
-  <div class="modal-h"><div class="modal-title">📦 Datos de Envío Shalom</div><div class="mc" onclick="closeModal('modal-tracking')">×</div></div>
+  <div class="modal-h"><div class="modal-title">🔑 Clave de Recojo</div><div class="mc" onclick="closeModal('modal-tracking')">×</div></div>
   <input type="hidden" id="tr-id">
   <div class="form-grid">
-    <div class="fg" style="grid-column:1/-1"><label>N° Orden Shalom</label><input type="text" id="tr-orden" placeholder="Número de orden"></div>
-    <div class="fg"><label>Código guía</label><input type="text" id="tr-codigo" placeholder="Código de guía"></div>
-    <div class="fg"><label>Clave de recojo</label><input type="text" id="tr-clave" placeholder="Clave para el cliente"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Clave de recojo</label><input type="text" id="tr-clave" placeholder="Ej: 1234" style="font-size:22px;font-weight:700;text-align:center;letter-spacing:.1em"></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarTracking()">Guardar</button>
@@ -2206,11 +2204,12 @@ let notifTab='active';
 let CURRENT_PAGE='';
 
 const DEFAULT_WA=[
-  {id:1,nombre:'Confirmación pedido Lima',body:'Hola {nombre} 👋, te confirmamos tu pedido de *{producto}* por S/{precio}. Tu delivery llegará pronto al distrito de {distrito}. ¡Gracias!'},
-  {id:2,nombre:'Solicitud adelanto (Provincia)',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}*. Para procesar tu envío necesitamos un adelanto de S/{adelanto} vía Yape/Plin al número: *{mi_numero}*. ¡Gracias!'},
-  {id:3,nombre:'Aviso llegada agencia',body:'Hola {nombre} ✅, tu pedido *{producto}* ya llegó a la agencia de {sede}. Código de recojo: *{clave}*. Recuerda llevar tu DNI y el pago restante de S/{pendiente}. ¡Que lo disfrutes!'},
-  {id:4,nombre:'Seguimiento sin respuesta',body:'Hola {nombre}, intentamos contactarte para confirmar tu pedido de *{producto}*. Si sigues interesado, escríbenos. ¡Stock limitado!'},
-  {id:5,nombre:'Post-entrega',body:'Hola {nombre} 😊, esperamos que estés disfrutando tu *{producto}*. Si te gustó, ¡compártelo! Ante cualquier consulta, aquí estamos.'},
+  {id:1,nombre:'✅ Confirmación Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\nTu delivery llegará al distrito de *{distrito}*. Te avisamos cuando esté en camino.\n\n¡Gracias por tu compra! 🙌'},
+  {id:2,nombre:'💰 Solicitud de adelanto (Provincia)',body:'Hola {nombre} 👋, tu pedido de *{producto}* está listo para enviar.\n\nPara despachar necesitamos un adelanto de *S/{adelanto}* vía Yape/Plin al número: *{mi_numero}* 📲\n\nEn cuanto confirmemos el pago, enviamos tu paquete. ¡Gracias!'},
+  {id:3,nombre:'📦 Llegada a agencia (Provincia)',body:'Hola {nombre} ✅, tu pedido *{producto}* ya llegó a la agencia *{sede}*.\n\n🔑 Tu clave de recojo: *{clave}*\n\nRecuerda llevar tu DNI y el pago restante de *S/{pendiente}*. ¡Que lo disfrutes!'},
+  {id:4,nombre:'🏙️ Confirmación + Fecha Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\n📅 Fecha estimada de entrega: *{fechaEntregaLima}* en *{distrito}*.\n\nCualquier consulta, escríbenos. ¡Gracias!'},
+  {id:5,nombre:'📵 Seguimiento sin respuesta',body:'Hola {nombre}, intentamos contactarte para coordinar tu pedido de *{producto}*.\n\nSi aún tienes interés, escríbenos pronto — ¡pocas unidades disponibles! 🙌'},
+  {id:6,nombre:'⭐ Post-entrega',body:'Hola {nombre} 😊, esperamos que estés disfrutando tu *{producto}*.\n\nSi te gustó, cuéntanos o recomiéndanos. Ante cualquier consulta, aquí estamos. ¡Gracias por tu confianza! 🌟'},
 ];
 
 function isAdmin(){return SESSION?.role==='admin';}
@@ -2854,9 +2853,9 @@ function calcNotifications(){
     return diff>5;
   });
   if(enviados5.length)notes.push({id:'env5dias',type:'orange',icon:'🚚',title:`${enviados5.length} envío(s) sin actualizar`,sub:`Llevan más de 5 días como "Enviado"`,action:`showPage('pedidos');`});
-  // 4. Adelanto sin código Shalom
-  const sinCod=DB.pedidos.filter(p=>p.zona==='provincia'&&p.adelanto>0&&!p.codigo&&['confirmado','enviado'].includes(p.estado));
-  if(sinCod.length)notes.push({id:'sincod',type:'blue',icon:'📋',title:`${sinCod.length} adelanto(s) sin código Shalom`,sub:`Pedidos con pago recibido sin código de guía asignado`,action:`showPage('provincia');`});
+  // 4. Adelanto sin clave de recojo
+  const sinCod=DB.pedidos.filter(p=>p.zona==='provincia'&&p.adelanto>0&&!p.clave&&['confirmado','enviado'].includes(p.estado));
+  if(sinCod.length)notes.push({id:'sincod',type:'blue',icon:'🔑',title:`${sinCod.length} pedido(s) sin clave de recojo`,sub:`Pedidos con adelanto pagado sin clave asignada`,action:`showPage('provincia');`});
   // 5. Efectividad por debajo de meta
   const recientes=filtrarPeriodo(DB.pedidos,'semana');
   const ef=recientes.length>5?Math.round(recientes.filter(p=>p.estado==='entregado').length/recientes.length*100):null;
@@ -3370,7 +3369,6 @@ function renderPedidosContent(){
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarPedido(${p.id})" title="Eliminar">🗑️</button>
-      ${p.zona==='provincia'&&p.orden&&p.codigo?`<a href="https://shalom.com.pe/rastrea/${p.orden}/${p.codigo}" target="_blank" class="btn btn-blue btn-xs">📦</a>`:''}
     </div></td>
   </tr>`).join('');
     return sepRow+rows;
@@ -4565,7 +4563,7 @@ function renderProvinciaContent(){
       cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado}</span>`:'',
       (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado}</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="13"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
+    const sepRow=`<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
     const rows=its.map(p=>{
       const entregado=p.estado==='entregado';
       return `<tr>
@@ -4577,9 +4575,8 @@ function renderProvinciaContent(){
     <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
     <td class="mono" style="color:var(--accent);font-weight:700">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.adelanto||0)}</td>
     <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.pendiente||0)}</td>
-    <td class="mono" style="font-size:12px">${p.orden||'<span style="color:var(--text3);font-size:11px">—</span>'}</td>
     <td style="background:${p.clave?'rgba(155,110,240,.08)':'transparent'}">${p.clave
-      ?`<div style="display:flex;align-items:center;gap:5px"><span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span><button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button></div>`
+      ?`<div style="display:flex;align-items:center;gap:5px"><span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span><button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button><button onclick="openTracking(${p.id})" style="background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 6px">✏️</button></div>`
       :`<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:var(--text3)">+ Agregar</button>`
     }</td>
     <td style="min-width:145px">
@@ -4592,35 +4589,27 @@ function renderProvinciaContent(){
       </select>
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
-    <td>
-      ${p.orden&&p.codigo?`<a href="https://shalom.com.pe/rastrea/${p.orden}/${p.codigo}" target="_blank" class="btn btn-blue btn-xs">📦 Rastrear</a>`:`<span style="font-size:11px;color:var(--text3)">Sin tracking</span>`}
-      ${!entregado?`<button class="btn btn-ghost btn-xs" style="margin-top:3px;display:block" onclick="openTracking(${p.id})">📝 ${p.orden?'Editar':'Registrar'}</button>`:''}
-    </td>
     <td><div style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})">🕐</button>
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
-  }).join(''):`<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>N°Orden</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado (editable)</th><th>Tracking</th><th>Acciones</th></tr></thead>
+  }).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave de Recojo</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 
 function openTracking(id){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   document.getElementById('tr-id').value=id;
-  document.getElementById('tr-orden').value=p.orden||'';
-  document.getElementById('tr-codigo').value=p.codigo||'';
   document.getElementById('tr-clave').value=p.clave||'';
   document.getElementById('modal-tracking').classList.add('open');
 }
 function guardarTracking(){
   const id=parseInt(document.getElementById('tr-id').value);
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
-  p.orden=document.getElementById('tr-orden').value;
-  p.codigo=document.getElementById('tr-codigo').value;
-  p.clave=document.getElementById('tr-clave').value;
+  p.clave=document.getElementById('tr-clave').value.trim();
   save();closeModal('modal-tracking');renderProvinciaContent();
 }
 
@@ -5712,13 +5701,21 @@ function renderWhatsapp(){
     </div>
     <!-- Panel lateral variables -->
     <div class="card" style="height:fit-content;position:sticky;top:16px">
-      <div class="card-title">Variables disponibles</div>
-      ${[['nombre','Nombre del cliente'],['producto','Producto'],['precio','Precio total'],['adelanto','Adelanto solicitado'],['pendiente','Pago pendiente'],['distrito','Distrito Lima'],['sede','Sede Shalom'],['clave','Clave de recojo'],['mi_numero','Tu número Yape/Plin'],['campana','Campaña']].map(([v,d])=>`
-        <div class="cf-row">
-          <code style="background:var(--surface3);padding:2px 6px;border-radius:4px;font-size:11px;color:var(--accent);cursor:pointer" onclick="navigator.clipboard.writeText('{${v}}')" title="Clic para copiar">{${v}}</code>
-          <span style="font-size:12px;color:var(--text2)">${d}</span>
-        </div>`).join('')}
-      <div style="margin-top:10px;font-size:11px;color:var(--text3)">Haz clic en una variable para copiarla</div>
+      <div class="card-title">📌 Variables disponibles</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:10px">Clic en una variable para copiarla al portapapeles</div>
+      ${[
+        {group:'👤 Cliente',vars:[['nombre','Nombre del cliente'],['celular','Celular del cliente']]},
+        {group:'📦 Pedido',vars:[['producto','Producto(s)'],['cantidad','Cantidad'],['precio','Precio total'],['fecha','Fecha del pedido']]},
+        {group:'🏙️ Lima',vars:[['distrito','Distrito de entrega'],['fechaEntregaLima','Fecha entrega Lima']]},
+        {group:'📦 Provincia',vars:[['sede','Sede de recojo'],['clave','Clave de recojo'],['adelanto','Adelanto pagado'],['pendiente','Pago pendiente']]},
+        {group:'📱 General',vars:[['mi_numero','Tu número Yape/Plin']]}
+      ].map(g=>`
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px">${g.group}</div>
+        ${g.vars.map(([v,d])=>`
+        <div class="cf-row" style="margin-bottom:4px">
+          <code onclick="navigator.clipboard.writeText('{${v}}').then(()=>{this.style.background='var(--greenL)';setTimeout(()=>this.style.background='',800)})" style="background:var(--surface3);padding:2px 7px;border-radius:4px;font-size:11px;color:var(--accent);cursor:pointer;transition:background .2s" title="Copiar">{${v}}</code>
+          <span style="font-size:11.5px;color:var(--text2)">${d}</span>
+        </div>`).join('')}`).join('')}
     </div>
   </div>`;
   setContent(html);
@@ -5764,14 +5761,17 @@ function renderWATmpls(){
   const miNum=localStorage.getItem('wa_mi_numero')||'{mi_numero}';
   const vars={
     nombre:ped?.nombre||'{nombre}',
+    celular:ped?.celular||'{celular}',
     producto:ped?.producto||'{producto}',
-    precio:ped?String(ped.precio):'',
-    adelanto:ped?String(ped.adelanto||''):'',
-    pendiente:ped?String(ped.pendiente||''):'',
+    cantidad:ped?String(ped.cantidad||1):'',
+    precio:ped?String(ped.precio||0):'',
+    adelanto:ped?String(ped.adelanto||0):'',
+    pendiente:ped?String(ped.pendiente||0):'',
+    fecha:ped?.fecha||'{fecha}',
     distrito:ped?.dist||'{distrito}',
+    fechaEntregaLima:ped?.fechaEntregaLima||'{fechaEntregaLima}',
     sede:ped?.sede||'{sede}',
     clave:ped?.clave||'{clave}',
-    campana:ped?.campana||'{campana}',
     mi_numero:miNum
   };
   function fillVars(tmpl){
@@ -5814,16 +5814,25 @@ let waEditId=null;
 function openModalWA(id){
   waEditId=id||null;
   const t=id?DB.waTmpls.find(x=>x.id===id):null;
-  // Show inline modal
+  const varsList=['{nombre}','{celular}','{producto}','{cantidad}','{precio}','{fecha}','{distrito}','{fechaEntregaLima}','{sede}','{clave}','{adelanto}','{pendiente}','{mi_numero}'];
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-wa-tmp';
-  mod.innerHTML=`<div class="modal sm">
-    <div class="modal-h"><div class="modal-title">${t?'Editar plantilla':'Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
+  mod.innerHTML=`<div class="modal" style="max-width:540px">
+    <div class="modal-h"><div class="modal-title">${t?'✏️ Editar plantilla':'💬 Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
     <div class="form-grid">
-      <div class="fg" style="grid-column:1/-1"><label>Nombre</label><input type="text" id="wa-n" value="${t?t.nombre:''}" placeholder="Ej: Confirmación Lima"></div>
-      <div class="fg" style="grid-column:1/-1"><label>Mensaje (usa {variable})</label><textarea id="wa-b" style="min-height:140px">${t?t.body:''}</textarea></div>
+      <div class="fg" style="grid-column:1/-1"><label>Nombre de la plantilla</label><input type="text" id="wa-n" value="${t?t.nombre.replace(/"/g,'&quot;'):''}" placeholder="Ej: Confirmación Lima"></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Mensaje <span style="font-size:10px;color:var(--text3);font-weight:400">(puedes usar *negrita*, _cursiva_ y variables)</span></label>
+        <textarea id="wa-b" style="min-height:160px;font-family:var(--mono);font-size:13px">${t?t.body:''}</textarea>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label style="margin-bottom:6px;display:block">Variables disponibles <span style="font-size:10px;color:var(--text3)">(clic para insertar)</span></label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${varsList.map(v=>`<code onclick="(function(){const ta=document.getElementById('wa-b');const s=ta.selectionStart,e=ta.selectionEnd;ta.value=ta.value.substring(0,s)+'${v}'+ta.value.substring(e);ta.focus();ta.selectionStart=ta.selectionEnd=s+${v.length};})()" style="background:var(--surface3);border:1px solid var(--border2);padding:3px 8px;border-radius:5px;font-size:11px;color:var(--accent);cursor:pointer;transition:background .15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface3)'">${v}</code>`).join('')}
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn btn-primary" onclick="guardarWA()">Guardar</button>
+      <button class="btn btn-primary" onclick="guardarWA()">💾 Guardar</button>
       <button class="btn btn-ghost" onclick="document.getElementById('modal-wa-tmp').remove()">Cancelar</button>
     </div>
   </div>`;

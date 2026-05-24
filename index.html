@@ -3546,11 +3546,11 @@ function renderPedidosContent(){
       cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado} ent.</span>`:'',
       (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado} dev.</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="13"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
+    const sepRow=`<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
     const rows=its.map(p=>`<tr id="ped-row-${p.id}">
     <td style="padding:6px 8px;text-align:center"><input type="checkbox" class="ped-chk" data-id="${p.id}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onchange="actualizarSelPed()"></td>
     <td class="mono" style="color:var(--text3)">#${p.id}</td>
-    <td><div style="font-weight:600">${p.nombre}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
+    <td><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge">⚠️ DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
     <td>${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td>${bdgMod(p.modalidad||'stock')}</td>
     <td style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b>${p.zona==='lima'?'🏙️ Lima':'📦 Prov.'}</b></td>
@@ -3559,7 +3559,6 @@ function renderPedidosContent(){
     <td class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
     <td>${badge(p.estado)}</td>
     <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span style="font-size:11px;color:var(--text3)">rechazado</span>':''}</td>
-    <td style="font-size:11px;color:var(--text3)">${p.fuente||'-'}${detectarDuplicado(p.celular,p.id)?'<br><span class="dup-badge">⚠️ DUP</span>':''}</td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
@@ -3567,8 +3566,8 @@ function renderPedidosContent(){
     </div></td>
   </tr>`).join('');
     return sepRow+rows;
-  }).join(''):`<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
-  view.innerHTML=selBar+`<div class="tw ts"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Fuente</th><th>Acciones</th></tr></thead>
+  }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
+  view.innerHTML=selBar+`<div class="tw ts"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Acciones</th></tr></thead>
   <tbody>${tableBody}</tbody></table></div>`;
 }
 
@@ -3896,7 +3895,6 @@ function guardarPedido(){
     codigo:id?DB.pedidos.find(x=>x.id===parseInt(id))?.codigo||'':'',
     clave:id?DB.pedidos.find(x=>x.id===parseInt(id))?.clave||'':'',
     estado:document.getElementById('p-estado').value,
-    fuente:id?DB.pedidos.find(x=>x.id===parseInt(id))?.fuente||'Meta Ads':'Meta Ads',
     campana:id?DB.pedidos.find(x=>x.id===parseInt(id))?.campana||'':'',
     comentario:document.getElementById('p-comentario').value,
     upsellProd:document.getElementById('p-upsell-prod').value,

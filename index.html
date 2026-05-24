@@ -2239,7 +2239,94 @@ async function save(){
       db_data:DB,cfg_data:CFG,updated_at:new Date().toISOString()
     }).eq('id',SESSION.workspace_id);
     if(error)console.warn('Save error:',error.message);
+    else autoBackup(); // ✅ Solo backup si Supabase confirmó el guardado
   }catch(e){console.warn('Sync error:',e);}
+}
+
+// =====================================================================
+// AUTO-BACKUP — Copia local diaria automática (localStorage)
+// =====================================================================
+function autoBackup(){
+  if(!SESSION?.workspace_id)return;
+  const key='cod_autobackup_'+SESSION.workspace_id;
+  try{
+    const backups=JSON.parse(localStorage.getItem(key)||'[]');
+    const hoyStr=hoy();
+    // Máximo 1 backup por día (no spamear localStorage)
+    if(backups.length&&backups[0].fecha===hoyStr)return;
+    backups.unshift({
+      fecha:hoyStr,
+      ts:new Date().toISOString(),
+      totalPedidos:DB.pedidos.length,
+      db:JSON.parse(JSON.stringify(DB)), // deep copy
+      cfg:JSON.parse(JSON.stringify(CFG))
+    });
+    backups.splice(10); // Guardar últimos 10 días
+    localStorage.setItem(key,JSON.stringify(backups));
+  }catch(e){console.warn('autoBackup error:',e);}
+}
+
+function getBackups(){
+  if(!SESSION?.workspace_id)return[];
+  try{return JSON.parse(localStorage.getItem('cod_autobackup_'+SESSION.workspace_id)||'[]');}
+  catch(e){return[];}
+}
+
+function verBackupsLocales(){
+  const backups=getBackups();
+  const mod=document.createElement('div');
+  mod.className='overlay open';mod.id='modal-backups';
+  if(!backups.length){
+    mod.innerHTML=`<div class="modal sm"><div class="modal-h"><div class="modal-title">📦 Backups automáticos</div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div><div style="padding:20px;text-align:center;color:var(--text3)"><div style="font-size:32px;margin-bottom:12px">🔍</div><div style="font-weight:600;margin-bottom:6px">Sin backups aún</div><div style="font-size:12px">Los backups se crean automáticamente cada vez que guardas datos.<br>Aparecerán aquí a partir de mañana.</div><div style="margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="exportarDatos()">💾 Descargar backup manual ahora</button></div></div></div>`;
+    document.body.appendChild(mod);mod.addEventListener('click',e=>{if(e.target===mod)mod.remove();});return;
+  }
+  const rows=backups.map((b,i)=>{
+    const fecha=new Date(b.ts);
+    const fechaStr=fecha.toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'});
+    const horaStr=fecha.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+    const esHoy=b.fecha===hoy();
+    return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${fechaStr} ${esHoy?'<span style="background:var(--greenL);color:var(--green);font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700">HOY</span>':''}</div>
+        <div style="font-size:11px;color:var(--text3)">${horaStr} · ${b.totalPedidos} pedidos</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="descargarBackup(${i})">⬇️ Descargar</button>
+      <button class="btn btn-blue btn-xs" onclick="restaurarBackup(${i})">🔄 Restaurar</button>
+    </div>`;
+  }).join('');
+  mod.innerHTML=`<div class="modal"><div class="modal-h"><div><div class="modal-title">📦 Backups automáticos</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Solo en este navegador</div></div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
+  <div style="padding:0 2px">${rows}</div>
+  <div style="margin-top:14px;padding:10px;background:var(--surface3);border-radius:8px;font-size:11px;color:var(--text3)">
+    ⚠️ <strong>Restaurar</strong> reemplaza todos los datos actuales con el backup seleccionado. Se guarda automáticamente en Supabase.
+  </div>
+  <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
+    <button class="btn btn-ghost btn-sm" onclick="exportarDatos()">💾 Nuevo backup manual</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-backups').remove()">Cerrar</button>
+  </div></div>`;
+  document.body.appendChild(mod);mod.addEventListener('click',e=>{if(e.target===mod)mod.remove();});
+}
+
+function descargarBackup(index){
+  const backups=getBackups();
+  if(!backups[index])return;
+  const b=backups[index];
+  const blob=new Blob([JSON.stringify({DB:b.db,CFG:b.cfg},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`codpro_backup_${b.fecha}.json`;a.click();
+}
+
+async function restaurarBackup(index){
+  const backups=getBackups();
+  if(!backups[index])return;
+  const b=backups[index];
+  const fechaStr=new Date(b.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
+  if(!confirm(`⚠️ RESTAURAR BACKUP\n\nFecha: ${fechaStr}\nPedidos: ${b.totalPedidos}\n\nEsto REEMPLAZA todos los datos actuales.\n¿Confirmas?`))return;
+  DB=JSON.parse(JSON.stringify(b.db));
+  if(b.cfg)CFG=Object.assign({...CFG},b.cfg);
+  await save();
+  document.getElementById('modal-backups')?.remove();
+  showPage('dashboard');
+  alert(`✅ Backup del ${fechaStr} restaurado correctamente.`);
 }
 
 async function syncWorkerChanges(){
@@ -6151,15 +6238,37 @@ function renderConfig(){
     </div>
     <div class="card">
       <div class="card-title">Datos & Backup</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="exportarDatos()">💾 Backup JSON</button>
-      <button class="btn btn-success btn-sm" onclick="exportarExcel()">📊 Pedidos CSV</button>
-      <button class="btn btn-blue btn-sm" onclick="exportarFinanzasExcel()">💰 Finanzas CSV</button>
-      <button class="btn btn-ghost btn-sm" onclick="showPage('importar')">📥 Importar CSV</button>
-      <button class="btn btn-danger btn-sm" onclick="resetearDatos()">🗑️ Limpiar datos</button>
-    </div>
-    <div style="margin-top:12px;font-size:11px;color:var(--text3)">COD PRO · Datos por workspace en localStorage</div>
-  </div>`;
+      ${(()=>{
+        const backups=getBackups();
+        const ultimo=backups[0];
+        const infoBackup=ultimo
+          ?`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--greenL);border-radius:8px;margin-bottom:12px">
+              <span style="font-size:16px">✅</span>
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:700;color:var(--green)">Último backup automático: ${new Date(ultimo.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'short'})}</div>
+                <div style="font-size:11px;color:var(--text3)">${ultimo.totalPedidos} pedidos · ${backups.length} backup(s) guardado(s)</div>
+              </div>
+              <button class="btn btn-ghost btn-xs" onclick="verBackupsLocales()">Ver todos</button>
+            </div>`
+          :`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface3);border-radius:8px;margin-bottom:12px">
+              <span style="font-size:16px">🕐</span>
+              <div style="font-size:12px;color:var(--text3)">Backup automático: se crea al guardar por primera vez hoy</div>
+            </div>`;
+        return infoBackup;
+      })()}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn btn-blue btn-sm" onclick="verBackupsLocales()">📦 Ver & Restaurar backups</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarDatos()">⬇️ Descargar JSON</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn btn-success btn-sm" onclick="exportarExcel()">📊 Pedidos CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarFinanzasExcel()">💰 Finanzas CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('importar')">📥 Importar CSV</button>
+      </div>
+      <div class="divider"></div>
+      <button class="btn btn-danger btn-sm" onclick="resetearDatos()">🗑️ Limpiar todos los datos</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3)">Backups automáticos: 1 por día · últimos 10 días · solo este navegador</div>
+    </div>`;
   setContent(html);
 }
 

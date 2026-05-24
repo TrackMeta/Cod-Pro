@@ -5564,8 +5564,16 @@ function renderFlujoContent(){
   const ent=ped.filter(p=>p.estado==='entregado');
   const env=ped.filter(p=>p.estado==='enviado');
   const conf=ped.filter(p=>p.estado==='confirmado');
-  const capitalCongelado=env.concat(conf).reduce((s,p)=>s+(p.precio||0),0);
-  const adelantosPend=conf.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.adelanto||0),0);
+  const activos=[...env,...conf];
+
+  // ✅ CORRECCIÓN: "Por cobrar" = pendiente real, no precio completo
+  // Lima: pendiente = precio completo. Provincia: pendiente = precio - adelanto
+  const porCobrar=activos.reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0);
+  // Adelantos YA en mano (cobrados pero pedido no entregado aún)
+  const adelantosEnMano=conf.filter(p=>p.zona==='provincia'&&(p.adelanto||0)>0)
+    .reduce((s,p)=>s+(p.adelanto||0),0);
+  // Valor total de cartera activa (referencia)
+  const valorCartera=activos.reduce((s,p)=>s+(p.precio||0),0);
 
   // Build days array from filter
   const per=document.getElementById('flujo-per')?.value||'7';
@@ -5589,6 +5597,8 @@ function renderFlujoContent(){
     for(let i=n-1;i>=0;i--){const d=new Date(h);d.setDate(d.getDate()-i);dias.push(d.toISOString().split('T')[0]);}
   }
 
+  const DOW=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
   const porDia=dias.map(dia=>{
     const entDia=ent.filter(p=>p.fecha===dia);
     const ing=entDia.reduce((s,p)=>s+(p.precio||0),0);
@@ -5597,111 +5607,229 @@ function renderFlujoContent(){
     const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
     const gastosDia=(DB.gastos||[]).filter(g=>g.fecha===dia).reduce((s,g)=>s+(g.monto||0),0);
-    return {dia,ing,pub,gastos:gastosDia,util:ing-cprodD-cenvD-cembD-pub-gastosDia,ent:entDia.length};
+    // Entradas reales del día: adelantos cobrados de pedidos nuevos de provincia
+    const entradas=ped.filter(p=>p.zona==='provincia'&&p.fecha===dia&&(p.adelanto||0)>0)
+      .reduce((s,p)=>s+(p.adelanto||0),0);
+    const dow=DOW[new Date(dia+'T12:00:00').getDay()];
+    return {dia,dow,ing,pub,gastos:gastosDia,entradas,util:ing-cprodD-cenvD-cembD-pub-gastosDia,ent:entDia.length};
   });
-  const maxIng=Math.max(...porDia.map(d=>d.ing),1);
-  // Only count days with activity for averages
+
+  const maxBar=Math.max(...porDia.map(d=>Math.max(d.ing,d.pub+d.gastos)),1);
   const diasConActividad=porDia.filter(d=>d.ing>0||d.pub>0);
-  const promDiario=diasConActividad.length>0?diasConActividad.reduce((s,d)=>s+d.ing,0)/diasConActividad.length:0;
-  const promUtil=diasConActividad.length>0?diasConActividad.reduce((s,d)=>s+d.util,0)/diasConActividad.length:0;
+  const promDiario=diasConActividad.length?diasConActividad.reduce((s,d)=>s+d.ing,0)/diasConActividad.length:0;
+  const promUtil=diasConActividad.length?diasConActividad.reduce((s,d)=>s+d.util,0)/diasConActividad.length:0;
   const ingTotal=porDia.reduce((s,d)=>s+d.ing,0);
   const pubTotal=porDia.reduce((s,d)=>s+d.pub,0);
+  const gastosTotal=porDia.reduce((s,d)=>s+d.gastos,0);
   const utilTotal=porDia.reduce((s,d)=>s+d.util,0);
   const mejorDia=diasConActividad.length?diasConActividad.reduce((a,b)=>a.ing>b.ing?a:b):null;
   const peorDia=diasConActividad.filter(d=>d.ing>0).length>1?diasConActividad.filter(d=>d.ing>0).reduce((a,b)=>a.ing<b.ing?a:b):null;
 
+  // Gastos del período (lista)
+  const gastosLista=(DB.gastos||[]).filter(g=>dias.includes(g.fecha)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const pubLista=(DB.publicidad||[]).filter(p=>dias.includes(p.fecha)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+
   const v=document.getElementById('flujo-content');if(!v)return;
   v.innerHTML=`
+  <!-- MÉTRICAS PRINCIPALES -->
   <div class="metrics-grid">
-    <div class="mcard mc-accent"><div class="mcard-label">💰 Capital en tránsito</div><div class="mcard-val mv-accent" style="font-size:20px">${fmt(capitalCongelado)}</div><div class="mcard-sub">${env.length+conf.length} pedidos sin cobrar</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">📥 Adelantos provincia</div><div class="mcard-val mv-blue" style="font-size:20px">${fmt(adelantosPend)}</div><div class="mcard-sub">Cobrado, pendiente de entrega</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">📈 Ingresos (período)</div><div class="mcard-val mv-green" style="font-size:20px">${fmt(ingTotal)}</div><div class="mcard-sub">Prom: ${fmt(promDiario)}/día activo</div></div>
-    <div class="mcard mc-${utilTotal>=0?'green':'red'}"><div class="mcard-label">✅ Utilidad (período)</div><div class="mcard-val mv-${utilTotal>=0?'green':'red'}" style="font-size:20px">${fmtN(utilTotal)}</div><div class="mcard-sub">Prom: ${fmtN(promUtil)}/día activo</div></div>
+    <div class="mcard mc-accent">
+      <div class="mcard-label">💸 Por cobrar (real)</div>
+      <div class="mcard-val mv-accent" style="font-size:20px">${fmt(porCobrar)}</div>
+      <div class="mcard-sub">${activos.length} pedidos activos · cartera total ${fmt(valorCartera)}</div>
+    </div>
+    <div class="mcard mc-blue">
+      <div class="mcard-label">🤝 Adelantos en mano</div>
+      <div class="mcard-val mv-blue" style="font-size:20px">${fmt(adelantosEnMano)}</div>
+      <div class="mcard-sub">Cobrado de ${conf.filter(p=>p.zona==='provincia'&&(p.adelanto||0)>0).length} pedidos prov. confirmados</div>
+    </div>
+    <div class="mcard mc-green">
+      <div class="mcard-label">📈 Ingresos (período)</div>
+      <div class="mcard-val mv-green" style="font-size:20px">${fmt(ingTotal)}</div>
+      <div class="mcard-sub">Prom: ${fmt(promDiario)}/día activo · ${diasConActividad.length} días</div>
+    </div>
+    <div class="mcard mc-${utilTotal>=0?'green':'red'}">
+      <div class="mcard-label">✅ Utilidad (período)</div>
+      <div class="mcard-val mv-${utilTotal>=0?'green':'red'}" style="font-size:20px">${fmtN(utilTotal)}</div>
+      <div class="mcard-sub">Prom: ${fmtN(promUtil)}/día · margen ${ingTotal>0?((utilTotal/ingTotal)*100).toFixed(1):'0'}%</div>
+    </div>
   </div>
+
+  <!-- MEJOR / PEOR DÍA -->
   ${mejorDia?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
     <div style="flex:1;min-width:180px;padding:10px 14px;background:var(--greenL);border:1px solid rgba(34,197,94,.25);border-radius:8px">
       <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em">🏆 Mejor día</div>
-      <div style="font-size:15px;font-weight:700;margin-top:3px">${mejorDia.dia.slice(5)} · <span class="mono" style="color:var(--green)">${fmt(mejorDia.ing)}</span></div>
-      <div style="font-size:10.5px;color:var(--text3)">${mejorDia.ent} entregas · util: ${fmtN(mejorDia.util)}</div>
+      <div style="font-size:15px;font-weight:700;margin-top:3px">${mejorDia.dow} ${mejorDia.dia.slice(5)} · <span class="mono" style="color:var(--green)">${fmt(mejorDia.ing)}</span></div>
+      <div style="font-size:10.5px;color:var(--text3)">${mejorDia.ent} entregas · utilidad: ${fmtN(mejorDia.util)}</div>
     </div>
     ${peorDia?`<div style="flex:1;min-width:180px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">📉 Día más bajo</div>
-      <div style="font-size:15px;font-weight:700;margin-top:3px">${peorDia.dia.slice(5)} · <span class="mono" style="color:var(--amber)">${fmt(peorDia.ing)}</span></div>
-      <div style="font-size:10.5px;color:var(--text3)">${peorDia.ent} entregas · util: ${fmtN(peorDia.util)}</div>
+      <div style="font-size:15px;font-weight:700;margin-top:3px">${peorDia.dow} ${peorDia.dia.slice(5)} · <span class="mono" style="color:var(--amber)">${fmt(peorDia.ing)}</span></div>
+      <div style="font-size:10.5px;color:var(--text3)">${peorDia.ent} entregas · utilidad: ${fmtN(peorDia.util)}</div>
+    </div>`:''}
+    ${ingTotal>0?`<div style="flex:1;min-width:180px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">📊 Resumen período</div>
+      <div style="font-size:12px;margin-top:6px;display:flex;flex-direction:column;gap:3px">
+        ${pubTotal>0?`<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Publicidad</span><span class="mono" style="color:var(--red)">−${fmt(pubTotal)}</span></div>`:''}
+        ${gastosTotal>0?`<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Gastos extras</span><span class="mono" style="color:var(--amber)">−${fmt(gastosTotal)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:3px;padding-top:3px"><span style="color:var(--text3)">Total costos</span><span class="mono" style="color:var(--red)">−${fmt(ingTotal-utilTotal)}</span></div>
+      </div>
     </div>`:''}
   </div>`:''}
+
+  <!-- GRÁFICO + TRÁNSITO -->
   <div class="g2">
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div class="card-title" style="margin:0">📅 Ingresos por día</div>
-        <div style="font-size:10.5px;color:var(--text3)"><span style="color:var(--green)">■</span> Ingreso &nbsp;<span style="color:var(--red)">■</span> Pub. &nbsp;<span style="color:var(--amber)">■</span> Gasto</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-title" style="margin:0">📅 Movimiento diario</div>
+        <div style="display:flex;gap:8px;font-size:10.5px;color:var(--text3)">
+          <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:3px"></span>Ingreso</span>
+          <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:2px;opacity:.7;margin-right:3px"></span>Pub.</span>
+          <span><span style="display:inline-block;width:8px;height:8px;background:var(--amber);border-radius:2px;opacity:.7;margin-right:3px"></span>Gasto</span>
+        </div>
       </div>
-      <div style="max-height:380px;overflow-y:auto">
-        ${porDia.length?porDia.map(d=>`
-          <div style="margin-bottom:9px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:${d.ing>0?'var(--text)':'var(--text3)'};font-weight:${d.ing>0?'600':'400'}">${d.dia.slice(5)} <span style="font-size:10px;color:var(--text3);font-weight:400">${d.ent>0?d.ent+' ent.':''}</span></span>
-              <div style="display:flex;gap:8px;align-items:center">
-                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)'};font-size:11.5px">${d.ing>0?fmt(d.ing):'—'}</span>
+      <div style="max-height:400px;overflow-y:auto;padding-right:2px">
+        ${porDia.length?porDia.map(d=>{
+          const esFinSemana=d.dow==='Dom'||d.dow==='Sáb';
+          const ingW=Math.round(d.ing/maxBar*100);
+          const pubW=Math.round(d.pub/maxBar*100);
+          const gasW=Math.round(d.gastos/maxBar*100);
+          return`<div style="margin-bottom:10px;${esFinSemana?'opacity:.75':''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:4px">
+              <div style="display:flex;align-items:center;gap:5px">
+                <span style="font-size:10px;font-weight:700;color:${esFinSemana?'var(--text3)':'var(--text2)'};width:26px">${d.dow}</span>
+                <span style="color:${d.ing>0?'var(--text)':'var(--text3)'};font-weight:${d.ing>0?'600':'400'}">${d.dia.slice(5)}</span>
+                ${d.ent>0?`<span style="font-size:10px;color:var(--text3)">${d.ent} ent.</span>`:''}
+                ${d.entradas>0?`<span style="font-size:10px;color:var(--blue)" title="Adelantos cobrados hoy">+${fmt(d.entradas)} adel.</span>`:''}
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)'};font-size:11.5px;font-weight:${d.ing>0?'700':'400'}">${d.ing>0?fmt(d.ing):'—'}</span>
                 ${d.pub>0?`<span class="mono" style="color:var(--red);font-size:10.5px">−${fmt(d.pub)}</span>`:''}
                 ${d.gastos>0?`<span class="mono" style="color:var(--amber);font-size:10.5px">−${fmt(d.gastos)}</span>`:''}
-                ${d.ing>0?`<span class="mono" style="font-size:10px;color:${d.util>=0?'var(--green)':'var(--red)'}">${fmtN(d.util)}</span>`:''}
+                ${d.ing>0?`<span class="mono" style="font-size:10.5px;color:${d.util>=0?'var(--green)':'var(--red)'}">=${fmtN(d.util)}</span>`:''}
               </div>
             </div>
-            <div style="background:var(--surface3);border-radius:4px;height:12px;overflow:hidden;position:relative">
-              <div style="width:${d.ing/maxIng*100}%;background:var(--green);height:100%;border-radius:4px;opacity:.8"></div>
-              ${d.pub>0?`<div style="position:absolute;right:${Math.min(d.gastos/maxIng*100,40)}%;top:0;width:${Math.min(d.pub/maxIng*100,60)}%;background:var(--red);height:100%;opacity:.6"></div>`:''}
-              ${d.gastos>0?`<div style="position:absolute;right:0;top:0;width:${Math.min(d.gastos/maxIng*100,40)}%;background:var(--amber);height:100%;opacity:.6"></div>`:''}
+            <div style="background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;display:flex;gap:1px">
+              ${ingW>0?`<div style="width:${ingW}%;background:var(--green);border-radius:4px;transition:width .3s"></div>`:''}
+              ${pubW>0?`<div style="width:${pubW}%;background:var(--red);border-radius:4px;opacity:.7"></div>`:''}
+              ${gasW>0?`<div style="width:${gasW}%;background:var(--amber);border-radius:4px;opacity:.7"></div>`:''}
             </div>
-          </div>`).join(''):'<div class="empty" style="padding:30px">Sin datos en este período</div>'}
-        ${porDia.some(d=>d.ing>0)?`<div style="padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
-          <span>Totales</span>
-          <div style="display:flex;gap:12px">
-            <span class="mono" style="color:var(--green)">${fmt(ingTotal)}</span>
+          </div>`;
+        }).join(''):'<div class="empty" style="padding:30px">Sin datos en este período</div>'}
+        ${ingTotal>0?`<div style="padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px">
+          <span style="color:var(--text3)">Totales período</span>
+          <div style="display:flex;gap:10px">
+            <span class="mono" style="color:var(--green);font-weight:700">${fmt(ingTotal)}</span>
             ${pubTotal>0?`<span class="mono" style="color:var(--red)">−${fmt(pubTotal)}</span>`:''}
-            <span class="mono" style="color:${utilTotal>=0?'var(--green)':'var(--red)'}">${fmtN(utilTotal)}</span>
+            ${gastosTotal>0?`<span class="mono" style="color:var(--amber)">−${fmt(gastosTotal)}</span>`:''}
+            <span class="mono" style="color:${utilTotal>=0?'var(--green)':'var(--red)'};font-weight:700">${fmtN(utilTotal)}</span>
           </div>
         </div>`:''}
       </div>
     </div>
+
     <div class="card">
-      <div class="card-title">⏳ Capital en tránsito (sin cobrar)</div>
-      ${env.concat(conf).length?`<div class="tw" style="max-height:380px;overflow-y:auto"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Estado</th><th>Zona</th></tr></thead><tbody>
-        ${[...env,...conf].sort((a,b)=>b.id-a.id).slice(0,20).map(p=>`<tr>
-          <td class="mono" style="color:var(--text3)">#${p.id}</td>
-          <td style="font-weight:600;font-size:12px">${p.nombre}</td>
-          <td style="font-size:11px">${p.producto}</td>
-          <td class="mono" style="font-weight:700;color:var(--accent)">${fmt(p.precio)}</td>
-          <td>${badge(p.estado)}</td>
-          <td style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'};font-size:11px">${p.zona==='lima'?'Lima':'Prov.'}</td>
-        </tr>`).join('')}
-      </tbody></table></div>`:`<div class="empty" style="padding:30px">Sin pedidos en tránsito — todo cobrado ✅</div>`}
+      <div class="card-title">💸 Por cobrar (pedidos activos)</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1;padding:8px;background:var(--surface3);border-radius:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">Lima enviados</div>
+          <div style="font-size:16px;font-weight:700;color:var(--blue)">${fmt(env.filter(p=>p.zona==='lima').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
+          <div style="font-size:10px;color:var(--text3)">${env.filter(p=>p.zona==='lima').length} pedidos</div>
+        </div>
+        <div style="flex:1;padding:8px;background:var(--surface3);border-radius:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">Prov. enviados</div>
+          <div style="font-size:16px;font-weight:700;color:var(--accent)">${fmt(env.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
+          <div style="font-size:10px;color:var(--text3)">${env.filter(p=>p.zona==='provincia').length} pedidos</div>
+        </div>
+        <div style="flex:1;padding:8px;background:var(--surface3);border-radius:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text3)">Prov. confirmados</div>
+          <div style="font-size:16px;font-weight:700;color:var(--purple)">${fmt(conf.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
+          <div style="font-size:10px;color:var(--text3)">${conf.filter(p=>p.zona==='provincia').length} pedidos</div>
+        </div>
+      </div>
+      ${activos.length?`<div class="tw" style="max-height:300px;overflow-y:auto"><table>
+        <thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Por cobrar</th><th>Estado</th></tr></thead>
+        <tbody>
+        ${activos.sort((a,b)=>b.id-a.id).map(p=>{
+          const pendiente=p.pendiente!=null?p.pendiente:p.precio||0;
+          return`<tr>
+            <td class="mono" style="color:var(--text3)">#${p.id}</td>
+            <td style="font-weight:600;font-size:12px">${p.nombre}</td>
+            <td style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
+            <td class="mono" style="font-weight:700;color:${p.zona==='lima'?'var(--blue)':'var(--accent)'};text-align:right">${fmt(pendiente)}</td>
+            <td>${badge(p.estado)}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>`:`<div class="empty" style="padding:20px">Sin pedidos activos — todo cobrado ✅</div>`}
     </div>
   </div>
+
+  <!-- GASTOS DEL PERÍODO -->
+  ${(gastosLista.length||pubLista.length)?`<div class="g2" style="margin-top:0">
+    ${pubLista.length?`<div class="card">
+      <div class="card-title">📢 Publicidad del período <span class="mono" style="font-size:12px;color:var(--red)">−${fmt(pubTotal)}</span></div>
+      <div class="tw" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Fecha</th><th>Campaña</th><th style="text-align:right">Monto</th></tr></thead><tbody>
+        ${pubLista.map(p=>`<tr>
+          <td style="font-size:11px;color:var(--text3)">${p.fecha?.slice(5)||'—'}</td>
+          <td style="font-size:12px">${p.campana||'Sin nombre'}</td>
+          <td class="mono" style="color:var(--red);text-align:right">−${fmt(p.monto||0)}</td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>`:''}
+    ${gastosLista.length?`<div class="card">
+      <div class="card-title">🧾 Gastos extras del período <span class="mono" style="font-size:12px;color:var(--amber)">−${fmt(gastosTotal)}</span></div>
+      <div class="tw" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Fecha</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead><tbody>
+        ${gastosLista.map(g=>`<tr>
+          <td style="font-size:11px;color:var(--text3)">${g.fecha?.slice(5)||'—'}</td>
+          <td style="font-size:12px">${g.desc||g.descripcion||'Sin descripción'}</td>
+          <td class="mono" style="color:var(--amber);text-align:right">−${fmt(g.monto||0)}</td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>`:''}
+  </div>`:''}
+
+  <!-- PROYECCIÓN -->
   ${promDiario>0?`<div class="card" style="margin-top:0">
     <div class="card-title">🔮 Proyección próximos 7 días</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Basado en promedio de días con actividad (${diasConActividad.length} días activos del período). Los fines de semana/días reales pueden variar.</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Basado en promedio de ${diasConActividad.length} días activos del período seleccionado. Los fines de semana tienen menor actividad típica.</div>
     <div class="g2">
       <div>
         ${Array.from({length:7},(_,i)=>{
           const d=new Date();d.setDate(d.getDate()+i+1);
           const label=d.toISOString().split('T')[0].slice(5);
-          const dow=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
-          return `<div class="cf-row" style="${d.getDay()===0||d.getDay()===6?'opacity:.6':''}">
-            <span style="color:var(--text2)">${dow} ${label}</span>
+          const dow=DOW[d.getDay()];
+          const esFinSemana=d.getDay()===0||d.getDay()===6;
+          const factorDia=esFinSemana?0.6:1;
+          const ingProyect=promDiario*factorDia;
+          const utilProyect=promUtil*factorDia;
+          return`<div class="cf-row" style="${esFinSemana?'opacity:.65':''}">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;font-weight:700;color:var(--text3);width:26px">${dow}</span>
+              <span style="color:var(--text2)">${label}</span>
+              ${esFinSemana?`<span style="font-size:9px;color:var(--text3)">−40%</span>`:''}
+            </div>
             <div style="display:flex;gap:10px">
-              <span class="mono" style="color:var(--green)">${fmt(promDiario)}</span>
-              <span class="mono" style="font-size:11px;color:${promUtil>=0?'var(--text3)':'var(--red)'}">${fmtN(promUtil)}</span>
+              <span class="mono" style="color:var(--green)">${fmt(ingProyect)}</span>
+              <span class="mono" style="font-size:11px;color:${utilProyect>=0?'var(--text3)':'var(--red)'}">${fmtN(utilProyect)}</span>
             </div>
           </div>`;
         }).join('')}
       </div>
       <div style="padding:20px;background:var(--surface2);border-radius:10px;display:flex;flex-direction:column;justify-content:center;gap:14px">
-        <div><div style="font-size:11px;color:var(--text3)">💰 Ingresos proyectados (7d)</div><div style="font-size:26px;font-weight:700;color:var(--green);font-family:var(--mono)">${fmt(promDiario*7)}</div></div>
-        <div><div style="font-size:11px;color:var(--text3)">✅ Utilidad proyectada (7d)</div><div style="font-size:26px;font-weight:700;color:${promUtil>=0?'var(--green)':'var(--red)'};font-family:var(--mono)">${fmtN(promUtil*7)}</div></div>
+        <div>
+          <div style="font-size:11px;color:var(--text3)">💰 Ingresos proyectados (7d)</div>
+          <div style="font-size:26px;font-weight:700;color:var(--green);font-family:var(--mono)">${fmt(promDiario*5+promDiario*0.6*2)}</div>
+          <div style="font-size:10px;color:var(--text3)">5 días lab. + 2 fin de semana</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3)">✅ Utilidad proyectada (7d)</div>
+          <div style="font-size:26px;font-weight:700;color:${promUtil>=0?'var(--green)':'var(--red)'};font-family:var(--mono)">${fmtN(promUtil*5+promUtil*0.6*2)}</div>
+        </div>
         <div style="padding-top:10px;border-top:1px solid var(--border)">
           <div style="font-size:11px;color:var(--text3)">📅 Proyectado mensual (30d)</div>
-          <div style="font-size:18px;font-weight:700;color:var(--blue);font-family:var(--mono)">${fmt(promDiario*30)}</div>
+          <div style="font-size:20px;font-weight:700;color:var(--blue);font-family:var(--mono)">${fmt(promDiario*22+promDiario*0.6*8)}</div>
+          <div style="font-size:10px;color:var(--text3)">22 días lab. + 8 fin de semana</div>
         </div>
       </div>
     </div>

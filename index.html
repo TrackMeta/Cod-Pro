@@ -5555,7 +5555,7 @@ function renderFlujoContent(){
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
               <span style="color:${d.ing>0?'var(--text)':'var(--text3)'};font-weight:${d.ing>0?'600':'400'}">${d.dia.slice(5)} <span style="font-size:10px;color:var(--text3);font-weight:400">${d.ent>0?d.ent+' ent.':''}</span></span>
               <div style="display:flex;gap:8px;align-items:center">
-                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)';font-size:11.5px}">${d.ing>0?fmt(d.ing):'—'}</span>
+                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)'};font-size:11.5px">${d.ing>0?fmt(d.ing):'—'}</span>
                 ${d.pub>0?`<span class="mono" style="color:var(--red);font-size:10.5px">−${fmt(d.pub)}</span>`:''}
                 ${d.gastos>0?`<span class="mono" style="color:var(--amber);font-size:10.5px">−${fmt(d.gastos)}</span>`:''}
                 ${d.ing>0?`<span class="mono" style="font-size:10px;color:${d.util>=0?'var(--green)':'var(--red)'}">${fmtN(d.util)}</span>`:''}

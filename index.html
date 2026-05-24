@@ -3427,11 +3427,14 @@ function renderPedidos(){
       <label>Estado</label>
       <select id="f-est" onchange="renderPedidosContent()">
         <option value="">Todos los estados</option>
+        <option value="nuevo">🆕 Nuevo</option>
         <option value="confirmado">✅ Confirmado</option>
+        <option value="no-contesta">📵 No contesta</option>
         <option value="enviado">🚚 Enviado</option>
         <option value="entregado">📦 Entregado</option>
         <option value="devuelto">↩️ Devuelto</option>
         <option value="rechazado">❌ Rechazado</option>
+        <option value="reprogramado">📅 Reprogramado</option>
       </select>
     </div>
     <div class="fg-filter">
@@ -3498,9 +3501,10 @@ function renderPedidosContent(){
   const cnt=document.getElementById('ped-count');if(cnt)cnt.textContent=arr.length+' pedido(s)';
   const view=document.getElementById('ped-view');if(!view)return;
   if(pVista==='kanban'){
-    const cols=['confirmado','enviado','entregado','devuelto','rechazado'];
-    const cColors={confirmado:'var(--green)',enviado:'var(--purple)',entregado:'var(--green)',devuelto:'var(--red)',rechazado:'var(--red)'};
-    view.innerHTML=`<div class="kanban">${cols.map(c=>{const items=arr.filter(p=>p.estado===c);return `<div class="kcol"><div class="kcol-title" style="color:${cColors[c]}">${c.replace(/-/g,' ')}<span style="background:var(--surface3);padding:1px 7px;border-radius:10px;font-size:10px;color:var(--text2)">${items.length}</span></div>${items.map(p=>`<div class="kcard" onclick="editarPedido(${p.id})"><div class="kcard-name">${p.nombre}</div><div class="kcard-detail">${p.producto} · ${fmt(p.precio)}</div><div class="kcard-detail" style="margin-top:3px">${bdgMod(p.modalidad||'stock')} <span style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${p.zona==='lima'?'Lima':'Prov.'}</span></div></div>`).join('')}</div>`;}).join('')}</div>`;
+    const cols=['nuevo','confirmado','no-contesta','enviado','entregado','devuelto','rechazado','reprogramado'];
+    const cColorsK={'nuevo':'var(--blue)',confirmado:'var(--green)','no-contesta':'var(--amber)',enviado:'var(--purple)',entregado:'var(--teal)',devuelto:'var(--red)',rechazado:'var(--red)',reprogramado:'var(--amber)'};
+    const colEmoji={'nuevo':'🆕',confirmado:'✅','no-contesta':'📵',enviado:'🚚',entregado:'📦',devuelto:'↩️',rechazado:'❌',reprogramado:'📅'};
+    view.innerHTML=`<div class="kanban">${cols.map(c=>{const items=arr.filter(p=>p.estado===c);if(!items.length&&!['confirmado','enviado'].includes(c))return '';return `<div class="kcol"><div class="kcol-title" style="color:${cColorsK[c]}">${colEmoji[c]||''} ${c.replace(/-/g,' ')}<span style="background:var(--surface3);padding:1px 7px;border-radius:10px;font-size:10px;color:var(--text2)">${items.length}</span></div>${items.map(p=>`<div class="kcard" onclick="editarPedido(${p.id})"><div class="kcard-name">${p.nombre}</div><div class="kcard-detail">${p.producto} · ${fmt(p.precio)}</div><div class="kcard-detail" style="margin-top:3px">${bdgMod(p.modalidad||'stock')} <span style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${p.zona==='lima'?'Lima':'Prov.'}</span></div></div>`).join('')}</div>`;}).filter(Boolean).join('')}</div>`;
     return;
   }
   // Barra de selección masiva

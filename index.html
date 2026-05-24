@@ -282,6 +282,20 @@ tr:hover td{background:var(--surface2)}
 .bdg-ok{background:rgba(16,212,106,.16);color:var(--green);border-color:rgba(16,212,106,.35)}
 .bdg-warn{background:rgba(240,165,32,.16);color:var(--amber);border-color:rgba(240,165,32,.35)}
 .bdg-crit{background:rgba(240,68,85,.16);color:var(--red);border-color:rgba(240,68,85,.35)}
+/* Modo claro — fondos más sólidos y texto con variante oscura para mejor contraste */
+[data-theme="light"] .bdg-nuevo{background:rgba(74,143,245,.18);color:var(--blueD);border-color:rgba(74,143,245,.5)}
+[data-theme="light"] .bdg-confirmado{background:rgba(16,185,80,.18);color:var(--greenD);border-color:rgba(16,185,80,.5)}
+[data-theme="light"] .bdg-no-contesta{background:rgba(220,130,0,.14);color:var(--amberD);border-color:rgba(220,130,0,.45)}
+[data-theme="light"] .bdg-rechazado{background:rgba(220,48,66,.14);color:var(--redD);border-color:rgba(220,48,66,.45)}
+[data-theme="light"] .bdg-enviado{background:rgba(120,78,210,.16);color:var(--purpleD);border-color:rgba(120,78,210,.45)}
+[data-theme="light"] .bdg-entregado{background:rgba(13,158,138,.14);color:#0b8a79;border-color:rgba(13,158,138,.45)}
+[data-theme="light"] .bdg-devuelto{background:rgba(220,48,66,.14);color:var(--redD);border-color:rgba(220,48,66,.45)}
+[data-theme="light"] .bdg-reprogramado{background:rgba(220,130,0,.14);color:var(--amberD);border-color:rgba(220,130,0,.45)}
+[data-theme="light"] .bdg-stock{background:rgba(74,143,245,.18);color:var(--blueD);border-color:rgba(74,143,245,.5)}
+[data-theme="light"] .bdg-aliclick{background:rgba(120,78,210,.16);color:var(--purpleD);border-color:rgba(120,78,210,.45)}
+[data-theme="light"] .bdg-ok{background:rgba(16,185,80,.18);color:var(--greenD);border-color:rgba(16,185,80,.5)}
+[data-theme="light"] .bdg-warn{background:rgba(220,130,0,.14);color:var(--amberD);border-color:rgba(220,130,0,.45)}
+[data-theme="light"] .bdg-crit{background:rgba(220,48,66,.14);color:var(--redD);border-color:rgba(220,48,66,.45)}
 
 /* ── STATUS PILL (larger) ────────────────────── */
 .spill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
@@ -3159,17 +3173,17 @@ function filtrarPeriodo(arr,per){
 }
 function badge(est){
   const cfg={
-    nuevo:       {cls:'bdg-nuevo',       e:'🔵'},
-    confirmado:  {cls:'bdg-confirmado',  e:'✅'},
-    'no-contesta':{cls:'bdg-no-contesta',e:'📵'},
-    rechazado:   {cls:'bdg-rechazado',   e:'❌'},
-    enviado:     {cls:'bdg-enviado',     e:'🚚'},
-    entregado:   {cls:'bdg-entregado',   e:'📦'},
-    devuelto:    {cls:'bdg-devuelto',    e:'↩️'},
-    reprogramado:{cls:'bdg-reprogramado',e:'📅'}
+    nuevo:        {cls:'bdg-nuevo',       e:'🔵', lbl:'Nuevo'},
+    confirmado:   {cls:'bdg-confirmado',  e:'✅',  lbl:'Confirmado'},
+    'no-contesta':{cls:'bdg-no-contesta', e:'📵', lbl:'No contesta'},
+    rechazado:    {cls:'bdg-rechazado',   e:'❌',  lbl:'Rechazado'},
+    enviado:      {cls:'bdg-enviado',     e:'🚚', lbl:'Enviado'},
+    entregado:    {cls:'bdg-entregado',   e:'📦', lbl:'Entregado'},
+    devuelto:     {cls:'bdg-devuelto',    e:'↩️', lbl:'Devuelto'},
+    reprogramado: {cls:'bdg-reprogramado',e:'📅', lbl:'Reprogramado'}
   };
-  const d=cfg[est]||{cls:'bdg-nuevo',e:'•'};
-  return `<span class="bdg ${d.cls}">${d.e} ${est.replace(/-/g,' ')}</span>`;
+  const d=cfg[est]||{cls:'bdg-nuevo',e:'•',lbl:est.replace(/-/g,' ')};
+  return `<span class="bdg ${d.cls}">${d.e} ${d.lbl}</span>`;
 }
 function bdgMod(m){return m==='aliclick'?'<span class="bdg bdg-aliclick">🔗 Aliclick</span>':'<span class="bdg bdg-stock">📦 Stock</span>';}
 function closeModal(id){document.getElementById(id).classList.remove('open');}

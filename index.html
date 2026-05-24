@@ -5677,92 +5677,132 @@ function renderFlujoContent(){
     </div>`:''}
   </div>`:''}
 
-  <!-- GRÁFICO + TRÁNSITO -->
-  <div class="g2">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="card-title" style="margin:0">📅 Movimiento diario</div>
-        <div style="display:flex;gap:8px;font-size:10.5px;color:var(--text3)">
-          <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:3px"></span>Ingreso</span>
-          <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:2px;opacity:.7;margin-right:3px"></span>Pub.</span>
-          <span><span style="display:inline-block;width:8px;height:8px;background:var(--amber);border-radius:2px;opacity:.7;margin-right:3px"></span>Gasto</span>
-        </div>
+  <!-- GRÁFICO ANCHO COMPLETO -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">📅 Movimiento diario</div>
+      <div style="display:flex;gap:10px;font-size:10.5px;color:var(--text3)">
+        <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:3px"></span>Ingreso</span>
+        <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:2px;opacity:.7;margin-right:3px"></span>Publicidad</span>
+        <span><span style="display:inline-block;width:8px;height:8px;background:var(--amber);border-radius:2px;opacity:.7;margin-right:3px"></span>Gastos</span>
       </div>
-      <div style="max-height:400px;overflow-y:auto;padding-right:2px">
-        ${porDia.length?porDia.map(d=>{
-          const esFinSemana=d.dow==='Dom'||d.dow==='Sáb';
-          const ingW=Math.round(d.ing/maxBar*100);
-          const pubW=Math.round(d.pub/maxBar*100);
-          const gasW=Math.round(d.gastos/maxBar*100);
-          return`<div style="margin-bottom:10px;${esFinSemana?'opacity:.75':''}">
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:4px">
-              <div style="display:flex;align-items:center;gap:5px">
-                <span style="font-size:10px;font-weight:700;color:${esFinSemana?'var(--text3)':'var(--text2)'};width:26px">${d.dow}</span>
-                <span style="color:${d.ing>0?'var(--text)':'var(--text3)'};font-weight:${d.ing>0?'600':'400'}">${d.dia.slice(5)}</span>
-                ${d.ent>0?`<span style="font-size:10px;color:var(--text3)">${d.ent} ent.</span>`:''}
-                ${d.entradas>0?`<span style="font-size:10px;color:var(--blue)" title="Adelantos cobrados hoy">+${fmt(d.entradas)} adel.</span>`:''}
-              </div>
-              <div style="display:flex;gap:6px;align-items:center">
-                <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)'};font-size:11.5px;font-weight:${d.ing>0?'700':'400'}">${d.ing>0?fmt(d.ing):'—'}</span>
-                ${d.pub>0?`<span class="mono" style="color:var(--red);font-size:10.5px">−${fmt(d.pub)}</span>`:''}
-                ${d.gastos>0?`<span class="mono" style="color:var(--amber);font-size:10.5px">−${fmt(d.gastos)}</span>`:''}
-                ${d.ing>0?`<span class="mono" style="font-size:10.5px;color:${d.util>=0?'var(--green)':'var(--red)'}">=${fmtN(d.util)}</span>`:''}
-              </div>
+    </div>
+    <div style="overflow-y:auto;padding-right:2px">
+      ${porDia.length?porDia.map(d=>{
+        const esFinSemana=d.dow==='Dom'||d.dow==='Sáb';
+        const ingW=Math.round(d.ing/maxBar*100);
+        const pubW=Math.round(d.pub/maxBar*100);
+        const gasW=Math.round(d.gastos/maxBar*100);
+        return`<div style="margin-bottom:10px;${esFinSemana?'opacity:.7':''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;font-weight:700;color:${esFinSemana?'var(--text3)':'var(--text2)'};width:28px">${d.dow}</span>
+              <span style="color:${d.ing>0?'var(--text)':'var(--text3)'};font-weight:${d.ing>0?'600':'400'}">${d.dia.slice(5)}</span>
+              ${d.ent>0?`<span style="font-size:10px;background:var(--greenL);color:var(--green);padding:1px 5px;border-radius:4px">${d.ent} entregas</span>`:''}
+              ${d.entradas>0?`<span style="font-size:10px;color:var(--blue)">+${fmt(d.entradas)} adel.</span>`:''}
             </div>
-            <div style="background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;display:flex;gap:1px">
-              ${ingW>0?`<div style="width:${ingW}%;background:var(--green);border-radius:4px;transition:width .3s"></div>`:''}
-              ${pubW>0?`<div style="width:${pubW}%;background:var(--red);border-radius:4px;opacity:.7"></div>`:''}
-              ${gasW>0?`<div style="width:${gasW}%;background:var(--amber);border-radius:4px;opacity:.7"></div>`:''}
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="mono" style="color:${d.ing>0?'var(--green)':'var(--text3)'};font-size:12px;font-weight:${d.ing>0?'700':'400'}">${d.ing>0?fmt(d.ing):'—'}</span>
+              ${d.pub>0?`<span class="mono" style="color:var(--red);font-size:11px">−${fmt(d.pub)}</span>`:''}
+              ${d.gastos>0?`<span class="mono" style="color:var(--amber);font-size:11px">−${fmt(d.gastos)}</span>`:''}
+              ${d.ing>0?`<span class="mono" style="font-size:11px;font-weight:700;color:${d.util>=0?'var(--green)':'var(--red)'}">= ${fmtN(d.util)}</span>`:''}
             </div>
-          </div>`;
-        }).join(''):'<div class="empty" style="padding:30px">Sin datos en este período</div>'}
-        ${ingTotal>0?`<div style="padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px">
-          <span style="color:var(--text3)">Totales período</span>
-          <div style="display:flex;gap:10px">
-            <span class="mono" style="color:var(--green);font-weight:700">${fmt(ingTotal)}</span>
-            ${pubTotal>0?`<span class="mono" style="color:var(--red)">−${fmt(pubTotal)}</span>`:''}
-            ${gastosTotal>0?`<span class="mono" style="color:var(--amber)">−${fmt(gastosTotal)}</span>`:''}
-            <span class="mono" style="color:${utilTotal>=0?'var(--green)':'var(--red)'};font-weight:700">${fmtN(utilTotal)}</span>
           </div>
-        </div>`:''}
-      </div>
+          <div style="background:var(--surface3);border-radius:4px;height:9px;overflow:hidden;display:flex;gap:1px">
+            ${ingW>0?`<div style="width:${ingW}%;background:var(--green);border-radius:4px"></div>`:''}
+            ${pubW>0?`<div style="width:${pubW}%;background:var(--red);border-radius:4px;opacity:.75"></div>`:''}
+            ${gasW>0?`<div style="width:${gasW}%;background:var(--amber);border-radius:4px;opacity:.75"></div>`:''}
+          </div>
+        </div>`;
+      }).join(''):'<div class="empty" style="padding:30px">Sin datos en este período</div>'}
+      ${ingTotal>0?`<div style="padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px">
+        <span style="color:var(--text3);font-weight:600">Totales del período</span>
+        <div style="display:flex;gap:12px">
+          <span class="mono" style="color:var(--green);font-weight:700">${fmt(ingTotal)}</span>
+          ${pubTotal>0?`<span class="mono" style="color:var(--red)">−${fmt(pubTotal)} pub.</span>`:''}
+          ${gastosTotal>0?`<span class="mono" style="color:var(--amber)">−${fmt(gastosTotal)} gastos</span>`:''}
+          <span class="mono" style="color:${utilTotal>=0?'var(--green)':'var(--red)'};font-weight:700">= ${fmtN(utilTotal)}</span>
+        </div>
+      </div>`:''}
     </div>
+  </div>
 
-    <div class="card">
-      <div class="card-title">💸 Por cobrar (pedidos activos)</div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <div style="flex:1;padding:8px;background:var(--surface3);border-radius:8px;text-align:center">
-          <div style="font-size:10px;color:var(--text3)">Lima enviados</div>
-          <div style="font-size:16px;font-weight:700;color:var(--blue)">${fmt(env.filter(p=>p.zona==='lima').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
-          <div style="font-size:10px;color:var(--text3)">${env.filter(p=>p.zona==='lima').length} pedidos</div>
+  <!-- POR COBRAR — ANCHO COMPLETO, MÁS DETALLE -->
+  <div class="card" style="margin-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div class="card-title" style="margin:0">💸 Pedidos activos — Por cobrar</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Ordenados por fecha (más antiguos primero) · <span style="color:var(--amber)">■</span> +3 días · <span style="color:var(--red)">■</span> +7 días</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="padding:6px 12px;background:var(--surface3);border-radius:8px;text-align:center;min-width:80px">
+          <div style="font-size:10px;color:var(--text3)">Lima env.</div>
+          <div style="font-size:15px;font-weight:700;color:var(--blue)">${fmt(env.filter(p=>p.zona==='lima').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
+          <div style="font-size:10px;color:var(--text3)">${env.filter(p=>p.zona==='lima').length} ped.</div>
         </div>
-        <div style="flex:1;padding:8px;background:var(--surface3);border-radius:8px;text-align:center">
-          <div style="font-size:10px;color:var(--text3)">Prov. enviados</div>
-          <div style="font-size:16px;font-weight:700;color:var(--accent)">${fmt(env.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
-          <div style="font-size:10px;color:var(--text3)">${env.filter(p=>p.zona==='provincia').length} pedidos</div>
+        <div style="padding:6px 12px;background:var(--surface3);border-radius:8px;text-align:center;min-width:80px">
+          <div style="font-size:10px;color:var(--text3)">Prov. env.</div>
+          <div style="font-size:15px;font-weight:700;color:var(--accent)">${fmt(env.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
+          <div style="font-size:10px;color:var(--text3)">${env.filter(p=>p.zona==='provincia').length} ped.</div>
         </div>
-        <div style="flex:1;padding:8px;background:var(--surface3);border-radius:8px;text-align:center">
-          <div style="font-size:10px;color:var(--text3)">Prov. confirmados</div>
-          <div style="font-size:16px;font-weight:700;color:var(--purple)">${fmt(conf.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
-          <div style="font-size:10px;color:var(--text3)">${conf.filter(p=>p.zona==='provincia').length} pedidos</div>
+        <div style="padding:6px 12px;background:var(--surface3);border-radius:8px;text-align:center;min-width:80px">
+          <div style="font-size:10px;color:var(--text3)">Prov. conf.</div>
+          <div style="font-size:15px;font-weight:700;color:var(--purple)">${fmt(conf.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.pendiente!=null?p.pendiente:p.precio||0),0))}</div>
+          <div style="font-size:10px;color:var(--text3)">${conf.filter(p=>p.zona==='provincia').length} ped.</div>
+        </div>
+        <div style="padding:6px 12px;background:var(--accentL);border:1px solid var(--accent);border-radius:8px;text-align:center;min-width:80px">
+          <div style="font-size:10px;color:var(--accent)">Total por cobrar</div>
+          <div style="font-size:15px;font-weight:700;color:var(--accent)">${fmt(porCobrar)}</div>
+          <div style="font-size:10px;color:var(--text3)">${activos.length} pedidos</div>
         </div>
       </div>
-      ${activos.length?`<div class="tw" style="max-height:300px;overflow-y:auto"><table>
-        <thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Por cobrar</th><th>Estado</th></tr></thead>
-        <tbody>
-        ${activos.sort((a,b)=>b.id-a.id).map(p=>{
-          const pendiente=p.pendiente!=null?p.pendiente:p.precio||0;
-          return`<tr>
-            <td class="mono" style="color:var(--text3)">#${p.id}</td>
-            <td style="font-weight:600;font-size:12px">${p.nombre}</td>
-            <td style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
-            <td class="mono" style="font-weight:700;color:${p.zona==='lima'?'var(--blue)':'var(--accent)'};text-align:right">${fmt(pendiente)}</td>
-            <td>${badge(p.estado)}</td>
-          </tr>`;
-        }).join('')}
-        </tbody>
-      </table></div>`:`<div class="empty" style="padding:20px">Sin pedidos activos — todo cobrado ✅</div>`}
     </div>
+    ${activos.length?`<div class="tw"><table>
+      <thead><tr>
+        <th>Fecha</th>
+        <th>Días</th>
+        <th>#</th>
+        <th>Cliente</th>
+        <th>Celular</th>
+        <th>Producto</th>
+        <th style="text-align:right">Precio</th>
+        <th style="text-align:right">Adelanto</th>
+        <th style="text-align:right">Por cobrar</th>
+        <th>Estado</th>
+        <th>Zona</th>
+      </tr></thead>
+      <tbody>
+      ${[...activos].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(p=>{
+        const pendiente=p.pendiente!=null?p.pendiente:(p.precio||0)-(p.adelanto||0);
+        const fechaP=p.fecha||'';
+        const diasTransit=fechaP?Math.floor((new Date()-new Date(fechaP+'T12:00:00'))/(1000*60*60*24)):0;
+        const alertColor=diasTransit>=7?'var(--red)':diasTransit>=3?'var(--amber)':'var(--text3)';
+        const rowBg=diasTransit>=7?'background:rgba(239,68,68,.04)':diasTransit>=3?'background:rgba(245,158,11,.04)':'';
+        return`<tr style="${rowBg}">
+          <td style="font-size:11px;color:var(--text2);white-space:nowrap">${fechaP.slice(5)||'—'}</td>
+          <td style="text-align:center">
+            <span style="font-size:11px;font-weight:700;color:${alertColor}">${diasTransit}d</span>
+          </td>
+          <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+          <td style="font-weight:600;font-size:12px;white-space:nowrap">${p.nombre}</td>
+          <td style="font-size:11px;color:var(--text3)">${p.celular||'—'}</td>
+          <td style="font-size:11px">${p.producto}${p.cantidad>1?` <span style="color:var(--text3)">×${p.cantidad}</span>`:''}</td>
+          <td class="mono" style="text-align:right;font-size:11px;color:var(--text2)">${fmt(p.precio||0)}</td>
+          <td class="mono" style="text-align:right;font-size:11px;color:var(--blue)">${(p.adelanto||0)>0?fmt(p.adelanto):'—'}</td>
+          <td class="mono" style="text-align:right;font-weight:700;font-size:12px;color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${fmt(pendiente)}</td>
+          <td>${badge(p.estado)}</td>
+          <td style="font-size:11px;color:${p.zona==='lima'?'var(--blue)':'var(--purple)'};font-weight:600">${p.zona==='lima'?'Lima':'Prov.'}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+      <tfoot><tr style="background:var(--surface3)">
+        <td colspan="6" style="font-weight:700;font-size:12px;padding:8px">Total</td>
+        <td class="mono" style="text-align:right;font-weight:700;font-size:12px">${fmt(activos.reduce((s,p)=>s+(p.precio||0),0))}</td>
+        <td class="mono" style="text-align:right;font-size:12px;color:var(--blue)">${fmt(activos.reduce((s,p)=>s+(p.adelanto||0),0))}</td>
+        <td class="mono" style="text-align:right;font-weight:700;font-size:13px;color:var(--accent)">${fmt(porCobrar)}</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+    </table></div>`:`<div class="empty" style="padding:30px">Sin pedidos activos — todo cobrado ✅</div>`}
   </div>
 
   <!-- GASTOS DEL PERÍODO -->

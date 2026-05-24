@@ -2856,7 +2856,7 @@ function calcNotifications(){
   if(ef!==null&&ef<CFG.metaEf)notes.push({id:'efbaja',type:'red',icon:'📉',title:`Efectividad baja: ${ef}%`,sub:`Por debajo de tu meta (${CFG.metaEf}%). Revisa los rechazos.`,action:`showPage('dashboard');`});
   // 6. Meta de ventas diaria
   const hoyPeds=DB.pedidos.filter(p=>p.fecha===h&&p.estado==='entregado');
-  const ventaHoy=hoyPeds.reduce((s,p)=>s+p.precio*p.cantidad,0);
+  const ventaHoy=hoyPeds.reduce((s,p)=>s+p.precio,0);
   if(ventaHoy>=CFG.metaVentaDia&&hoyPeds.length>0)notes.push({id:'metaok',type:'green',icon:'🎯',title:`¡Meta diaria alcanzada!`,sub:`Ventas hoy: S/${ventaHoy.toFixed(0)} (meta: S/${CFG.metaVentaDia})`,action:``});
   else if(CFG.metaVentaDia>0&&hoyPeds.length>0)notes.push({id:'metaprog',type:'amber',icon:'🎯',title:`Meta del día en progreso`,sub:`Ventas hoy: S/${ventaHoy.toFixed(0)} / meta S/${CFG.metaVentaDia} (${Math.round(ventaHoy/CFG.metaVentaDia*100)}%)`,action:``});
   // 7. Devoluciones altas
@@ -2864,12 +2864,12 @@ function calcNotifications(){
   if(devPct!==null&&devPct>CFG.dev_max)notes.push({id:'devalta',type:'red',icon:'🔁',title:`Devoluciones altas: ${devPct}%`,sub:`Superaste tu límite (${CFG.dev_max}%). Revisa causas.`,action:`showPage('dashboard');`});
   // 8. ROAS bajo
   const semPub=filtrarPeriodo(DB.publicidad,'semana').reduce((s,x)=>s+x.monto,0);
-  const semIng=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),'semana').reduce((s,p)=>s+p.precio*p.cantidad,0);
+  const semIng=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),'semana').reduce((s,p)=>s+p.precio,0);
   const roas=semPub>0?semIng/semPub:null;
   if(roas!==null&&roas<CFG.roas_min&&semPub>0)notes.push({id:'roasbajo',type:'red',icon:'📢',title:`ROAS bajo: ${roas.toFixed(2)}x`,sub:`Por debajo de tu mínimo (${CFG.roas_min}x). Revisa campañas.`,action:`showPage('finanzas');`});
   // 9. Capital en tránsito
   const enTransito=DB.pedidos.filter(p=>['enviado','confirmado'].includes(p.estado));
-  const capitalTransito=enTransito.reduce((s,p)=>s+(p.precio*p.cantidad||0),0);
+  const capitalTransito=enTransito.reduce((s,p)=>s+(p.precio||0),0);
   if(capitalTransito>0)notes.push({id:'transito',type:'blue',icon:'💰',title:`S/${capitalTransito.toFixed(0)} en tránsito`,sub:`${enTransito.length} pedidos enviados/confirmados aún sin cobrar`,action:`showPage('flujo');`});
   return notes;
 }
@@ -3083,10 +3083,10 @@ function renderDashboard(){
   const ent=p.filter(x=>x.estado==='entregado');
   const dev=p.filter(x=>x.estado==='devuelto');
   const conf=p.filter(x=>['confirmado','enviado','entregado'].includes(x.estado));
-  const ing=ent.reduce((s,x)=>s+x.precio*x.cantidad,0);
+  const ing=ent.reduce((s,x)=>s+x.precio,0);
   const pub=filtrarPeriodo(DB.publicidad,filtro).reduce((s,x)=>s+x.monto,0);
   // Utilidad igual que Finanzas: ing - cprod - cenv - cemb - pub - comisiones
-  const cprod=ent.reduce((s,x)=>s+(x.cprod||0)*x.cantidad,0);
+  const cprod=ent.reduce((s,x)=>s+(x.cprod||0),0);
   const cenv=ent.reduce((s,x)=>s+(x.cenv||0),0);
   const cemb=ent.reduce((s,x)=>s+(x.emb||0)*x.cantidad,0);
   const ccom=DB.asesores.reduce((s,a)=>s+a.sueldo,0)+ent.filter(x=>x.zona==='lima').length*(CFG.comLima||1)+ent.filter(x=>x.zona==='provincia').length*(CFG.comProv||2);
@@ -4801,8 +4801,8 @@ function renderFinanzas(){
   const ent=filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),filtro);
   const allP=filtrarPeriodo(DB.pedidos,filtro);
   const pub=filtrarPeriodo(DB.publicidad,filtro);
-  const ing=ent.reduce((s,p)=>s+p.precio*p.cantidad,0);
-  const cprod=ent.reduce((s,p)=>s+(p.cprod||0)*p.cantidad,0);
+  const ing=ent.reduce((s,p)=>s+p.precio,0);
+  const cprod=ent.reduce((s,p)=>s+(p.cprod||0),0);
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
   const cemb=ent.reduce((s,p)=>s+(p.emb||0)*p.cantidad,0);
   const cpub=pub.reduce((s,p)=>s+p.monto,0);
@@ -4902,8 +4902,8 @@ function roiPorProducto(){
   DB.pedidos.filter(p=>p.estado==='entregado').forEach(p=>{
     const key=p.producto||'Sin nombre';
     if(!prodMap[key])prodMap[key]={ing:0,cost:0,cnt:0};
-    prodMap[key].ing+=p.precio*p.cantidad;
-    prodMap[key].cost+=(p.cprod||0)*p.cantidad+(p.cenv||0);
+    prodMap[key].ing+=p.precio;
+    prodMap[key].cost+=(p.cprod||0)+(p.cenv||0);
     prodMap[key].cnt+=p.cantidad;
   });
   const top=Object.entries(prodMap).sort((a,b)=>b[1].ing-a[1].ing).slice(0,5);
@@ -5303,7 +5303,7 @@ function renderFlujoContent(){
   const ent=ped.filter(p=>p.estado==='entregado');
   const env=ped.filter(p=>p.estado==='enviado');
   const conf=ped.filter(p=>p.estado==='confirmado');
-  const capitalCongelado=env.concat(conf).reduce((s,p)=>s+(p.precio*p.cantidad||0),0);
+  const capitalCongelado=env.concat(conf).reduce((s,p)=>s+(p.precio||0),0);
   const adelantosPend=conf.filter(p=>p.zona==='provincia').reduce((s,p)=>s+(p.adelanto||0),0);
 
   // Build days array from filter
@@ -5326,7 +5326,7 @@ function renderFlujoContent(){
 
   const porDia=dias.map(dia=>{
     const entDia=ent.filter(p=>p.fecha===dia);
-    const ing=entDia.reduce((s,p)=>s+(p.precio*p.cantidad||0),0);
+    const ing=entDia.reduce((s,p)=>s+(p.precio||0),0);
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
     return {dia,ing,pub,util:ing-pub,ent:entDia.length};
   });
@@ -5372,7 +5372,7 @@ function renderFlujoContent(){
           <td class="mono" style="color:var(--text3)">#${p.id}</td>
           <td style="font-weight:600;font-size:12px">${p.nombre}</td>
           <td style="font-size:11px">${p.producto}</td>
-          <td class="mono" style="font-weight:700;color:var(--accent)">${fmt(p.precio*p.cantidad)}</td>
+          <td class="mono" style="font-weight:700;color:var(--accent)">${fmt(p.precio)}</td>
           <td>${badge(p.estado)}</td>
           <td style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'};font-size:11px">${p.zona==='lima'?'Lima':'Prov.'}</td>
         </tr>`).join('')}
@@ -5404,15 +5404,15 @@ function renderLiquidacion(){
   const limaEnt=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado');
   const pendLiq=limaEnt.filter(p=>!p.liquidado);
   const liquidados=limaEnt.filter(p=>p.liquidado);
-  const montoPend=pendLiq.reduce((s,p)=>s+(p.precio*p.cantidad||0),0);
-  const montoLiq=liquidados.reduce((s,p)=>s+(p.precio*p.cantidad||0),0);
+  const montoPend=pendLiq.reduce((s,p)=>s+(p.precio||0),0);
+  const montoLiq=liquidados.reduce((s,p)=>s+(p.precio||0),0);
   // Agrupar pendientes por courier
   const byCourier={};
   pendLiq.forEach(p=>{
     const c=p.courier||'Sin asignar';
     if(!byCourier[c])byCourier[c]={pedidos:[],monto:0};
     byCourier[c].pedidos.push(p);
-    byCourier[c].monto+=p.precio*p.cantidad||0;
+    byCourier[c].monto+=p.precio||0;
   });
   const html=`
   <div class="section-header"><div><div class="section-title">💵 Liquidación Courier</div><div class="section-sub">Control del efectivo que deben liquidarte los motorizados Lima</div></div></div>
@@ -5437,7 +5437,7 @@ function renderLiquidacion(){
         <td class="td-mono" style="color:var(--text3)">#${p.id}</td>
         <td style="font-weight:600">${p.nombre}</td>
         <td style="font-size:12px">${p.producto}</td>
-        <td class="td-mono" style="color:var(--accent);font-weight:700">${fmt(p.precio*p.cantidad)}</td>
+        <td class="td-mono" style="color:var(--accent);font-weight:700">${fmt(p.precio)}</td>
         <td class="td-sm">${p.fecha}</td>
         <td><button class="btn btn-ghost btn-xs" onclick="liquidarPedido(${p.id})">💵 Liquidado</button></td>
       </tr>`).join('')}</tbody></table></div>
@@ -5451,7 +5451,7 @@ function renderLiquidacion(){
       <td class="td-mono" style="color:var(--text3)">#${p.id}</td>
       <td>${p.nombre}</td>
       <td style="font-size:12px">${p.producto}</td>
-      <td class="td-mono" style="color:var(--green)">${fmt(p.precio*p.cantidad)}</td>
+      <td class="td-mono" style="color:var(--green)">${fmt(p.precio)}</td>
       <td style="color:var(--text2)">${p.courier||'—'}</td>
       <td class="td-sm">${p.fechaLiq||'—'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="revertirLiquidacion(${p.id})" title="Revertir a No Liquidado">↩️ Revertir</button></td>
@@ -5530,7 +5530,7 @@ function renderHistorial(pedidoId){
 function calcTicketPromedio(){
   const ent=DB.pedidos.filter(p=>p.estado==='entregado');
   if(!ent.length)return 0;
-  return ent.reduce((s,p)=>s+p.precio*p.cantidad,0)/ent.length;
+  return ent.reduce((s,p)=>s+p.precio,0)/ent.length;
 }
 
 function calcRecompras(){
@@ -5545,8 +5545,8 @@ function calcRecompras(){
 
 function calcMargenNeto(ped){
   // Margen real = precio - costo_prod - costo_envio - comision - embalaje
-  const ing=ped.precio*ped.cantidad;
-  const costos=(ped.cprod||0)*ped.cantidad+(ped.cenv||0)+(ped.emb||0)*ped.cantidad;
+  const ing=ped.precio;
+  const costos=(ped.cprod||0)+(ped.cenv||0)+(ped.emb||0)*(ped.cantidad||1);
   return ing>0?((ing-costos)/ing*100):0;
 }
 
@@ -5557,7 +5557,7 @@ function calcPuntoEquilibrio(){
   const sueldosDia=DB.asesores.reduce((s,a)=>s+(a.pagoDia||40),0);
   const gastosFijos=pubHoy+sueldosDia;
   const promedioUtilPedido=DB.pedidos.filter(p=>p.estado==='entregado').slice(-20).reduce((s,p)=>{
-    const u=p.precio*p.cantidad-(p.cprod||0)*p.cantidad-(p.cenv||0)-(p.emb||0);
+    const u=p.precio-(p.cprod||0)-(p.cenv||0)-(p.emb||0)*(p.cantidad||1);
     return s+u;
   },0)/Math.max(DB.pedidos.filter(p=>p.estado==='entregado').slice(-20).length,1);
   return {gastosFijos,promUtil:promedioUtilPedido,pedidosPE:promedioUtilPedido>0?Math.ceil(gastosFijos/promedioUtilPedido):0};
@@ -6071,8 +6071,8 @@ function exportarFinanzasExcel(){
   const ped=DB.pedidos;
   const ent=ped.filter(p=>p.estado==='entregado');
   const pub=DB.publicidad.reduce((s,p)=>s+(p.monto||0),0);
-  const ing=ent.reduce((s,p)=>s+p.precio*p.cantidad,0);
-  const cprod=ent.reduce((s,p)=>s+(p.cprod||0)*p.cantidad,0);
+  const ing=ent.reduce((s,p)=>s+p.precio,0);
+  const cprod=ent.reduce((s,p)=>s+(p.cprod||0),0);
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
   const util=ing-cprod-cenv-pub;
   const cols=['Métrica','Valor'];
@@ -6467,7 +6467,7 @@ function renderSuperAdminPanel(){
       ${(()=>{
         const totalPedidos=SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.length||0),0);
         const totalEnt=SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.filter(p=>p.estado==='entregado').length||0),0);
-        const totalIng=SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.filter(p=>p.estado==='entregado').reduce((ss,p)=>ss+(p.precio*p.cantidad||0),0)||0),0);
+        const totalIng=SA_workspaces.reduce((s,w)=>s+(w.db_data?.pedidos?.filter(p=>p.estado==='entregado').reduce((ss,p)=>ss+(p.precio||0),0)||0),0);
         return `
         <div class="mcard mc-blue"><div class="mcard-label">Workspaces</div><div class="mcard-val mv-blue">${SA_workspaces.length}</div></div>
         <div class="mcard mc-accent"><div class="mcard-label">Total pedidos</div><div class="mcard-val mv-accent">${totalPedidos}</div></div>
@@ -6481,7 +6481,7 @@ function renderSuperAdminPanel(){
       ${SA_workspaces.map(w=>{
         const peds=w.db_data?.pedidos||[];
         const ent=peds.filter(p=>p.estado==='entregado');
-        const ing=ent.reduce((s,p)=>s+(p.precio*p.cantidad||0),0);
+        const ing=ent.reduce((s,p)=>s+(p.precio||0),0);
         const hoy7=new Date();hoy7.setDate(hoy7.getDate()-7);
         const ped7=peds.filter(p=>p.fecha>=hoy7.toISOString().split('T')[0]);
         const active=SA_activeWs?.id===w.id;

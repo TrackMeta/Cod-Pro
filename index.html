@@ -3523,7 +3523,7 @@ function renderPedidos(){
   const html=`
   <div class="section-header"><div><div class="section-title">Pedidos</div><div class="section-sub" id="ped-count"></div></div>
   <div class="section-actions">
-    <div class="tgrp"><button class="tbtn active" onclick="pVista='tabla';this.closest('.tgrp').querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPedidosContent()">📋 Tabla</button><button class="tbtn" onclick="pVista='kanban';this.closest('.tgrp').querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPedidosContent()">🗂️ Kanban</button></div>
+    <div class="tgrp"><button class="tbtn ${pVista==='tabla'?'active':''}" onclick="pVista='tabla';this.closest('.tgrp').querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPedidosContent()">📋 Tabla</button><button class="tbtn ${pVista==='kanban'?'active':''}" onclick="pVista='kanban';this.closest('.tgrp').querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPedidosContent()">🗂️ Kanban</button></div>
     <button class="btn btn-primary" onclick="openNuevoPedido()">+ Nuevo pedido</button>
   </div></div>
   <div class="fbar">

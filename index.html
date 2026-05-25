@@ -2418,10 +2418,13 @@ async function syncWorkerChanges(){
           if(!existeAsesor){DB.asesores.push(wa);changed=true;}
         });
       }
+      // Asesor de este worker (para filtrar actualizaciones)
+      const chAsesor=DB.asesores.find(a=>a.workerId===ch.worker_id);
       wDB.pedidos.forEach(wp=>{
         if(pedidosMap.has(wp.id)){
-          // Pedido existente — sincronizar estado, notas, adelanto, pendiente
+          // Pedido existente — solo sincronizar si está asignado a este worker
           const ap=pedidosMap.get(wp.id);
+          if(chAsesor&&String(ap.vendedor)!==String(chAsesor.id))return;
           let pChanged=false;
           if(ap.estado!==wp.estado){
             // Ajustar stock en la transición a entregado
@@ -4014,6 +4017,12 @@ function toggleZona(){
   document.getElementById('pg-dir').style.display=z==='lima'?'flex':'none';
   const ex=document.getElementById('pg-lima-extra');if(ex)ex.style.display=z==='lima'?'grid':'none';
   document.getElementById('p-prov-sec').style.display=z==='provincia'?'block':'none';
+  // Auto-actualizar costo de envío al cambiar zona (solo pedidos nuevos)
+  const isNuevo=!document.getElementById('p-id').value;
+  if(isNuevo&&isAdmin()){
+    const cenvEl=document.getElementById('p-cenv');
+    if(cenvEl)cenvEl.value=z==='lima'?(CFG.courier||14):(CFG.shalom||12);
+  }
 }
 function toggleModalidad(){
   const m=document.getElementById('p-modalidad')?.value||'stock';
@@ -8012,8 +8021,8 @@ function guardarNotaRapida(id){
 function resetearDatos(){
   if(!isAdmin())return;
   if(!confirm('⚠️ ¿Eliminar TODOS los datos? No se puede deshacer.'))return;
-  DB={pedidos:[],asesores:[],publicidad:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA.map(t=>({...t}))};
-  save();updateSidebarBadges();renderDashboard();alert('Datos eliminados.');
+  DB={pedidos:[],asesores:[],publicidad:[],gastos:[],deliveries:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA.map(t=>({...t}))};
+  save();updateSidebarBadges();showPage('dashboard');alert('Datos eliminados.');
 }
 
 // =====================================================================

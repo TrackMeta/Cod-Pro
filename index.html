@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -3666,13 +3666,15 @@ function renderPedidosContent(){
   const tableBody=arr.length?dates.map(dia=>{
     const its=byDate[dia];
     const total=its.reduce((s,p)=>s+(p.precio||0),0);
-    const cnt={confirmado:0,enviado:0,entregado:0,devuelto:0,rechazado:0};
+    const cnt={nuevo:0,confirmado:0,'no-contesta':0,enviado:0,entregado:0,devuelto:0,rechazado:0,reprogramado:0};
     its.forEach(p=>{if(cnt[p.estado]!==undefined)cnt[p.estado]++;});
+    const otros=cnt.nuevo+cnt['no-contesta']+cnt.reprogramado;
     const badges=[
       cnt.confirmado?`<span style="color:var(--green);font-size:11px">✅ ${cnt.confirmado} conf.</span>`:'',
       cnt.enviado?`<span style="color:var(--purple);font-size:11px">🚚 ${cnt.enviado} env.</span>`:'',
       cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado} ent.</span>`:'',
-      (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado} dev.</span>`:''
+      (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado} dev.</span>`:'',
+      otros>0?`<span style="color:var(--amber);font-size:11px">⏳ ${otros}</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
     const sepRow=`<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
     const rows=its.map(p=>`<tr id="ped-row-${p.id}">
@@ -7780,13 +7782,40 @@ function exportarDatos(){
 
 function exportarExcel(){
   // Export pedidos as CSV (opens in Excel)
-  const cols=['ID','Fecha','Nombre','Celular','DNI','Producto','Cantidad','Precio','Costo Prod','Costo Envio','Zona','Estado','Campaña','Fuente','Upsell','Comentario'];
-  const rows=DB.pedidos.map(p=>[p.id,p.fecha,p.nombre,p.celular,p.dni||'',p.producto,p.cantidad,p.precio,p.cprod||0,p.cenv||0,p.zona,p.estado,p.campana||'',p.fuente||'',p.upsellRes||'',p.comentario||''].map(v=>`"${String(v).replace(/"/g,'""')}"`));
-  const csv='\uFEFF'+[cols,...rows].map(r=>r.join(',')).join('\n');
+  const cols=['ID','Fecha','Fecha Creado','Nombre','Celular','DNI','Producto','Cantidad','Precio','Costo Prod','Embalaje','Costo Envio','Zona','Distrito/Ciudad','Vendedor','Courier','Estado','Motivo Dev.','Upsell','Comentario'];
+  const getVendNombre=v=>{
+    if(!v)return '';
+    const a=DB.asesores.find(x=>String(x.id)===String(v));
+    if(a)return a.nombre;
+    if(String(v).startsWith('admin_'))return SESSION&&SESSION.name?SESSION.name:'Admin';
+    return v;
+  };
+  const rows=DB.pedidos.map(p=>[
+    p.id,
+    p.fecha,
+    p.fechaCreado?new Date(p.fechaCreado).toLocaleString('es-PE'):'',
+    p.nombre,
+    p.celular,
+    p.dni||'',
+    p.producto,
+    p.cantidad,
+    p.precio,
+    p.cprod||0,
+    p.emb||0,
+    p.cenv||0,
+    p.zona,
+    p.zona==='lima'?(p.dist||''):(p.prov||''),
+    getVendNombre(p.vendedor),
+    p.courier||'',
+    p.estado,
+    p.motivoDevolucion||'',
+    p.upsellRes||'',
+    p.comentario||''
+  ].map(v=>`"${String(v).replace(/"/g,'""')}"`));
+  const csv='﻿'+[cols,...rows].map(r=>r.join(',')).join('\n');
   const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`pedidos_${hoy()}.csv`;a.click();
 }
-
 function exportarFinanzasExcel(){
   const ped=DB.pedidos;
   const ent=ped.filter(p=>p.estado==='entregado');

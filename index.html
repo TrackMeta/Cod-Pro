@@ -2454,7 +2454,7 @@ async function syncWorkerChanges(){
             }
             ap.estado=wp.estado;pChanged=true;
           }
-          if(ap.notas!==wp.notas){ap.notas=wp.notas;pChanged=true;}
+          if(ap.comentario!==wp.comentario){ap.comentario=wp.comentario;pChanged=true;}
           if(ap.adelanto!==wp.adelanto){ap.adelanto=wp.adelanto;pChanged=true;}
           if(ap.pendiente!==wp.pendiente){ap.pendiente=wp.pendiente;pChanged=true;}
           if(pChanged)changed=true;
@@ -3366,7 +3366,10 @@ function renderDashboard(){
   // ✅ FIXED: comisiones por entrega del período, sueldos separados
   const ccomEntregas=ent.filter(x=>x.zona==='lima').length*(CFG.comLima||1)+ent.filter(x=>x.zona==='provincia').length*(CFG.comProv||2);
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
-  const util=ing-cprod-cenv-cemb-pub-ccomEntregas;
+  const gastosArr=filtrarPeriodo(DB.gastos||[],filtro);
+  const cgastos=gastosArr.reduce((s,g)=>s+(g.monto||0),0);
+  const cDev=dev.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
+  const util=ing-cprod-cenv-cemb-pub-ccomEntregas-cgastos-cDev;
   const ef=p.length>0?Math.round(ent.length/p.length*100):0;
   const pctConf=p.length>0?Math.round(conf.length/p.length*100):0;
   const cpaReal=ent.length>0?(pub/ent.length):0;
@@ -3396,7 +3399,10 @@ function renderDashboard(){
     pIng=pE.reduce((s,x)=>s+x.precio,0);
     const pCp=pE.reduce((s,x)=>s+(x.cprod||0),0),pCe=pE.reduce((s,x)=>s+(x.cenv||0),0),pCm=pE.reduce((s,x)=>s+(x.emb||0)*(x.cantidad||1),0);
     const pCcom=pE.filter(x=>x.zona==='lima').length*(CFG.comLima||1)+pE.filter(x=>x.zona==='provincia').length*(CFG.comProv||2);
-    pUtil=pIng-pCp-pCe-pCm-pPub-pCcom;
+    const pGastos=filtrarPeriodo(DB.gastos||[],prevFiltro).reduce((s,g)=>s+(g.monto||0),0);
+    const pDevArr=filtrarPeriodo(DB.pedidos.filter(x=>x.estado==='devuelto'),prevFiltro);
+    const pCDev=pDevArr.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
+    pUtil=pIng-pCp-pCe-pCm-pPub-pCcom-pGastos-pCDev;
     pEnt=pE.length; pEf=pAP.length>0?Math.round(pE.length/pAP.length*100):0;
     pDev=pAP.length>0?Math.round(pDv.length/pAP.length*100):0;
   }
@@ -3524,6 +3530,8 @@ function renderDashboard(){
     <div class="fr"><span class="fr-label">🚚 Envíos + Embalaje</span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
     <div class="fr"><span class="fr-label">📢 Publicidad</span><span class="fr-val fv-neg">−${fmt(pub)}</span></div>
     <div class="fr"><span class="fr-label">👥 Com. por entregas</span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
+    ${cgastos>0?`<div class="fr"><span class="fr-label">💸 Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>`:''}
+    ${cDev>0?`<div class="fr"><span class="fr-label">↩️ Costo devoluciones</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
     ${sueldosTotal>0?`<div class="fr" style="opacity:.6"><span class="fr-label">💼 Sueldos fijos (info)</span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
     <div style="margin-top:8px;padding:10px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:7px">
       <div class="fr" style="border:none;padding:0"><span style="font-weight:700">UTILIDAD NETA</span><span class="mono" style="font-weight:700;font-size:16px;color:${util>=0?'var(--green)':'var(--red)'}">${fmtN(util)}</span></div>
@@ -7407,13 +7415,21 @@ function importarPedidos(rows,map){
     const cprod=prodCat?(prodCat.costo||0):0;
     if(cprod>0)conCprod++;
     const cenv=zona==='lima'?CFG.courier:CFG.shalom;
+    // Determinar vendedor: worker → su asesor; admin → admin_id
+    let vendedorImport='';
+    if(!isAdmin()){
+      const miAsesor=DB.asesores.find(a=>a.workerId===SESSION.id);
+      vendedorImport=miAsesor?String(miAsesor.id):SESSION.id;
+    } else {
+      vendedorImport=`admin_${SESSION.id}`;
+    }
     DB.pedidos.push({
       id:DB.nextId++,fecha:hoy(),nombre,celular,dni,producto,cantidad:1,
       precio,zona,modalidad:'stock',cprod,cenv,emb:0,
       dist:distrito,dir:direccion,prov:provinciaVal||distrito,
-      estado:'confirmado',fuente:'CSV',
-      adelanto:zona==='provincia'?0:undefined,
-      pendiente:zona==='provincia'?precio:undefined,
+      estado:'confirmado',fuente:'CSV',vendedor:vendedorImport,
+      adelanto:zona==='provincia'?0:0,
+      pendiente:zona==='provincia'?precio:0,
       fechaCreado:new Date().toISOString()
     });
     ok++;

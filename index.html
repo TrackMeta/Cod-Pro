@@ -5175,7 +5175,32 @@ function renderProdTabla(){
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function ajustarStock(id,delta){const p=DB.productos.find(x=>x.id===id);if(p){p.stock=Math.max(0,p.stock+delta);save();renderProdGrid();renderNotifications();}}
-function ajustarStockInput(id){const p=DB.productos.find(x=>x.id===id);if(!p)return;const v=parseInt(prompt(`Stock actual: ${p.stock}\nNuevo stock:`));if(!isNaN(v)&&v>=0){p.stock=v;save();renderProdGrid();renderNotifications();}}
+function ajustarStockInput(id){
+  const p=DB.productos.find(x=>x.id===id);if(!p)return;
+  const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-stock-adj';
+  mod.innerHTML=`<div class="modal sm">
+    <div class="modal-h">
+      <div><div class="modal-title">📦 Ajustar stock — ${p.nombre}</div><div class="modal-sub">Stock actual: <b>${p.stock}</b> unidades</div></div>
+      <div class="mc" onclick="document.getElementById('modal-stock-adj').remove()">×</div>
+    </div>
+    <div class="fg" style="margin-bottom:20px">
+      <label>Nuevo stock</label>
+      <input type="number" id="stock-adj-val" value="${p.stock}" min="0" step="1" style="font-size:20px;font-weight:700;text-align:center" autofocus>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="confirmarAjusteStock(${id})">✅ Guardar</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-stock-adj').remove()">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mod);
+  setTimeout(()=>{const el=document.getElementById('stock-adj-val');if(el){el.focus();el.select();}},80);
+}
+function confirmarAjusteStock(id){
+  const p=DB.productos.find(x=>x.id===id);if(!p)return;
+  const v=parseInt(document.getElementById('stock-adj-val')?.value);
+  if(!isNaN(v)&&v>=0){p.stock=v;save();renderProdGrid();renderNotifications();}
+  document.getElementById('modal-stock-adj').remove();
+}
 // ── VARIANT HELPERS ────────────────────────────────────────────────────
 let prodVariantes=[]; // [{nombre:'Rojo L', stock:10}]
 let prodOfertas=[];   // [{cantidad:1,precio:79}]

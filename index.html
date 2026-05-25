@@ -3279,6 +3279,11 @@ function showPage(id, navEl){
 // DASHBOARD
 // =====================================================================
 function renderDashboard(){
+  // Sync period toggle buttons in topbar
+  ['hoy','semana','mes','todo','dia','custom'].forEach(k=>{
+    const btn=document.getElementById('dp-'+k);
+    if(btn)btn.classList.toggle('active',k===dashPeriodo);
+  });
   const filtro=getDashFiltro();
   const p=filtrarPeriodo(DB.pedidos,filtro);
   const ent=p.filter(x=>x.estado==='entregado');
@@ -3678,7 +3683,7 @@ function renderPedidosContent(){
     <td class="mono" style="color:var(--accent)">${p.zona==='provincia'?fmt(p.adelanto||0):'-'}</td>
     <td class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
     <td>${badge(p.estado)}</td>
-    <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span style="font-size:11px;color:var(--text3)">rechazado</span>':''}</td>
+    <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px">❌ Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>

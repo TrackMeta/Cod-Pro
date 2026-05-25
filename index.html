@@ -2331,16 +2331,37 @@ function initRealtime(){
         payload=>{
           const nd=payload.new;
           if(!nd?.db_data)return;
-          DB=nd.db_data;
+          const adminDB=nd.db_data;
+          // Actualizar solo datos de catálogo (controlados por admin)
+          // NUNCA sobreescribir DB.pedidos directamente — borraría pedidos locales no sincronizados
+          if(adminDB.productos!==undefined)DB.productos=adminDB.productos;
+          if(adminDB.asesores!==undefined)DB.asesores=adminDB.asesores;
+          if(adminDB.upsells!==undefined)DB.upsells=adminDB.upsells;
+          if(adminDB.deliveries!==undefined)DB.deliveries=adminDB.deliveries;
+          if(adminDB.gastos!==undefined)DB.gastos=adminDB.gastos;
+          if(adminDB.publicidad!==undefined)DB.publicidad=adminDB.publicidad;
+          if(adminDB.waTmpls!==undefined)DB.waTmpls=adminDB.waTmpls;
+          if(adminDB.notifTrash!==undefined)DB.notifTrash=adminDB.notifTrash;
+          // Merge inteligente de pedidos:
+          // - Admin tiene la verdad de los pedidos ya sincronizados (estados actualizados)
+          // - Preservamos pedidos locales aún no sincronizados (no están en adminDB aún)
+          if(adminDB.pedidos){
+            const adminMap=new Map(adminDB.pedidos.map(p=>[p.id,p]));
+            const localMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
+            const merged=adminDB.pedidos.map(ap=>{
+              const lp=localMap.get(ap.id);
+              return lp?{...ap,comentario:lp.comentario??ap.comentario}:ap;
+            });
+            // Agregar pedidos locales que aún no llegaron al admin
+            (DB.pedidos||[]).forEach(lp=>{if(!adminMap.has(lp.id))merged.push(lp);});
+            DB.pedidos=merged;
+          }
           if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
-          if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
-          if(!DB.productos)DB.productos=[];if(!DB.deliveries)DB.deliveries=[];
-          if(!DB.gastos)DB.gastos=[];if(!DB.upsells)DB.upsells=[];
           localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
           updateSidebarBadges();renderNotifications();
           const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
           if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-          showToast('🔄 Actualizado por admin','success',1800);
+          showToast('🔄 Catálogo actualizado','success',1800);
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   }
@@ -2603,7 +2624,9 @@ async function syncWorkerChanges(){
       });
     });
     if(!changed)return;
-    const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
+    // Ignorar IDs timestamp (worker IDs >1e12) — solo contar IDs secuenciales del admin
+    const seqIds=DB.pedidos.filter(p=>(p.id||0)<1e12).map(p=>p.id||0);
+    const maxId=seqIds.length>0?Math.max(...seqIds):0;
     if(maxId>=DB.nextId)DB.nextId=maxId+1;
     await _supabase.from('workspaces').update({db_data:DB,updated_at:new Date().toISOString()}).eq('id',SESSION.workspace_id);
     await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id);
@@ -2796,9 +2819,9 @@ async function onSignedIn(user){
   if(!DB.productos)DB.productos=[];if(!DB.upsells)DB.upsells=[];
   if(!DB.notifTrash)DB.notifTrash=[];
   if(!DB.waTmpls||!DB.waTmpls.length)DB.waTmpls=DEFAULT_WA.map(t=>({...t}));
-  // Always recalculate nextId from max existing to avoid gaps
-  const _maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
-  DB.nextId=_maxId+1;
+  // Recalcular nextId usando solo IDs secuenciales (ignorar IDs timestamp de workers >1e12)
+  const _seqIds=DB.pedidos.filter(p=>(p.id||0)<1e12).map(p=>p.id||0);
+  DB.nextId=_seqIds.length>0?Math.max(..._seqIds)+1:1;
 
   // ── SUPER ADMIN (hidden) ──────────────────────────────────────────
   const SUPER_ADMINS=['rodrigometa4800@gmail.com'];
@@ -4194,7 +4217,7 @@ function guardarPedido(){
   }).join(', ');
 
   const p={
-    id:id?parseInt(id):DB.nextId++,
+    id:id?parseInt(id):(isAdmin()?DB.nextId++:Date.now()),
     fecha:document.getElementById('p-fecha').value,
     nombre,
     celular:celFinal,
@@ -7518,6 +7541,8 @@ function doImportarCSV(){
 }
 function importarPedidos(rows,map){
   let ok=0,skip=0,conCprod=0;
+  // Para workers: base timestamp + contador para IDs únicos sin colisiones
+  let _wIdBase=Date.now(),_wIdCnt=0;
   // Build quick-lookup for product catalog (by name, lowercased)
   const catMap={};
   (DB.productos||[]).forEach(p=>{if(p.nombre)catMap[p.nombre.toLowerCase().trim()]=p;});
@@ -7548,7 +7573,7 @@ function importarPedidos(rows,map){
       vendedorImport=`admin_${SESSION.id}`;
     }
     DB.pedidos.push({
-      id:DB.nextId++,fecha:hoy(),nombre,celular,dni,producto,cantidad:1,
+      id:isAdmin()?DB.nextId++:(_wIdBase+_wIdCnt++),fecha:hoy(),nombre,celular,dni,producto,cantidad:1,
       precio,zona,modalidad:'stock',cprod,cenv,emb:0,
       dist:distrito,dir:direccion,prov:provinciaVal||distrito,
       estado:'confirmado',fuente:'CSV',vendedor:vendedorImport,

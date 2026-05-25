@@ -7819,13 +7819,36 @@ function exportarExcel(){
 function exportarFinanzasExcel(){
   const ped=DB.pedidos;
   const ent=ped.filter(p=>p.estado==='entregado');
+  const dev=ped.filter(p=>p.estado==='devuelto');
   const pub=DB.publicidad.reduce((s,p)=>s+(p.monto||0),0);
+  const gastos=(DB.gastos||[]).reduce((s,g)=>s+(g.monto||0),0);
   const ing=ent.reduce((s,p)=>s+p.precio,0);
   const cprod=ent.reduce((s,p)=>s+(p.cprod||0),0);
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
-  const util=ing-cprod-cenv-pub;
+  const cemb=ent.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
+  const ccom=ent.filter(p=>p.zona==='lima').length*(CFG.comLima||1)+ent.filter(p=>p.zona==='provincia').length*(CFG.comProv||2);
+  const cdev=dev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+  const util=ing-cprod-cenv-cemb-pub-gastos-ccom-cdev;
+  const ef=ped.length>0?Math.round(ent.length/ped.length*100):0;
   const cols=['Métrica','Valor'];
-  const rows=[['Total pedidos',ped.length],['Entregados',ent.length],['Ingresos totales',ing.toFixed(2)],['Gasto publicidad',pub.toFixed(2)],['Costo productos',cprod.toFixed(2)],['Costo envíos',cenv.toFixed(2)],['Utilidad neta',util.toFixed(2)],['ROAS',pub>0?(ing/pub).toFixed(2):'—']];
+  const rows=[
+    ['Total pedidos',ped.length],
+    ['Entregados',ent.length],
+    ['Devoluciones',dev.length],
+    ['% Efectividad',ef+'%'],
+    ['Ingresos totales',ing.toFixed(2)],
+    ['Costo productos',cprod.toFixed(2)],
+    ['Costo envíos',cenv.toFixed(2)],
+    ['Embalaje',cemb.toFixed(2)],
+    ['Gasto publicidad',pub.toFixed(2)],
+    ['Comisiones entrega',ccom.toFixed(2)],
+    ['Gastos extras',gastos.toFixed(2)],
+    ['Impacto devoluciones',cdev.toFixed(2)],
+    ['Utilidad neta',util.toFixed(2)],
+    ['Margen neto %',ing>0?(util/ing*100).toFixed(1)+'%':'—'],
+    ['ROAS',pub>0?(ing/pub).toFixed(2):'—'],
+    ['Ticket promedio',ent.length>0?(ing/ent.length).toFixed(2):'—']
+  ];
   const csv='\uFEFF'+[cols,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
   const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`finanzas_${hoy()}.csv`;a.click();
@@ -7900,6 +7923,20 @@ function guardarNotaRapida(id){
         const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
         if(varIdx>=0)prod.variantes[varIdx].stock=Math.max(0,prod.variantes[varIdx].stock-(parseInt(it.cantidad)||1));
         else prod.stock=Math.max(0,(prod.stock||0)-(parseInt(it.cantidad)||1));
+      }
+    });
+    // Provincia: clear adelanto/pendiente once delivered
+    if(p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
+  }
+  // Revert stock if un-marking entregado
+  if(prevEstado==='entregado'&&nuevoEstado!=='entregado'){
+    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
+      if(!it.productoId)return;
+      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
+      if(prod&&prod.modalidad==='stock'){
+        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
+        if(varIdx>=0)prod.variantes[varIdx].stock=(prod.variantes[varIdx].stock||0)+(parseInt(it.cantidad)||1);
+        else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
       }
     });
   }

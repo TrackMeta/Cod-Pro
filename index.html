@@ -4757,9 +4757,10 @@ function guardarCourier(){
 function cambiarEstadoRapido(id,nuevoEstado,selEl){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   if(nuevoEstado==='devuelto'){
-    const motivo=prompt('Motivo de devolución (opcional):','');
-    if(motivo===null){if(selEl)selEl.value=p.estado;return;}
-    p.motivoDevolucion=motivo;
+    // Revert select while modal is open
+    if(selEl)selEl.value=p.estado;
+    marcarDevuelto(id);
+    return;
   }
   cambiarEstado(id,nuevoEstado);
   if(document.getElementById('lima-view'))renderLimaContent();

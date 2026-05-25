@@ -2318,7 +2318,7 @@ function initRealtime(){
           window._rtSyncTimer=setTimeout(async()=>{
             await syncWorkerChanges();
             updateSidebarBadges();renderNotifications();
-            const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones};
+            const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones,rotulos:renderRotulos,productos:renderProductos,upsells:renderUpsells};
             if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
             showToast('🔄 Trabajador sincronizado','success',2000);
           },800);
@@ -2330,10 +2330,12 @@ function initRealtime(){
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
         payload=>{
           const nd=payload.new;
-          if(!nd?.db_data)return;
+          // Los pedidos del worker tienen IDs timestamp >1e10 (nunca colisionan con IDs secuenciales del admin)
+          // Los preservamos SIEMPRE antes de cualquier actualización
+          const myPendingPeds=(DB.pedidos||[]).filter(p=>(p.id||0)>1e10);
           const adminDB=nd.db_data;
-          // Actualizar solo datos de catálogo (controlados por admin)
-          // NUNCA sobreescribir DB.pedidos directamente — borraría pedidos locales no sincronizados
+          if(!adminDB)return;
+          // Actualizar catálogo completo desde admin
           if(adminDB.productos!==undefined)DB.productos=adminDB.productos;
           if(adminDB.asesores!==undefined)DB.asesores=adminDB.asesores;
           if(adminDB.upsells!==undefined)DB.upsells=adminDB.upsells;
@@ -2342,26 +2344,16 @@ function initRealtime(){
           if(adminDB.publicidad!==undefined)DB.publicidad=adminDB.publicidad;
           if(adminDB.waTmpls!==undefined)DB.waTmpls=adminDB.waTmpls;
           if(adminDB.notifTrash!==undefined)DB.notifTrash=adminDB.notifTrash;
-          // Merge inteligente de pedidos:
-          // - Admin tiene la verdad de los pedidos ya sincronizados (estados actualizados)
-          // - Preservamos pedidos locales aún no sincronizados (no están en adminDB aún)
-          if(adminDB.pedidos){
-            const adminMap=new Map(adminDB.pedidos.map(p=>[p.id,p]));
-            const localMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
-            const merged=adminDB.pedidos.map(ap=>{
-              const lp=localMap.get(ap.id);
-              return lp?{...ap,comentario:lp.comentario??ap.comentario}:ap;
-            });
-            // Agregar pedidos locales que aún no llegaron al admin
-            (DB.pedidos||[]).forEach(lp=>{if(!adminMap.has(lp.id))merged.push(lp);});
-            DB.pedidos=merged;
-          }
+          // Pedidos: usar base del admin + preservar los del worker no sincronizados
+          const basePeds=adminDB.pedidos||DB.pedidos||[];
+          const adminIds=new Set(basePeds.map(p=>p.id));
+          DB.pedidos=[...basePeds,...myPendingPeds.filter(p=>!adminIds.has(p.id))];
           if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
           localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
           updateSidebarBadges();renderNotifications();
           const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
           if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-          showToast('🔄 Catálogo actualizado','success',1800);
+          showToast('🔄 Actualizado','success',1800);
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   }
@@ -2669,6 +2661,9 @@ function saveConfig(){
   });
   save();
   renderNotifications();
+  // Re-renderizar página activa para reflejar cambios (ej: courier, comisiones)
+  const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,rotulos:renderRotulos,productos:renderProductos};
+  if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
   showToast('✅ Configuración guardada');
 }
 
@@ -2822,6 +2817,28 @@ async function onSignedIn(user){
   // Recalcular nextId usando solo IDs secuenciales (ignorar IDs timestamp de workers >1e12)
   const _seqIds=DB.pedidos.filter(p=>(p.id||0)<1e12).map(p=>p.id||0);
   DB.nextId=_seqIds.length>0?Math.max(..._seqIds)+1:1;
+
+  // Para workers: recuperar pedidos pendientes de sincronización (sobrevive F5/recarga)
+  if(profile.role!=='admin'){
+    let pendingPeds=[];
+    // 1. Intentar desde worker_changes en Supabase
+    try{
+      const{data:wArr}=await _supabase.from('worker_changes')
+        .select('db_data').eq('workspace_id',profile.workspace_id)
+        .eq('worker_id',user.id).limit(1);
+      pendingPeds=(wArr&&wArr[0]?.db_data?.pedidos)||[];
+    }catch(_){}
+    // 2. Fallback: localStorage (si worker_changes falló o ya fue borrado por admin)
+    if(!pendingPeds.length){
+      try{
+        const lsDB=JSON.parse(localStorage.getItem(getWsKey('db'))||'{}');
+        pendingPeds=lsDB.pedidos||[];
+      }catch(_){}
+    }
+    // Agregar solo pedidos con ID timestamp propios del worker (>1e10) que no estén ya en DB
+    const syncedIds=new Set(DB.pedidos.map(p=>p.id));
+    pendingPeds.forEach(wp=>{if((wp.id||0)>1e10&&!syncedIds.has(wp.id))DB.pedidos.push(wp);});
+  }
 
   // ── SUPER ADMIN (hidden) ──────────────────────────────────────────
   const SUPER_ADMINS=['rodrigometa4800@gmail.com'];
@@ -3392,6 +3409,8 @@ function updateSidebarBadges(){
 function hoy(){return new Date().toISOString().split('T')[0];}
 function fmt(n){return 'S/ '+Math.abs(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function fmtN(n){return 'S/ '+(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+// IDs de trabajador son timestamps (>1e10). Mostramos solo las últimas 5 cifras con prefijo W
+function fmtPedidoId(id){if(!id&&id!==0)return'—';return id>1e10?'W'+String(id).slice(-5):String(id);}
 // Marca filtros activos con clase .f-on — se llama automáticamente desde setContent
 function initFbar(){
   document.querySelectorAll('.fg-filter select,.fg-filter input[type=text]').forEach(el=>{
@@ -3691,7 +3710,7 @@ function renderDashboard(){
     </div>
     <div class="tw"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Zona</th><th>Pago</th><th>Estado</th><th></th></tr></thead>
     <tbody>${[...p].sort((a,b)=>b.id-a.id).slice(0,8).map(x=>`<tr>
-      <td class="td-mono" style="color:var(--text3)">#${x.id}</td>
+      <td class="td-mono" style="color:var(--text3)">#${fmtPedidoId(x.id)}</td>
       <td class="td-sm">${x.fecha}</td>
       <td><div style="font-weight:600">${x.nombre}</div><div style="font-size:11px;color:var(--text3)">${x.celular}</div></td>
       <td style="font-size:12.5px">${x.producto} <span style="color:var(--text3)">×${x.cantidad}</span></td>
@@ -3899,7 +3918,7 @@ function renderPedidosContent(){
     const sepRow=`<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
     const rows=its.map(p=>`<tr id="ped-row-${p.id}">
     <td style="padding:6px 8px;text-align:center"><input type="checkbox" class="ped-chk" data-id="${p.id}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onchange="actualizarSelPed()"></td>
-    <td class="mono" style="color:var(--text3)">#${p.id}</td>
+    <td class="mono" style="color:var(--text3)">#${fmtPedidoId(p.id)}</td>
     <td><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge">⚠️ DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
     <td>${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td>${bdgMod(p.modalidad||'stock')}</td>
@@ -4527,7 +4546,7 @@ function renderTablaEva(){
           <tbody>
             ${arr.map(p=>{const sel=evaSeleccion.has(p.id);return `<tr style="border-top:1px solid var(--border);cursor:pointer;${sel?'background:rgba(99,102,241,.08)':''}" onclick="toggleSelEva(${p.id},event)">
               <td style="padding:8px 12px;text-align:center"><input type="checkbox" ${sel?'checked':''} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onclick="toggleSelEva(${p.id},event)"></td>
-              <td style="padding:8px 12px;color:var(--text3);font-family:var(--mono)">#${p.id}</td>
+              <td style="padding:8px 12px;color:var(--text3);font-family:var(--mono)">#${fmtPedidoId(p.id)}</td>
               <td style="padding:8px 12px;color:var(--text2);white-space:nowrap">${p.fecha||'—'}</td>
               <td style="padding:8px 12px">${ESTADO_BADGE[p.estado]||p.estado}</td>
               <td style="padding:8px 12px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre||'—'}</td>
@@ -4691,7 +4710,7 @@ function renderTablaSha(){
           <tbody>
             ${arr.map(p=>{const sel=shalomSeleccion.has(p.id);return `<tr style="border-top:1px solid var(--border);cursor:pointer;${sel?'background:rgba(26,35,126,.08)':''}" onclick="toggleSelSha(${p.id},event)">
               <td style="padding:8px 12px;text-align:center"><input type="checkbox" ${sel?'checked':''} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onclick="toggleSelSha(${p.id},event)"></td>
-              <td style="padding:8px 12px;color:var(--text3);font-family:var(--mono)">#${p.id}</td>
+              <td style="padding:8px 12px;color:var(--text3);font-family:var(--mono)">#${fmtPedidoId(p.id)}</td>
               <td style="padding:8px 12px;color:var(--text2);white-space:nowrap">${p.fecha||'—'}</td>
               <td style="padding:8px 12px">${ESTADO_BADGE[p.estado]||p.estado}</td>
               <td style="padding:8px 12px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre||'—'}</td>
@@ -4937,7 +4956,7 @@ function renderLimaContent(){
         const felWeight=p.fechaEntregaLima?'600':'400';
         const motivo=p.motivoDevolucion?'<div style="font-size:10px;color:var(--red);margin-top:2px">'+p.motivoDevolucion+'</div>':'';
         limaHtml+='<tr>'
-          +'<td class="mono" style="color:var(--text3)">#'+p.id+'</td>'
+          +'<td class="mono" style="color:var(--text3)">#'+fmtPedidoId(p.id)+'</td>'
           +'<td style="font-size:11px;white-space:nowrap">'+fmtReg(p.fechaCreado)+'</td>'
           +'<td><div style="font-weight:600;font-size:12.5px">'+p.nombre+'</div><div style="font-size:10.5px;color:var(--text3)">'+p.celular+'</div></td>'
           +'<td style="font-size:12px">'+p.producto+' <span style="color:var(--text3)">\xD7'+p.cantidad+'</span></td>'
@@ -5125,7 +5144,7 @@ function renderProvinciaContent(){
       const urgente=diasT>=7,advertencia=diasT>=4;
       const rowBg=urgente?'background:rgba(239,68,68,.05)':advertencia?'background:rgba(245,158,11,.05)':'';
       return `<tr style="${rowBg}">
-    <td class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
+    <td class="mono" style="color:var(--text3)">#${fmtPedidoId(p.id)}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
@@ -5691,7 +5710,7 @@ function renderUpsells(){
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Últimas aceptaciones</div>
         ${ultimas.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:3px 0">
-          <div><span style="color:var(--text3)">#${p.id}</span> <span style="font-weight:600">${p.nombre}</span></div>
+          <div><span style="color:var(--text3)">#${fmtPedidoId(p.id)}</span> <span style="font-weight:600">${p.nombre}</span></div>
           <span style="color:var(--text3)">${p.fecha}</span>
         </div>`).join('')}
       </div>`:''}
@@ -6110,8 +6129,12 @@ function roiPorProducto(filtro){
   const base=filtro?filtrarPeriodo(DB.pedidos.filter(p=>p.estado==='entregado'),filtro):DB.pedidos.filter(p=>p.estado==='entregado');
   const prodMap={};
   base.forEach(p=>{
-    const key=p.producto||'Sin nombre';
-    if(!prodMap[key])prodMap[key]={ing:0,cost:0,util:0,cnt:0};
+    // Agrupar por productoId cuando esté disponible, sino por nombre (CSV/sin catálogo)
+    const keyId=p.productoId?`id:${p.productoId}`:null;
+    const keyName=p.producto||'Sin nombre';
+    const key=keyId||keyName;
+    const displayName=keyId?(DB.productos.find(x=>x.id===p.productoId)?.nombre||keyName):keyName;
+    if(!prodMap[key])prodMap[key]={ing:0,cost:0,util:0,cnt:0,name:displayName};
     const costos=(p.cprod||0)+(p.cenv||0)+(p.emb||0)*(p.cantidad||1);
     prodMap[key].ing+=p.precio;
     prodMap[key].cost+=costos;
@@ -6120,7 +6143,8 @@ function roiPorProducto(filtro){
   });
   const top=Object.entries(prodMap).sort((a,b)=>b[1].ing-a[1].ing).slice(0,5);
   if(!top.length)return`<div style="font-size:12px;color:var(--text3);padding:16px 0">Sin ventas en este período</div>`;
-  return top.map(([name,d])=>{
+  return top.map(([,d])=>{
+    const name=d.name||'Sin nombre';
     const margin=d.ing>0?((d.ing-d.cost)/d.ing*100).toFixed(1):0;
     const mColor=parseFloat(margin)>=30?'var(--green)':parseFloat(margin)>=15?'var(--amber)':'var(--red)';
     const short=name.length>22?name.substring(0,20)+'…':name;
@@ -6371,7 +6395,7 @@ function openModalAsesor(id){
 }
 function guardarAsesor(){
   const id=document.getElementById('a-id').value;
-  const a={id:id?parseFloat(id):Math.floor(Date.now()+Math.random()*1000),nombre:document.getElementById('a-nombre').value,comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
+  const a={id:id?parseInt(id,10):Math.floor(Date.now()+Math.random()*1000),nombre:document.getElementById('a-nombre').value,comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
   if(id){const idx=DB.asesores.findIndex(x=>String(x.id)===String(id));if(idx>=0){a.workerId=DB.asesores[idx].workerId;DB.asesores[idx]=a;}}else DB.asesores.push(a);
   save();closeModal('modal-asesor');renderComisiones();
 }
@@ -6647,11 +6671,13 @@ function renderFlujoContent(){
     const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
     const gastosDia=(DB.gastos||[]).filter(g=>g.fecha===dia).reduce((s,g)=>s+(g.monto||0),0);
+    // Comisiones del día (igual que Dashboard y Finanzas)
+    const comDia=entDia.filter(x=>x.zona==='lima').length*(CFG.comLima||1)+entDia.filter(x=>x.zona==='provincia').length*(CFG.comProv||2);
     // Entradas reales del día: adelantos cobrados de pedidos nuevos de provincia
     const entradas=ped.filter(p=>p.zona==='provincia'&&p.fecha===dia&&(p.adelanto||0)>0)
       .reduce((s,p)=>s+(p.adelanto||0),0);
     const dow=DOW[new Date(dia+'T12:00:00').getDay()];
-    return {dia,dow,ing,pub,gastos:gastosDia,entradas,util:ing-cprodD-cenvD-cembD-pub-gastosDia,ent:entDia.length};
+    return {dia,dow,ing,pub,gastos:gastosDia,entradas,util:ing-cprodD-cenvD-cembD-pub-gastosDia-comDia,ent:entDia.length};
   });
 
   const maxBar=Math.max(...porDia.map(d=>Math.max(d.ing,d.pub+d.gastos)),1);
@@ -6823,7 +6849,7 @@ function renderFlujoContent(){
           <td style="text-align:center">
             <span style="font-size:11px;font-weight:700;color:${alertColor}">${diasTransit}d</span>
           </td>
-          <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+          <td class="mono" style="color:var(--text3);font-size:11px">#${fmtPedidoId(p.id)}</td>
           <td style="font-weight:600;font-size:12px;white-space:nowrap">${p.nombre}</td>
           <td style="font-size:11px;color:var(--text3)">${p.celular||'—'}</td>
           <td style="font-size:11px">${p.producto}${p.cantidad>1?` <span style="color:var(--text3)">×${p.cantidad}</span>`:''}</td>
@@ -7046,7 +7072,7 @@ function renderLiquidacion(){
             return`<tr style="${rowBg}">
               <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(p.fecha||'').slice(5)||'—'}</td>
               <td style="text-align:center"><span style="font-size:11px;font-weight:700;color:${dColor}">${dias}d</span></td>
-              <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+              <td class="mono" style="color:var(--text3);font-size:11px">#${fmtPedidoId(p.id)}</td>
               <td style="font-weight:600;font-size:12px">${p.nombre}</td>
               <td style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
               <td class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
@@ -7091,7 +7117,7 @@ function renderLiquidacion(){
         <div class="tw">
           <table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Courier</th><th style="text-align:right">Precio</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
           <tbody>${[...data.pedidos].sort((a,b)=>(a.courier||'').localeCompare(b.courier||'')).map(p=>`<tr>
-            <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+            <td class="mono" style="color:var(--text3);font-size:11px">#${fmtPedidoId(p.id)}</td>
             <td style="font-size:12px;font-weight:600">${p.nombre}</td>
             <td style="font-size:11px;color:var(--text3)">${p.producto}</td>
             <td style="font-size:11px;color:var(--text2)">${p.courier||'—'}</td>
@@ -7158,7 +7184,7 @@ function renderHistorial(pedidoId){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-hist';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
-      <div><div class="modal-title">📋 Historial #${p.id}</div><div class="modal-sub">${p.nombre} · ${p.producto}</div></div>
+      <div><div class="modal-title">📋 Historial #${fmtPedidoId(p.id)}</div><div class="modal-sub">${p.nombre} · ${p.producto}</div></div>
       <div class="mc" onclick="document.getElementById('modal-hist').remove()">×</div>
     </div>
     ${hist.length?hist.map((h,i)=>`
@@ -7294,7 +7320,7 @@ function filterWAPedidos(){
   list.style.display='block';
   list.innerHTML=matches.map(p=>`
     <div onclick="seleccionarWAPed(${p.id})" style="padding:8px 10px;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;transition:background .1s" onmouseenter="this.style.background='var(--surface3)'" onmouseleave="this.style.background='transparent'">
-      <div><b>#${p.id}</b> ${p.nombre}</div>
+      <div><b>#${fmtPedidoId(p.id)}</b> ${p.nombre}</div>
       <div style="font-size:11px;color:var(--text3)">${p.producto} · ${badge(p.estado)}</div>
     </div>`).join('');
 }
@@ -7306,7 +7332,7 @@ function seleccionarWAPed(id){
   const srch=document.getElementById('wa-search');if(srch)srch.value='';
   const sel=document.getElementById('wa-ped-selected');
   if(sel)sel.innerHTML=`<div style="background:var(--greenL);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
-    <div><span style="font-size:12px;color:var(--green);font-weight:700">✅ Pedido seleccionado</span><div style="font-size:13px;font-weight:600;margin-top:2px">#${p.id} · ${p.nombre} · ${p.producto}</div><div style="font-size:11px;color:var(--text3)">${p.celular} · ${p.zona==='lima'?'Lima':'Provincia'}</div></div>
+    <div><span style="font-size:12px;color:var(--green);font-weight:700">✅ Pedido seleccionado</span><div style="font-size:13px;font-weight:600;margin-top:2px">#${fmtPedidoId(p.id)} · ${p.nombre} · ${p.producto}</div><div style="font-size:11px;color:var(--text3)">${p.celular} · ${p.zona==='lima'?'Lima':'Provincia'}</div></div>
     <button class="btn btn-ghost btn-xs" onclick="window._waPedSel=null;document.getElementById('wa-ped-selected').innerHTML='';renderWATmpls()">✕ Quitar</button>
   </div>`;
   renderWATmpls();
@@ -7338,7 +7364,7 @@ function renderWATmpls(){
     const filled=fillVars(t.body);
     const phone=ped?.celular?ped.celular.replace(/\D/g,''):'';
     const waUrl=phone?`https://wa.me/${phone.startsWith('51')?phone:'51'+phone}?text=${encodeURIComponent(filled)}`:`https://wa.me/?text=${encodeURIComponent(filled)}`;
-    const b64=btoa(unescape(encodeURIComponent(filled)));
+    const b64=btoa(String.fromCharCode(...new TextEncoder().encode(filled)));
     return `<div class="wa-tmpl">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div class="wa-tmpl-title">💬 ${t.nombre}</div>
@@ -7540,7 +7566,7 @@ function doImportarCSV(){
   importarPedidos(window._csvImportData.rows, window._csvImportData.map);
 }
 function importarPedidos(rows,map){
-  let ok=0,skip=0,conCprod=0;
+  let ok=0,skip=0,conCprod=0,limaCount=0,provCount=0;
   // Para workers: base timestamp + contador para IDs únicos sin colisiones
   let _wIdBase=Date.now(),_wIdCnt=0;
   // Build quick-lookup for product catalog (by name, lowercased)
@@ -7582,12 +7608,12 @@ function importarPedidos(rows,map){
       fechaCreado:new Date().toISOString()
     });
     ok++;
+    if(zona==='lima')limaCount++;else provCount++;
   });
   save();updateSidebarBadges();
   const res=document.getElementById('import-result');
   if(!res)return;
-  const lima=DB.pedidos.slice(-ok).filter(p=>p.zona==='lima').length;
-  const prov=ok-lima;
+  const lima=limaCount,prov=provCount;
   res.innerHTML=`
     <div class="card" style="border:1px solid rgba(34,197,94,.3);background:var(--greenL)">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
@@ -8354,7 +8380,7 @@ function renderRotuloCard(p,showNegocio,negocioName,withSelect,showCod=false){
     ${withSelect?`<div class="rotulo-select-check ${isSel?'checked':''}" id="rcheck-${p.id}">✓</div>`:''}
     <div class="rotulo-header">
       <div>
-        <div class="rotulo-id">#${p.id}</div>
+        <div class="rotulo-id">#${fmtPedidoId(p.id)}</div>
         ${showNegocio&&negocioName?`<div style="font-size:11px;font-weight:700;color:var(--text2);margin-top:2px">${negocioName}</div>`:''}
       </div>
       <div class="rotulo-zona ${isLima?'lima':'provincia'}">${isLima?'🏙️ Lima':'📦 Provincia'}</div>
@@ -8400,7 +8426,7 @@ function generarRotuloPrintHTML(pedidos,isRotado){
       <div class="label-header">
         ${logoElement}
         <div class="label-negocio">${showNegocio?negocioName:''}</div>
-        <div class="label-id">#${p.id}</div>
+        <div class="label-id">#${fmtPedidoId(p.id)}</div>
         <div class="label-zona-badge ${isLima?'lima':''}">${isLima?'LIMA':'PROV.'}</div>
       </div>
       <div class="label-fields">

@@ -2405,17 +2405,63 @@ async function syncWorkerChanges(){
     const{data:changes}=await _supabase.from('worker_changes')
       .select('*').eq('workspace_id',SESSION.workspace_id);
     if(!changes||!changes.length)return;
-    const supabaseIds=new Set((DB.pedidos||[]).map(p=>p.id));
+    const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
     let changed=false;
     changes.forEach(ch=>{
       const wDB=ch.db_data;
       if(!wDB?.pedidos)return;
-      const nuevos=wDB.pedidos.filter(p=>!supabaseIds.has(p.id));
-      if(nuevos.length){
-        DB.pedidos=[...(DB.pedidos||[]),...nuevos];
-        nuevos.forEach(p=>supabaseIds.add(p.id));
-        changed=true;
+      // Sync asesores: add any worker-created asesor not yet in admin DB
+      if(wDB.asesores){
+        wDB.asesores.forEach(wa=>{
+          if(!wa.workerId)return;
+          const existeAsesor=DB.asesores.find(a=>a.workerId===wa.workerId);
+          if(!existeAsesor){DB.asesores.push(wa);changed=true;}
+        });
       }
+      wDB.pedidos.forEach(wp=>{
+        if(pedidosMap.has(wp.id)){
+          // Pedido existente — sincronizar estado, notas, adelanto, pendiente
+          const ap=pedidosMap.get(wp.id);
+          let pChanged=false;
+          if(ap.estado!==wp.estado){
+            // Ajustar stock en la transición a entregado
+            if(wp.estado==='entregado'&&ap.estado!=='entregado'){
+              (wp.items||[{productoId:wp.productoId,variante:wp.variante,cantidad:wp.cantidad}]).forEach(it=>{
+                if(!it.productoId)return;
+                const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
+                if(prod&&prod.modalidad==='stock'){
+                  const vi=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
+                  if(vi>=0)prod.variantes[vi].stock=Math.max(0,(prod.variantes[vi].stock||0)-(parseInt(it.cantidad)||1));
+                  else prod.stock=Math.max(0,(prod.stock||0)-(parseInt(it.cantidad)||1));
+                }
+              });
+              if(wp.zona==='provincia'){ap.adelanto=0;ap.pendiente=0;}
+            }
+            // Revertir stock si se desmarca entregado
+            if(ap.estado==='entregado'&&wp.estado!=='entregado'){
+              (wp.items||[{productoId:wp.productoId,variante:wp.variante,cantidad:wp.cantidad}]).forEach(it=>{
+                if(!it.productoId)return;
+                const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
+                if(prod&&prod.modalidad==='stock'){
+                  const vi=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
+                  if(vi>=0)prod.variantes[vi].stock=(prod.variantes[vi].stock||0)+(parseInt(it.cantidad)||1);
+                  else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
+                }
+              });
+            }
+            ap.estado=wp.estado;pChanged=true;
+          }
+          if(ap.notas!==wp.notas){ap.notas=wp.notas;pChanged=true;}
+          if(ap.adelanto!==wp.adelanto){ap.adelanto=wp.adelanto;pChanged=true;}
+          if(ap.pendiente!==wp.pendiente){ap.pendiente=wp.pendiente;pChanged=true;}
+          if(pChanged)changed=true;
+        } else {
+          // Pedido nuevo — agregar
+          DB.pedidos.push(wp);
+          pedidosMap.set(wp.id,wp);
+          changed=true;
+        }
+      });
     });
     if(!changed)return;
     const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
@@ -2832,7 +2878,7 @@ function syncAsesoresConWorkers(workers){
     const existe=DB.asesores.find(a=>a.workerId===w.id);
     if(!existe){
       DB.asesores.push({
-        id:Date.now()+Math.random(),
+        id:Math.floor(Date.now()+Math.random()*1000),
         workerId:w.id,
         nombre:w.name||'Sin nombre',
         comLima:CFG.comLima||1,
@@ -2884,6 +2930,20 @@ async function guardarTrabajador(editUserId){
   const uid=data.user?.id;
   if(uid){
     await _supabase.from('user_profiles').upsert({id:uid,name:nombre,initials,role:'worker',workspace_id:wsId});
+    // Crear asesor vinculado de inmediato para que el worker pueda registrar pedidos al entrar
+    if(!DB.asesores)DB.asesores=[];
+    if(!DB.asesores.find(a=>a.workerId===uid)){
+      DB.asesores.push({
+        id:Math.floor(Date.now()+Math.random()*1000),
+        workerId:uid,
+        nombre,
+        comLima:CFG.comLima||1,
+        comProv:CFG.comProv||2,
+        sueldo:0,
+        pagoDia:40
+      });
+      await save(); // Admin save → guarda en workspaces
+    }
   }
   if(btn){btn.disabled=false;}
   document.getElementById('modal-trabajador')?.remove();
@@ -2896,6 +2956,8 @@ async function eliminarTrabajador(userId){
   const nombre=asesor?.nombre||'este trabajador';
   if(!confirm(`¿Eliminar a ${nombre}?\n\nYa no podrá ingresar al sistema. Sus pedidos registrados se mantendrán.`))return;
   await _supabase.from('user_profiles').delete().eq('id',userId);
+  // Limpiar cambios pendientes del trabajador
+  await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id).eq('worker_id',userId);
   showToast(`🗑️ ${nombre} eliminado del workspace`,'warn');
   renderUsuarios();
 }
@@ -6140,14 +6202,14 @@ function eliminarDelivery(id){
 
 function openModalAsesor(id){
   document.getElementById('a-id').value=id||'';
-  if(id){const a=DB.asesores.find(x=>x.id===id);if(a){document.getElementById('a-nombre').value=a.nombre;document.getElementById('a-lima').value=a.comLima;document.getElementById('a-prov').value=a.comProv;document.getElementById('a-sueldo').value=a.sueldo;document.getElementById('a-dia').value=a.pagoDia;}}
+  if(id){const a=DB.asesores.find(x=>String(x.id)===String(id));if(a){document.getElementById('a-nombre').value=a.nombre;document.getElementById('a-lima').value=a.comLima;document.getElementById('a-prov').value=a.comProv;document.getElementById('a-sueldo').value=a.sueldo;document.getElementById('a-dia').value=a.pagoDia;}}
   else{document.getElementById('a-nombre').value='';document.getElementById('a-lima').value=CFG.comLima||1;document.getElementById('a-prov').value=CFG.comProv||2;document.getElementById('a-sueldo').value=0;document.getElementById('a-dia').value=40;}
   document.getElementById('modal-asesor').classList.add('open');
 }
 function guardarAsesor(){
   const id=document.getElementById('a-id').value;
-  const a={id:id?parseInt(id):Date.now(),nombre:document.getElementById('a-nombre').value,comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
-  if(id){const idx=DB.asesores.findIndex(x=>x.id===parseInt(id));DB.asesores[idx]=a;}else DB.asesores.push(a);
+  const a={id:id?parseFloat(id):Math.floor(Date.now()+Math.random()*1000),nombre:document.getElementById('a-nombre').value,comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
+  if(id){const idx=DB.asesores.findIndex(x=>String(x.id)===String(id));if(idx>=0){a.workerId=DB.asesores[idx].workerId;DB.asesores[idx]=a;}}else DB.asesores.push(a);
   save();closeModal('modal-asesor');renderComisiones();
 }
 function eliminarAsesor(id){if(!confirm('¿Eliminar?'))return;DB.asesores=DB.asesores.filter(x=>x.id!==id);save();renderComisiones();}

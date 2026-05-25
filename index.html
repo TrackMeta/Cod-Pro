@@ -5001,13 +5001,12 @@ function renderProductos(){
         <option value="todo">Todo</option><option value="hoy">Hoy</option><option value="semana">7 días</option><option value="mes">30 días</option><option value="custom">📅 Rango</option>
       </select>
     </div>
-    <span id="prod-fechas" style="display:none;align-items:center;gap:4px">
-      <input type="date" id="prod-desde" onchange="renderProdGrid()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-      <span style="color:var(--text3);font-size:12px">→</span>
-      <input type="date" id="prod-hasta" onchange="renderProdGrid()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+    <span id="prod-fechas" style="display:none;align-items:flex-end;gap:6px">
+      <div class="fg-filter"><label>Desde</label><input type="date" id="prod-desde" onchange="renderProdGrid()"></div>
+      <div class="fg-filter"><label>Hasta</label><input type="date" id="prod-hasta" onchange="renderProdGrid()"></div>
     </span>
     <div style="margin-left:auto">
-      <div class="tgrp">
+      <div class="tgrp" id="prod-vista-btns">
         <button class="tbtn ${prodVista==='cards'?'active':''}" onclick="prodVista='cards';document.querySelectorAll('#prod-vista-btns .tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderProdGrid()" id="prod-btn-cards">▦ Tarjetas</button>
         <button class="tbtn ${prodVista==='tabla'?'active':''}" onclick="prodVista='tabla';document.querySelectorAll('#prod-vista-btns .tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderProdGrid()" id="prod-btn-tabla">≡ Tabla</button>
       </div>
@@ -5665,27 +5664,30 @@ function renderFinanzas(){
     <div class="section-sub">${ent.length} entregas · ${allP.length} pedidos · Efectividad ${ef}%${prevFiltro?' · comparando con período anterior':''}</div>
   </div>
   <div class="section-actions">
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <select id="fin-per" onchange="toggleFinFechas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text);font-family:var(--font);outline:none">
-        <option value="todo" ${per==='todo'?'selected':''}>Todo</option>
-        <option value="hoy" ${per==='hoy'?'selected':''}>Hoy</option>
-        <option value="semana" ${per==='semana'?'selected':''}>7 días</option>
-        <option value="mes" ${per==='mes'?'selected':''}>30 días</option>
-        <option value="exacta" ${per==='exacta'?'selected':''}>📅 Fecha exacta</option>
-        <option value="custom" ${per==='custom'?'selected':''}>↔️ Rango</option>
-      </select>
-      <span id="fin-fecha-exacta" style="display:${per==='exacta'?'flex':'none'};align-items:center;gap:4px">
-        <input type="date" id="fin-fecha-dia" value="${diaExacta}" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-      </span>
-      <span id="fin-fechas" style="display:${per==='custom'?'flex':'none'};align-items:center;gap:4px">
-        <input type="date" id="fin-desde" value="${desde}" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-        <span style="color:var(--text3);font-size:12px">→</span>
-        <input type="date" id="fin-hasta" value="${hasta}" onchange="renderFinanzas()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-      </span>
-    </div>
-    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">+ Pub.</button>
-    <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()">+ Gasto extra</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">📢 + Pub.</button>
+    <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()">💸 + Gasto</button>
   </div></div>
+  <div class="fbar">
+    <div class="fg-filter">
+      <label>Período</label>
+      <select id="fin-per" onchange="toggleFinFechas()">
+        <option value="todo" ${per==='todo'?'selected':''}>Todo el historial</option>
+        <option value="hoy" ${per==='hoy'?'selected':''}>Hoy</option>
+        <option value="semana" ${per==='semana'?'selected':''}>Últimos 7 días</option>
+        <option value="mes" ${per==='mes'?'selected':''}>Últimos 30 días</option>
+        <option value="exacta" ${per==='exacta'?'selected':''}>📅 Fecha exacta</option>
+        <option value="custom" ${per==='custom'?'selected':''}>↔️ Rango personalizado</option>
+      </select>
+    </div>
+    <div class="fg-filter" id="fin-fecha-exacta" style="display:${per==='exacta'?'flex':'none'}">
+      <label>Fecha</label>
+      <input type="date" id="fin-fecha-dia" value="${diaExacta}" onchange="renderFinanzas()">
+    </div>
+    <span id="fin-fechas" style="display:${per==='custom'?'flex':'none'};align-items:flex-end;gap:6px">
+      <div class="fg-filter"><label>Desde</label><input type="date" id="fin-desde" value="${desde}" onchange="renderFinanzas()"></div>
+      <div class="fg-filter"><label>Hasta</label><input type="date" id="fin-hasta" value="${hasta}" onchange="renderFinanzas()"></div>
+    </span>
+  </div>
 
   <!-- MÉTRICAS PRINCIPALES CON COMPARACIÓN -->
   <div class="metrics-grid">
@@ -6296,26 +6298,29 @@ const CIUDADES_QUICK=['Lima','Trujillo','Arequipa','Chiclayo','Piura','Cusco','I
 function renderFlujo(){
   const html=`
   <div class="section-header">
-    <div><div class="section-title">Flujo de Caja</div><div class="section-sub">Capital en movimiento y proyecciones</div></div>
-    <div class="section-actions">
-      <select id="flujo-per" onchange="toggleFlujoPer();renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text);font-family:var(--font);outline:none">
-        <option value="hoy">Hoy</option>
+    <div><div class="section-title">💵 Flujo de Caja</div><div class="section-sub">Capital en movimiento y proyecciones</div></div>
+  </div>
+  <div class="fbar">
+    <div class="fg-filter">
+      <label>Período</label>
+      <select id="flujo-per" onchange="toggleFlujoPer();renderFlujoContent()">
         <option value="7">Últimos 7 días</option>
+        <option value="hoy">Hoy</option>
         <option value="14">Últimos 14 días</option>
         <option value="30">Últimos 30 días</option>
         <option value="60">Últimos 60 días</option>
         <option value="exacta">📅 Fecha exacta</option>
         <option value="custom">↔️ Rango personalizado</option>
       </select>
-      <span id="flujo-fecha-exacta" style="display:none;align-items:center;gap:4px">
-        <input type="date" id="flujo-fecha-dia" onchange="renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-      </span>
-      <span id="flujo-fechas" style="display:none;align-items:center;gap:4px">
-        <input type="date" id="flujo-desde" onchange="renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-        <span style="color:var(--text3);font-size:12px">→</span>
-        <input type="date" id="flujo-hasta" onchange="renderFlujoContent()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-      </span>
     </div>
+    <div class="fg-filter" id="flujo-fecha-exacta" style="display:none">
+      <label>Fecha</label>
+      <input type="date" id="flujo-fecha-dia" onchange="renderFlujoContent()">
+    </div>
+    <span id="flujo-fechas" style="display:none;align-items:flex-end;gap:6px">
+      <div class="fg-filter"><label>Desde</label><input type="date" id="flujo-desde" onchange="renderFlujoContent()"></div>
+      <div class="fg-filter"><label>Hasta</label><input type="date" id="flujo-hasta" onchange="renderFlujoContent()"></div>
+    </span>
   </div>
   <div id="flujo-content"></div>`;
   setContent(html);

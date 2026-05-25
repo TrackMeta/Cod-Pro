@@ -6902,7 +6902,7 @@ function renderHistorial(pedidoId){
       <div class="hist-line">
         <div class="hist-dot" style="background:${colores[h.estado]||'var(--text3)'}"></div>
         <div class="hist-time">${h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
-        <div style="flex:1"><span class="bdg bdg-${h.estado.replace('-','')==='nocontesta'?'no-contesta':h.estado}">${h.estado.replace(/-/g,' ')}</span><span style="font-size:11px;color:var(--text3);margin-left:6px">${h.user||''}</span></div>
+        <div style="flex:1">${badge(h.estado)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${h.user||''}</span>${h.motivo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">↳ ${h.motivo}</div>`:''}</div>
       </div>`).join('')
     :`<div class="empty" style="padding:20px">Sin historial registrado</div>`}
     <div style="margin-top:16px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-hist').remove()">Cerrar</button></div>

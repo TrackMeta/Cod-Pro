@@ -7878,8 +7878,9 @@ function guardarNotaRapida(id){
   // Save comentario and intentos always
   p.comentario=document.getElementById('nr-comentario').value;
   p.intentos=window._nrIntentos||0;
-  // If changing to devuelto, close this modal and open the proper devolution modal
+  // If changing to devuelto, save current changes then open the proper devolution modal
   if(nuevoEstado==='devuelto'&&prevEstado!=='devuelto'){
+    save(); // persist comentario + intentos before switching modal
     document.getElementById('modal-nota-rapida').remove();
     marcarDevuelto(id);
     return;

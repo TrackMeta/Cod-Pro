@@ -2588,7 +2588,7 @@ async function doRegister(){
     admin_id:userId,
     negocio_name:negocio,
     logo_data:'',
-    db_data:{pedidos:[],asesores:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA},
+    db_data:{pedidos:[],asesores:[],publicidad:[],gastos:[],deliveries:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA},
     cfg_data:{adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20}
   }).select().single();
   if(wsErr){
@@ -3911,23 +3911,22 @@ function autoFillItem(idx,prodId){
   }
   renderItemsPedido();
 }
-function openNuevoPedido(){
+function openNuevoPedido(zonaDefault){
   document.getElementById('mp-title').textContent='Nuevo Pedido';
   document.getElementById('p-id').value='';
-  ['p-nombre','p-celular','p-dni','p-sede','p-dir','p-ref','p-gps','p-comentario'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); 
+  ['p-nombre','p-celular','p-dni','p-sede','p-dir','p-ref','p-gps','p-comentario'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const distEl=document.getElementById('p-dist');if(distEl)distEl.value='';
   const provEl=document.getElementById('p-prov');if(provEl)provEl.value='';
   const evaMetEl=document.getElementById('p-eva-metodo');if(evaMetEl)evaMetEl.value='EFECTIVO';
   const shaOriEl=document.getElementById('p-shalom-origen');if(shaOriEl)shaOriEl.value='AV MIGUEL GRAU  PAMPLONA ALTA';
   const shaTamEl=document.getElementById('p-shalom-tam');if(shaTamEl)shaTamEl.value='PAQUETE XS';
   document.getElementById('p-fecha').value=hoy();
-  document.getElementById('p-cenv').value=CFG.courier||14;
   document.getElementById('p-emb').value=CFG.embDefault||0;
   ['p-cenv','p-emb'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=!isAdmin();e.style.opacity=isAdmin()?'':'0.6';e.style.cursor=isAdmin()?'':'not-allowed';}});
   document.getElementById('p-adelanto').value=CFG.adelanto||20;
   document.getElementById('p-adv-default').textContent=CFG.adelanto||20;
   document.getElementById('p-pendiente').value='';
-  document.getElementById('p-zona').value='lima';
+  document.getElementById('p-zona').value=zonaDefault||'lima';
   document.getElementById('p-estado').value='confirmado';
   document.getElementById('p-upsell-res').value='';
   const felEl=document.getElementById('p-fecha-entrega-lima');if(felEl)felEl.value='';
@@ -3937,7 +3936,7 @@ function openNuevoPedido(){
   fillUpsellSelect();
   fillUpsellOfertas('');
   if(isAdmin()){fillVendedorSelect('');}else{const ma=DB.asesores.find(a=>a.workerId===SESSION.id);fillVendedorSelect(ma?ma.id:SESSION.id);}
-  toggleZona();
+  toggleZona(); // sets cenv based on zona via the auto-update in toggleZona
   document.getElementById('modal-pedido').classList.add('open');
 }
 
@@ -4669,7 +4668,7 @@ function renderLima(){
     <button onclick="abrirMenuExport(this)" style="display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;border-radius:10px;padding:8px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(27,94,32,.4);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
       <span style="font-size:16px">📤</span><span>Exportar</span><span style="font-size:10px;opacity:.8">▾</span>
     </button>
-    <button class="btn btn-primary" onclick="showPage('pedidos');setTimeout(()=>{document.getElementById('p-zona').value='lima';toggleZona();openNuevoPedido()},100)">+ Pedido Lima</button>
+    <button class="btn btn-primary" onclick="openNuevoPedido('lima')">+ Pedido Lima</button>
   </div></div>
   ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">🛵</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
   <div class="metrics-grid">
@@ -4870,7 +4869,7 @@ function renderProvincia(){
     <button onclick="abrirMenuExportProv(this)" style="display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#1a237e,#283593);border:none;border-radius:10px;padding:8px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(26,35,126,.4);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
       <span style="font-size:16px">📤</span><span>Exportar</span><span style="font-size:10px;opacity:.8">▾</span>
     </button>
-    <button class="btn btn-primary" onclick="showPage('pedidos');setTimeout(()=>{document.getElementById('p-zona').value='provincia';toggleZona();openNuevoPedido()},100)">+ Pedido Provincia</button>
+    <button class="btn btn-primary" onclick="openNuevoPedido('provincia')">+ Pedido Provincia</button>
   </div></div>
   ${(()=>{const activos=[...conf,...env];const hD=new Date(hoy()+'T12:00:00');const viejos=activos.filter(p=>{if(!p.fecha)return false;const dif=Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24));return dif>=7;});return viejos.length?`<div class="abox abox-amber"><span class="abox-icon">⚠️</span><div class="abox-text"><b>${viejos.length} pedido(s) con 7+ días</b> en tránsito sin entrega confirmada</div></div>`:'';})()}
   <div class="metrics-grid">

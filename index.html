@@ -2330,11 +2330,14 @@ function initRealtime(){
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
         payload=>{
           const nd=payload.new;
-          // Los pedidos del worker tienen IDs timestamp >1e10 (nunca colisionan con IDs secuenciales del admin)
-          // Los preservamos SIEMPRE antes de cualquier actualización
-          const myPendingPeds=(DB.pedidos||[]).filter(p=>(p.id||0)>1e10);
           const adminDB=nd.db_data;
           if(!adminDB)return;
+          // Determinar qué pedidos timestamp locales ya fueron asignados por el admin (_prevId)
+          const basePeds=adminDB.pedidos||DB.pedidos||[];
+          const assignedPrevIds=new Set(basePeds.filter(p=>p._prevId).map(p=>p._prevId));
+          const adminIds=new Set(basePeds.map(p=>p.id));
+          // Preservar solo pedidos propios del worker que NO han sido sincronizados aún
+          const myPendingPeds=(DB.pedidos||[]).filter(p=>(p.id||0)>1e10&&!assignedPrevIds.has(p.id));
           // Actualizar catálogo completo desde admin
           if(adminDB.productos!==undefined)DB.productos=adminDB.productos;
           if(adminDB.asesores!==undefined)DB.asesores=adminDB.asesores;
@@ -2344,9 +2347,7 @@ function initRealtime(){
           if(adminDB.publicidad!==undefined)DB.publicidad=adminDB.publicidad;
           if(adminDB.waTmpls!==undefined)DB.waTmpls=adminDB.waTmpls;
           if(adminDB.notifTrash!==undefined)DB.notifTrash=adminDB.notifTrash;
-          // Pedidos: usar base del admin + preservar los del worker no sincronizados
-          const basePeds=adminDB.pedidos||DB.pedidos||[];
-          const adminIds=new Set(basePeds.map(p=>p.id));
+          // Pedidos: base del admin + pendientes locales aún no sincronizados
           DB.pedidos=[...basePeds,...myPendingPeds.filter(p=>!adminIds.has(p.id))];
           if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
           localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
@@ -2608,9 +2609,17 @@ async function syncWorkerChanges(){
           if(ap.pendiente!==wp.pendiente){ap.pendiente=wp.pendiente;pChanged=true;}
           if(pChanged)changed=true;
         } else {
-          // Pedido nuevo — agregar
-          DB.pedidos.push(wp);
-          pedidosMap.set(wp.id,wp);
+          // Pedido nuevo del worker
+          if((wp.id||0)>1e10){
+            // Asignar ID secuencial y guardar _prevId para deduplicación en worker
+            const seqId=DB.nextId++;
+            const p={...wp,id:seqId,_prevId:wp.id};
+            DB.pedidos.push(p);
+            pedidosMap.set(seqId,p);
+          } else {
+            DB.pedidos.push(wp);
+            pedidosMap.set(wp.id,wp);
+          }
           changed=true;
         }
       });
@@ -2650,8 +2659,9 @@ async function load(){
   if(!DB.productos)DB.productos=[];if(!DB.upsells)DB.upsells=[];
   if(!DB.notifTrash)DB.notifTrash=[];
   if(!DB.waTmpls||!DB.waTmpls.length)DB.waTmpls=DEFAULT_WA.map(t=>({...t}));
-  // Recalculate nextId from max existing ID to avoid gaps when orders are deleted
-  const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
+  // Recalculate nextId from max sequential ID (exclude timestamp worker IDs >1e10)
+  const seqOnly=DB.pedidos.filter(p=>(p.id||0)<1e10).map(p=>p.id||0);
+  const maxId=seqOnly.length>0?Math.max(...seqOnly):0;
   DB.nextId=maxId+1;
 }
 
@@ -2835,9 +2845,13 @@ async function onSignedIn(user){
         pendingPeds=lsDB.pedidos||[];
       }catch(_){}
     }
-    // Agregar solo pedidos con ID timestamp propios del worker (>1e10) que no estén ya en DB
+    // Agregar solo pedidos timestamp del worker (>1e10) que no estén ya en DB ni hayan sido asignados
     const syncedIds=new Set(DB.pedidos.map(p=>p.id));
-    pendingPeds.forEach(wp=>{if((wp.id||0)>1e10&&!syncedIds.has(wp.id))DB.pedidos.push(wp);});
+    const assignedPrevIds=new Set(DB.pedidos.filter(p=>p._prevId).map(p=>p._prevId));
+    pendingPeds.forEach(wp=>{
+      if((wp.id||0)>1e10&&!syncedIds.has(wp.id)&&!assignedPrevIds.has(wp.id))
+        DB.pedidos.push(wp);
+    });
   }
 
   // ── SUPER ADMIN (hidden) ──────────────────────────────────────────
@@ -2860,13 +2874,28 @@ async function onSignedIn(user){
   loadAccentColor();
   document.getElementById('dash-periodo').style.display=isAdmin()?'flex':'none';
   renderNotifications();
-  if(isAdmin())syncWorkerChanges();
+  if(isAdmin()){
+    syncWorkerChanges();
+    // Polling cada 30s como respaldo (por si el realtime no dispara)
+    clearInterval(window._adminSyncInterval);
+    window._adminSyncInterval=setInterval(async()=>{
+      const before=(DB.pedidos||[]).length;
+      await syncWorkerChanges();
+      const after=(DB.pedidos||[]).length;
+      if(after!==before){
+        updateSidebarBadges();renderNotifications();
+        const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones,rotulos:renderRotulos,productos:renderProductos,upsells:renderUpsells};
+        if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+      }
+    },30000);
+  }
   initRealtime();
   const startPage=isAdmin()?'dashboard':'pedidos';
   showPage(startPage,document.querySelector(`.nav-item[onclick*="'${startPage}'"]`));
 }
 
 async function doLogout(){
+  clearInterval(window._adminSyncInterval);
   sessionStorage.removeItem('sa_viewing_ws');
   await _supabase.auth.signOut();
   SESSION=null;WORKSPACE=null;

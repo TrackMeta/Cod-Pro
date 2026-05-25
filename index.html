@@ -74,6 +74,7 @@ self.addEventListener('fetch',e=>{
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════════
    COD PRO v13 — Design System
@@ -753,6 +754,20 @@ td{padding:11px 14px;font-size:13px}
 .print-a4 .label-page{width:90mm;height:140mm;border:0.3mm solid #ddd;border-radius:2mm;margin:3mm}
 .print-a4{display:flex!important;flex-wrap:wrap!important;justify-content:center!important;gap:0!important}
 @media print{.print-a4{padding:5mm!important}.print-a4 .label-page{page-break-after:avoid;page-break-inside:avoid}.print-a4 .label-page:nth-child(2n){page-break-after:always}@page{margin:5mm;size:A4}}
+
+/* ── PAGE TRANSITIONS ─────────────────────────────────────────── */
+@keyframes pageEnter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.page-enter{animation:pageEnter .22s cubic-bezier(.22,1,.36,1) both}
+
+/* ── REALTIME INDICATOR ───────────────────────────────────────── */
+@keyframes rtPulse{0%,100%{opacity:1}50%{opacity:.3}}
+#rt-indicator{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600;padding:3px 8px;border-radius:20px;background:var(--greenL);border:1px solid rgba(34,197,94,.2);cursor:default;transition:all .3s}
+#rt-indicator.rt-off{color:var(--text3);background:var(--surface3);border-color:var(--border)}
+#rt-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:rtPulse 2.5s infinite;flex-shrink:0;transition:background .3s}
+#rt-indicator.rt-off #rt-dot{background:var(--text3);animation:none}
+
+/* ── COUNTER ANIMATION ────────────────────────────────────────── */
+.counter-val{display:inline}
 </style>
 </head>
 <body>
@@ -909,6 +924,7 @@ td{padding:11px 14px;font-size:13px}
               <input type="date" id="dash-hasta" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
             </div>
           </div>
+          <span id="rt-indicator" class="rt-off" title="Tiempo real desconectado"><span id="rt-dot"></span>RT</span>
           <div class="icon-btn" onclick="toggleNotifPanel()" id="notif-bell">🔔<div class="notif-dot" id="notif-dot" style="display:none"></div></div>
           <button class="btn btn-primary btn-sm" onclick="showPage('pedidos');setTimeout(openNuevoPedido,100)">+ Pedido</button>
         </div>
@@ -2285,6 +2301,126 @@ const DEFAULT_WA=[
 function isAdmin(){return SESSION?.role==='admin';}
 
 // =====================================================================
+// REALTIME — Actualizaciones en vivo sin recargar (no más F5)
+// =====================================================================
+let _rtChannel=null;
+function initRealtime(){
+  if(!SESSION?.workspace_id)return;
+  const wsId=SESSION.workspace_id;
+  if(_rtChannel){try{_supabase.removeChannel(_rtChannel);}catch(_){}  _rtChannel=null;}
+  if(isAdmin()){
+    // Admin: escucha cambios de workers para auto-sincronizar
+    _rtChannel=_supabase.channel(`rt-workers-${wsId}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
+        async(payload)=>{
+          if(payload.eventType==='DELETE')return;
+          clearTimeout(window._rtSyncTimer);
+          window._rtSyncTimer=setTimeout(async()=>{
+            await syncWorkerChanges();
+            updateSidebarBadges();renderNotifications();
+            const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones};
+            if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+            showToast('🔄 Trabajador sincronizado','success',2000);
+          },800);
+        })
+      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+  } else {
+    // Worker: escucha cambios del admin en workspaces
+    _rtChannel=_supabase.channel(`rt-workspace-${wsId}`)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
+        payload=>{
+          const nd=payload.new;
+          if(!nd?.db_data)return;
+          DB=nd.db_data;
+          if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
+          if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
+          if(!DB.productos)DB.productos=[];if(!DB.deliveries)DB.deliveries=[];
+          if(!DB.gastos)DB.gastos=[];if(!DB.upsells)DB.upsells=[];
+          localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+          updateSidebarBadges();renderNotifications();
+          const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
+          if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+          showToast('🔄 Actualizado por admin','success',1800);
+        })
+      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+  }
+}
+function updateRtIndicator(connected){
+  const el=document.getElementById('rt-indicator');
+  if(!el)return;
+  el.classList.toggle('rt-off',!connected);
+  el.title=connected?'Tiempo real activo — cambios instantáneos':'Sin conexión en tiempo real';
+}
+
+// =====================================================================
+// COUNTER ANIMATION — Números que cuentan al cargar
+// =====================================================================
+function animateCounters(){
+  document.querySelectorAll('.counter-val[data-val]').forEach(el=>{
+    const target=parseFloat(el.dataset.val)||0;
+    const isMoney=el.dataset.money==='1';
+    const suffix=el.dataset.suffix||'';
+    const dur=600;
+    let start=null;
+    const fmt2=n=>'S/ '+Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+    const step=ts=>{
+      if(!start)start=ts;
+      const prog=Math.min((ts-start)/dur,1);
+      const ease=1-Math.pow(1-prog,3);
+      const cur=target*ease;
+      el.textContent=isMoney?fmt2(cur):(Math.round(cur)+suffix);
+      if(prog<1)requestAnimationFrame(step);
+      else el.textContent=isMoney?fmt2(target):(target+suffix);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+// =====================================================================
+// DASHBOARD CHARTS — Gráfico 14 días con Chart.js
+// =====================================================================
+function renderDashboardCharts(trendData){
+  if(typeof Chart==='undefined')return;
+  if(window._dashChart){try{window._dashChart.destroy();}catch(_){}window._dashChart=null;}
+  const canvas=document.getElementById('dash-trend-canvas');
+  if(!canvas)return;
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const textClr=isDark?'rgba(255,255,255,.45)':'rgba(0,0,0,.45)';
+  const today=hoy();
+  window._dashChart=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:trendData.map(d=>d.dow),
+      datasets:[
+        {label:'Entregas',data:trendData.map(d=>d.ent),
+         backgroundColor:trendData.map(d=>d.dia===today?'rgba(255,85,0,.9)':'rgba(34,197,94,.75)'),
+         borderRadius:4,borderSkipped:false},
+        {label:'Devoluciones',data:trendData.map(d=>d.dev),
+         backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,borderSkipped:false}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:isDark?'rgba(30,30,30,.95)':'rgba(255,255,255,.97)',
+          titleColor:isDark?'#fff':'#111',bodyColor:isDark?'rgba(255,255,255,.7)':'rgba(0,0,0,.6)',
+          borderColor:isDark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)',borderWidth:1,
+          callbacks:{title:([t])=>trendData[t.dataIndex].dia,
+            label:c=>`${c.dataset.label}: ${c.raw}  ·  S/ ${trendData[c.dataIndex].ing.toFixed(0)}`}
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:textClr,font:{size:10}},border:{display:false}},
+        y:{display:false,beginAtZero:true}
+      },
+      animation:{duration:500,easing:'easeOutQuart'}
+    }
+  });
+}
+
+// =====================================================================
 // PERSISTENCIA — Supabase como fuente principal, localStorage como caché
 // =====================================================================
 function getWsKey(sfx){return `cod_ws_${SESSION?.workspace_id||''}_${sfx}`;}
@@ -2685,6 +2821,7 @@ async function onSignedIn(user){
   document.getElementById('dash-periodo').style.display=isAdmin()?'flex':'none';
   renderNotifications();
   if(isAdmin())syncWorkerChanges();
+  initRealtime();
   const startPage=isAdmin()?'dashboard':'pedidos';
   showPage(startPage,document.querySelector(`.nav-item[onclick*="'${startPage}'"]`));
 }
@@ -3407,39 +3544,25 @@ function renderDashboard(){
     pDev=pAP.length>0?Math.round(pDv.length/pAP.length*100):0;
   }
 
-  // ── Mini gráfico tendencia por día ──
-  const trendDays=14;
-  const trendHtml=(()=>{
+  // ── Gráfico tendencia 14 días (Chart.js) ──
+  const trendDays14=14;
+  const trendData=(()=>{
     const h=new Date(hoy()+'T12:00:00');
     const dias=[];
-    for(let i=trendDays-1;i>=0;i--){const d=new Date(h);d.setDate(d.getDate()-i);dias.push(d.toISOString().split('T')[0]);}
+    for(let i=trendDays14-1;i>=0;i--){const d=new Date(h);d.setDate(d.getDate()-i);dias.push(d.toISOString().split('T')[0]);}
     const DOW=['D','L','M','X','J','V','S'];
-    const data=dias.map(dia=>{
+    return dias.map(dia=>{
       const eD=DB.pedidos.filter(x=>x.estado==='entregado'&&x.fecha===dia);
       const dD=DB.pedidos.filter(x=>x.estado==='devuelto'&&x.fecha===dia);
-      const dow=DOW[new Date(dia+'T12:00:00').getDay()];
-      return{dia,dow,ent:eD.length,dev:dD.length,ing:eD.reduce((s,x)=>s+x.precio,0)};
+      return{dia,dow:DOW[new Date(dia+'T12:00:00').getDay()],ent:eD.length,dev:dD.length,ing:eD.reduce((s,x)=>s+x.precio,0)};
     });
-    const maxEnt=Math.max(...data.map(d=>d.ent+d.dev),1);
-    return`<div style="display:flex;align-items:flex-end;gap:4px;height:70px;padding-bottom:0">
-      ${data.map(d=>{
-        const hEnt=d.ent>0?Math.round(d.ent/maxEnt*60):0;
-        const hDev=d.dev>0?Math.round(d.dev/maxEnt*60):0;
-        const isToday=d.dia===hoy();
-        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:default" title="${d.dia}: ${d.ent} ent · ${d.dev} dev · ${fmt(d.ing)}">
-          <div style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:60px;gap:1px">
-            ${d.dev>0?`<div style="width:80%;height:${hDev}px;background:var(--red);border-radius:3px 3px 0 0;opacity:.7"></div>`:''}
-            ${d.ent>0?`<div style="width:80%;height:${hEnt}px;background:${isToday?'var(--accent)':'var(--green)'};border-radius:3px 3px 0 0"></div>`:'<div style="width:80%;height:2px;background:var(--border);border-radius:2px"></div>'}
-          </div>
-          <div style="font-size:9px;color:${isToday?'var(--accent)':'var(--text3)'};font-weight:${isToday?'700':'400'}">${d.dow}</div>
-        </div>`;
-      }).join('')}
-    </div>
+  })();
+  const trendHtml=`<div style="position:relative;height:80px"><canvas id="dash-trend-canvas"></canvas></div>
     <div style="display:flex;gap:12px;margin-top:6px;font-size:10.5px;color:var(--text3)">
       <span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:3px"></span>Entregas</span>
-      <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:2px;margin-right:3px;opacity:.7"></span>Devoluciones</span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:2px;opacity:.7;margin-right:3px"></span>Devoluciones</span>
+      <span style="margin-left:auto;color:var(--accent);font-weight:600">Hoy = naranja</span>
     </div>`;
-  })();
 
   const recompra=calcRecompras();
   const notes=calcNotifications().filter(n=>n.type==='red'||n.type==='amber');
@@ -3472,12 +3595,12 @@ function renderDashboard(){
   </div>
 
   <div class="metrics-grid">
-    <div class="mcard mc-green"><div class="mcard-label">Ingresos brutos</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(ing)}${dlt(ing,pIng)}</div><div class="mcard-sub">${ent.length} entregas${dlt(ent.length,pEnt)}</div></div>
-    <div class="mcard mc-${util>=0?'green':'red'}"><div class="mcard-label">Utilidad neta</div><div class="mcard-val mv-${util>=0?'green':'red'}" style="font-size:19px">${fmtN(util)}${dlt(util,pUtil)}</div><div class="mcard-sub">${ing>0?(util/ing*100).toFixed(1):0}% margen</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%${dlt(ef,pEf)}</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devoluciones</div><div class="mcard-val mv-red">${devPct}%${dlt(devPct,pDev,true)}</div><div class="mcard-sub">${dev.length} pedidos</div></div>
-    <div class="mcard mc-blue"><div class="mcard-label">% Confirmación</div><div class="mcard-val mv-blue">${pctConf}%</div><div class="mcard-sub">${conf.length} confirmados</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label">Por cobrar 💰</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt(porCobrar)}</div><div class="mcard-sub">en tránsito prov.</div></div>
+    <div class="mcard mc-green"><div class="mcard-label">Ingresos brutos</div><div class="mcard-val mv-green" style="font-size:19px"><span class="counter-val" data-val="${ing}" data-money="1">${fmt(ing)}</span>${dlt(ing,pIng)}</div><div class="mcard-sub">${ent.length} entregas${dlt(ent.length,pEnt)}</div></div>
+    <div class="mcard mc-${util>=0?'green':'red'}"><div class="mcard-label">Utilidad neta</div><div class="mcard-val mv-${util>=0?'green':'red'}" style="font-size:19px"><span class="counter-val" data-val="${util}" data-money="1">${fmtN(util)}</span>${dlt(util,pUtil)}</div><div class="mcard-sub">${ing>0?(util/ing*100).toFixed(1):0}% margen</div></div>
+    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}"><span class="counter-val" data-val="${ef}" data-suffix="%">${ef}%</span>${dlt(ef,pEf)}</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">Devoluciones</div><div class="mcard-val mv-red"><span class="counter-val" data-val="${devPct}" data-suffix="%">${devPct}%</span>${dlt(devPct,pDev,true)}</div><div class="mcard-sub">${dev.length} pedidos</div></div>
+    <div class="mcard mc-blue"><div class="mcard-label">% Confirmación</div><div class="mcard-val mv-blue"><span class="counter-val" data-val="${pctConf}" data-suffix="%">${pctConf}%</span></div><div class="mcard-sub">${conf.length} confirmados</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label">Por cobrar 💰</div><div class="mcard-val mv-amber" style="font-size:19px"><span class="counter-val" data-val="${porCobrar}" data-money="1">${fmt(porCobrar)}</span></div><div class="mcard-sub">en tránsito prov.</div></div>
   </div>
 
   <div class="g3" style="margin-bottom:14px">
@@ -3560,6 +3683,7 @@ function renderDashboard(){
     </tbody></table></div>
   </div>`;
   setContent(html);
+  requestAnimationFrame(()=>{renderDashboardCharts(trendData);animateCounters();});
 }
 
 function renderEfChart(p,ent){
@@ -7859,7 +7983,14 @@ function updateNegocioName(name){
 // =====================================================================
 // UTILS
 // =====================================================================
-function setContent(html){document.getElementById('content-area').innerHTML=html;requestAnimationFrame(initFbar);}
+function setContent(html){
+  const ca=document.getElementById('content-area');
+  ca.innerHTML=html;
+  ca.classList.remove('page-enter');
+  void ca.offsetWidth; // force reflow para reiniciar la animación
+  ca.classList.add('page-enter');
+  requestAnimationFrame(initFbar);
+}
 
 function exportarDatos(){
   const b=new Blob([JSON.stringify({DB,CFG},null,2)],{type:'application/json'});

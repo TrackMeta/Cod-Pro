@@ -7897,6 +7897,9 @@ function renderRotulos(){
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px">
         <input type="checkbox" id="rot-show-negocio" checked onchange="renderRotulosContent()"> Mostrar nombre negocio
       </label>
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px">
+        <input type="checkbox" id="rot-show-cod" onchange="renderRotulosContent()"> Mostrar monto COD
+      </label>
     </div>
     <div style="margin-top:8px;font-size:11px;color:var(--text3)">
       ${rotFormato==='ticketera'?(window.rotTextRotado?'↻ Texto girado 90° — papel sigue siendo 100×150mm vertical':'▯ Texto normal vertical — etiqueta estándar ticketera'):'📄 2 rótulos por hoja A4 — impresora normal'}
@@ -7957,6 +7960,7 @@ function getRotulosPedidos(){
 function renderRotulosContent(){
   const arr=getRotulosPedidos();
   const showNegocio=document.getElementById('rot-show-negocio')?.checked??true;
+  const showCod=document.getElementById('rot-show-cod')?.checked??false;
   const negocioName=SESSION?.negocioName||localStorage.getItem('rot_negocio')||'';
   const visIds=new Set(arr.map(p=>p.id));
   rotulosSel.forEach(id=>{if(!visIds.has(id))rotulosSel.delete(id);});
@@ -7968,10 +7972,10 @@ function renderRotulosContent(){
   const btnImprimir=document.getElementById('btn-imprimir-rot');if(btnImprimir)btnImprimir.disabled=rotulosSel.size===0;
   const v=document.getElementById('rot-view');if(!v)return;
   if(!arr.length){v.innerHTML=`<div class="empty" style="grid-column:1/-1;padding:60px 20px">🏷️ Sin pedidos para generar rótulos<br><span style="font-size:12px;color:var(--text3);margin-top:6px;display:block">Ajusta los filtros o agrega pedidos</span></div>`;return;}
-  v.innerHTML=arr.map(p=>renderRotuloCard(p,showNegocio,negocioName,true)).join('');
+  v.innerHTML=arr.map(p=>renderRotuloCard(p,showNegocio,negocioName,true,showCod)).join('');
 }
 
-function renderRotuloCard(p,showNegocio,negocioName,withSelect){
+function renderRotuloCard(p,showNegocio,negocioName,withSelect,showCod=false){
   const isSel=rotulosSel.has(p.id);
   const isLima=p.zona==='lima';
   return `<div class="rotulo-card ${isSel?'selected':''}" ${withSelect?`onclick="toggleRotuloSel(${p.id},event)"`:''}> 
@@ -7995,7 +7999,7 @@ function renderRotuloCard(p,showNegocio,negocioName,withSelect){
         <span class="rotulo-label">Sede</span><span class="rotulo-val">${p.prov||'—'}</span>
       `}
       <span class="rotulo-label">Producto</span><span class="rotulo-val" style="font-weight:700">${p.producto} × ${p.cantidad}</span>
-      ${!isLima&&(p.pendiente||0)>0?`<span class="rotulo-label" style="color:var(--red);font-weight:700">💰 Cobrar</span><span class="rotulo-val" style="font-weight:900;font-size:15px;color:var(--red)">S/ ${p.pendiente}</span>`:''}
+      ${showCod&&!isLima&&(p.pendiente||0)>0?`<span class="rotulo-label" style="color:var(--red);font-weight:700">💰 Cobrar</span><span class="rotulo-val" style="font-weight:900;font-size:15px;color:var(--red)">S/ ${p.pendiente}</span>`:''}
     </div>
     <div style="margin-top:6px;text-align:center;font-size:10px;color:var(--text3)">${p.fecha}</div>
   </div>`;
@@ -8010,6 +8014,7 @@ function deseleccionarTodosRotulos(){rotulosSel.clear();renderRotulosContent();}
 
 function generarRotuloPrintHTML(pedidos,isRotado){
   const showNegocio=document.getElementById('rot-show-negocio')?.checked??true;
+  const showCod=document.getElementById('rot-show-cod')?.checked??false;
   const negocioName=SESSION?.negocioName||localStorage.getItem('rot_negocio')||'Mi Tienda';
   const isA4=rotFormato==='a4';
   const userLogoData=SESSION?.logoData||'';
@@ -8039,7 +8044,7 @@ function generarRotuloPrintHTML(pedidos,isRotado){
         `}
         <div class="label-row"><span class="label-key">Producto</span><span class="label-val producto">${p.producto}</span></div>
         <div class="label-val cantidad">× ${p.cantidad}</div>
-        ${!isLima&&(p.pendiente||0)>0?`<div class="label-row" style="margin-top:2mm;border-top:0.5mm solid #f00;padding-top:2mm"><span class="label-key" style="color:#f00;font-weight:900">COD</span><span class="label-val" style="font-weight:900;font-size:5.5mm;color:#f00">S/ ${p.pendiente}</span></div>`:''}
+        ${showCod&&!isLima&&(p.pendiente||0)>0?`<div class="label-row" style="margin-top:2mm;border-top:0.5mm solid #f00;padding-top:2mm"><span class="label-key" style="color:#f00;font-weight:900">COD</span><span class="label-val" style="font-weight:900;font-size:5.5mm;color:#f00">S/ ${p.pendiente}</span></div>`:''}
       </div>
       <div class="label-notas">
         <div class="label-notas-title">NOTAS :</div>

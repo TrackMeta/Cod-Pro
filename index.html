@@ -2136,20 +2136,8 @@ td{padding:11px 14px;font-size:13px}
     </div>
   </div>
 
-  <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">📲 Mensaje al cliente</div>
-
-  <div class="fg" style="margin-bottom:8px">
-    <label>Plantilla</label>
-    <select id="tr-tmpl" onchange="renderTrMensaje()" style="width:100%"></select>
-  </div>
-
-  <div class="fg" style="margin-bottom:8px">
-    <label>Mensaje (editable)</label>
-    <textarea id="tr-mensaje" rows="6" style="font-family:var(--mono);font-size:12.5px;line-height:1.5"></textarea>
-  </div>
-  <button type="button" class="btn btn-ghost btn-xs" onclick="copiarTrMensaje(this)" style="margin-bottom:14px">📋 Copiar mensaje</button>
-
-  <div id="tr-timeline" style="margin-top:12px;padding:12px;background:var(--surface3);border-radius:10px"></div>
+  <div id="tr-timeline" style="margin-top:14px;padding:12px;background:var(--surface3);border-radius:10px"></div>
+  <div style="font-size:10.5px;color:var(--text3);margin-top:6px;padding-left:4px">💡 Click en cada fecha para editar manualmente cualquier paso</div>
 
   <div style="display:flex;gap:10px;margin-top:18px">
     <button class="btn btn-primary" onclick="guardarTracking()">💾 Guardar</button>
@@ -2333,8 +2321,10 @@ const DEFAULT_WA=[
   {id:1,nombre:'✅ Confirmación Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\nTu delivery llegará al distrito de *{distrito}*. Te avisamos cuando esté en camino.\n\n¡Gracias por tu compra! 🙌'},
   {id:2,nombre:'💰 Solicitud de adelanto (Provincia)',body:'Hola {nombre} 👋, tu pedido de *{producto}* está listo para enviar.\n\nPara despachar necesitamos un adelanto de *S/{adelanto}* vía Yape/Plin al número: *{mi_numero}* 📲\n\nEn cuanto confirmemos el pago, enviamos tu paquete. ¡Gracias!'},
   {id:3,nombre:'📦 Llegada a agencia (Provincia)',body:'Hola {nombre} ✅, tu pedido *{producto}* ya llegó a la agencia *{sede}*.\n\n🔑 Tu clave de recojo: *{clave}*\n\nRecuerda llevar tu DNI y el pago restante de *S/{pendiente}*. ¡Que lo disfrutes!'},
-  {id:7,nombre:'🚚 Despacho confirmado (Provincia)',body:'Hola {nombre} 👋, tu pedido de *{producto}* ya está en camino vía Shalom.\n\n📋 Número de orden: *{numOrden}*\n📋 Código de envío: *{codigoEnvio}*\n📅 Estimamos llegada en 3-5 días a la sede *{sede}*.\n\nTe avisaremos cuando esté listo para recoger. ¡Gracias!'},
-  {id:8,nombre:'⏰ Recordatorio de recojo (Provincia)',body:'Hola {nombre} ⏰, tu pedido *{producto}* sigue esperándote en la sede *{sede}*.\n\n🔑 Clave: *{clave}*\n💵 Pago restante: *S/{pendiente}*\n\nLleva tu DNI y recógelo pronto. Shalom guarda los paquetes hasta 30 días.'},
+  {id:7,nombre:'📦 Aviso llegada a agencia',body:'Hola {nombre} 📦, te avisamos que tu pedido de *{producto}* ya llegó a la sede *{sede}* de Shalom.\n\n🔑 Clave de recojo: *{clave}*\n💵 Pago pendiente: *S/{pendiente}*\n\nRecuerda llevar tu DNI para retirarlo. ¡Que lo disfrutes!'},
+  {id:8,nombre:'💵 Cobrar pago pendiente',body:'Hola {nombre} 💰, te recordamos que tu pedido de *{producto}* tiene un pago pendiente de *S/{pendiente}*.\n\nPuedes pagarlo en la sede *{sede}* al recoger tu paquete, o por Yape/Plin al *{mi_numero}* para acelerar la entrega.\n\n¡Gracias!'},
+  {id:9,nombre:'⏰ Recordatorio de recojo y pago pendiente',body:'Hola {nombre} ⏰, tu pedido *{producto}* sigue esperándote en la sede *{sede}*.\n\n🔑 Clave: *{clave}*\n💵 Pago pendiente: *S/{pendiente}*\n\nTe recomendamos recogerlo pronto para evitar problemas. Lleva tu DNI. ¡Gracias!'},
+  {id:10,nombre:'🚨 Recordatorio de recojo y pago #2 (Urgencia)',body:'Hola {nombre} 🚨 — *URGENTE*\n\nTu pedido *{producto}* lleva *{diasAgencia} días* en la sede *{sede}* sin recoger.\n\n🔑 Clave: *{clave}*\n💵 Pago: *S/{pendiente}*\n\nShalom guarda hasta 30 días, después devuelve el paquete. Por favor recógelo lo antes posible o avísanos si hay algún problema. ¡Gracias!'},
   {id:4,nombre:'🏙️ Confirmación + Fecha Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\n📅 Fecha estimada de entrega: *{fechaEntregaLima}* en *{distrito}*.\n\nCualquier consulta, escríbenos. ¡Gracias!'},
   {id:5,nombre:'📵 Seguimiento sin respuesta',body:'Hola {nombre}, intentamos contactarte para coordinar tu pedido de *{producto}*.\n\nSi aún tienes interés, escríbenos pronto — ¡pocas unidades disponibles! 🙌'},
   {id:6,nombre:'⭐ Post-entrega',body:'Hola {nombre} 😊, esperamos que estés disfrutando tu *{producto}*.\n\nSi te gustó, cuéntanos o recomiéndanos. Ante cualquier consulta, aquí estamos. ¡Gracias por tu confianza! 🌟'},
@@ -5222,14 +5212,15 @@ function renderProvinciaContent(){
       </select>
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
-    <td><div style="display:flex;gap:4px">
-      <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})">✏️</button>
-      <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})">🕐</button>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-xs" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp" style="background:rgba(37,211,102,.10);color:#25D366">📲</button>
+      <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar pedido">✏️</button>
+      <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(255,85,0,.10);color:var(--accent)">📦 Tracking</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(255,85,0,.10);color:var(--accent)">📦 Tracking</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 
@@ -5272,7 +5263,7 @@ function estadoTrackingVisual(p){
   if(p.fechaDespacho){
     const d=diasDesde(p.fechaDespacho);
     const c=colorAviso(d,CFG.trackTransitoAviso||3,CFG.trackTransitoCritico||7);
-    return {icon:'🚚',text:`Despachado hace ${d}d`,color:c,dias:d};
+    return {icon:'🚚',text:`En camino hace ${d}d`,color:c,dias:d};
   }
   return {icon:'',text:'',color:'',dias:0};
 }
@@ -5292,68 +5283,69 @@ function openTracking(id){
   let headerExtra='';
   if(p.estado==='entregado')headerExtra=`<span style="color:var(--green);font-weight:700">✅ Entregado el ${fechaCorta(p.fechaEntregado||p.fecha)}</span>`;
   else if(dAg!==null)headerExtra=`<span style="color:var(--purple);font-weight:700">📦 En agencia hace ${dAg}d</span>`;
-  else if(dDesp!==null)headerExtra=`<span style="color:var(--accent);font-weight:700">🚚 Despachado hace ${dDesp}d</span>`;
-  else headerExtra=`<span style="color:var(--text3)">Aún no despachado</span>`;
+  else if(dDesp!==null)headerExtra=`<span style="color:var(--accent);font-weight:700">🚚 En camino hace ${dDesp}d</span>`;
+  else headerExtra=`<span style="color:var(--text3)">Aún no enviado</span>`;
   document.getElementById('tr-header').innerHTML=`
     <div style="font-weight:700;font-size:14px">${p.nombre} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
     <div style="font-size:12px;color:var(--text2);margin-top:3px">📦 ${p.producto||''}</div>
     <div style="font-size:11.5px;color:var(--text3);margin-top:3px">Sede destino: <b style="color:var(--text2)">${p.sede||'-'}</b> · Pedido #${p.id}</div>
     <div style="margin-top:6px;font-size:12px">${headerExtra}</div>`;
-  // Plantillas filtradas para tracking
-  const trTmpls=DB.waTmpls.filter(t=>/Provincia|agencia|recojo|despacho|tracking/i.test(t.nombre));
-  const tmplsToShow=trTmpls.length?trTmpls:DB.waTmpls;
-  const sel=document.getElementById('tr-tmpl');
-  sel.innerHTML=tmplsToShow.map(t=>`<option value="${t.id}">${t.nombre}</option>`).join('');
-  // Plantilla por defecto según estado
-  let defTmpl=null;
-  if(p.clave)defTmpl=DB.waTmpls.find(t=>/llegada|agencia|recojo/i.test(t.nombre));
-  else if(p.fechaDespacho)defTmpl=DB.waTmpls.find(t=>/despacho|camino/i.test(t.nombre));
-  if(defTmpl)sel.value=defTmpl.id;
-  renderTrMensaje();
-  // Timeline
+  // Timeline (editable)
   document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
   document.getElementById('modal-tracking').classList.add('open');
 }
 
 function trackingTimelineHTML(p){
-  const step=(done,icon,label,sub)=>`
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:4px 0">
-      <div style="width:22px;height:22px;border-radius:50%;background:${done?'var(--green)':'var(--surface2)'};color:${done?'#fff':'var(--text3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${done?'●':'○'}</div>
-      <div style="flex:1">
-        <div style="font-size:12.5px;font-weight:${done?'700':'500'};color:${done?'var(--text)':'var(--text3)'}">${icon} ${label}</div>
-        ${sub?`<div style="font-size:11px;color:var(--text3)">${sub}</div>`:''}
-      </div>
+  const step=(campo,icon,label,fecha,extra)=>{
+    const isDone=!!fecha;
+    const subText=fecha?fechaCorta(fecha)+(extra?' · '+extra:''):'Sin fecha';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+      <div style="width:22px;height:22px;border-radius:50%;background:${isDone?'var(--green)':'var(--surface2)'};color:${isDone?'#fff':'var(--text3)'};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">${isDone?'●':'○'}</div>
+      <div style="flex:1;font-size:12.5px;font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'}">${icon} ${label}<div style="font-size:11px;color:var(--text3);font-weight:500">${subText}</div></div>
+      <input type="date" value="${fecha||''}" max="${hoy()}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Click para editar fecha">
+      ${isDone?`<button type="button" onclick="actualizarFechaTracking(${p.id},'${campo}','')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px" title="Limpiar fecha">✕</button>`:''}
     </div>`;
+  };
   return `
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Línea de tiempo</div>
-    ${step(!!p.fechaDespacho,'🚚','Despachado',p.fechaDespacho?fechaCorta(p.fechaDespacho)+' · hace '+diasDesde(p.fechaDespacho)+'d':'Pendiente')}
-    ${step(!!p.fechaAgencia,'📦','En agencia',p.fechaAgencia?fechaCorta(p.fechaAgencia)+(p.clave?' · clave '+p.clave:''):'Pendiente')}
-    ${step(p.estado==='entregado','✅','Entregado',p.estado==='entregado'?fechaCorta(p.fechaEntregado||p.fecha):p.estado==='devuelto'?'<span style="color:var(--red)">↩️ Devuelto</span>':'Pendiente')}`;
+    ${step('fechaDespacho','🚚','En camino',p.fechaDespacho,p.fechaDespacho?'hace '+diasDesde(p.fechaDespacho)+'d':'')}
+    ${step('fechaAgencia','📦','En agencia',p.fechaAgencia,p.fechaAgencia?'hace '+diasDesde(p.fechaAgencia)+'d':'')}
+    ${step('fechaEntregado','✅','Entregado',p.fechaEntregado,'')}`;
 }
 
-function renderTrMensaje(){
-  const id=parseInt(document.getElementById('tr-id').value);
+function actualizarFechaTracking(id,campo,valor){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
-  const tmplId=parseInt(document.getElementById('tr-tmpl').value);
-  const t=DB.waTmpls.find(x=>x.id===tmplId);if(!t){document.getElementById('tr-mensaje').value='';return;}
-  // Aplicar variables con valores actuales del modal (no del DB todavía)
-  const numOrden=document.getElementById('tr-numOrden').value||p.numOrden||'';
-  const codigoEnvio=document.getElementById('tr-codigoEnvio').value||p.codigoEnvio||'';
-  const clave=document.getElementById('tr-clave').value||p.clave||'';
-  const miNum=localStorage.getItem('wa_mi_numero')||'';
-  const vars={
-    nombre:p.nombre||'',celular:p.celular||'',producto:p.producto||'',
-    cantidad:String(p.cantidad||1),precio:String(p.precio||0),
-    adelanto:String(p.adelanto||0),pendiente:String(p.pendiente||0),
-    fecha:p.fecha||'',distrito:p.dist||'',sede:p.sede||'',
-    clave,numOrden,codigoEnvio,
-    fechaDespacho:p.fechaDespacho||'',fechaAgencia:p.fechaAgencia||'',
-    diasDespacho:p.fechaDespacho?String(diasDesde(p.fechaDespacho)):'',
-    diasAgencia:p.fechaAgencia?String(diasDesde(p.fechaAgencia)):'',
-    mi_numero:miNum
-  };
-  const filled=t.body.replace(/\{(\w+)\}/g,(m,k)=>vars[k]!==undefined&&vars[k]!==''?vars[k]:m);
-  document.getElementById('tr-mensaje').value=filled;
+  // Validar concordancia de fechas
+  if(valor){
+    if(valor>hoy()){showToast('⚠️ La fecha no puede ser futura','warn',2500);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    if(campo==='fechaAgencia'&&p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ Fecha "En agencia" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    if(campo==='fechaEntregado'){
+      if(p.fechaAgencia&&valor<p.fechaAgencia){showToast('⚠️ Fecha "Entregado" no puede ser antes de "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ Fecha "Entregado" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    }
+    if(campo==='fechaDespacho'){
+      if(p.fechaAgencia&&valor>p.fechaAgencia){showToast('⚠️ Fecha "En camino" no puede ser posterior a "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaEntregado&&valor>p.fechaEntregado){showToast('⚠️ Fecha "En camino" no puede ser posterior a "Entregado"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    }
+  }
+  p[campo]=valor||'';
+  // Si llena fechaEntregado manualmente → cambiar estado a entregado
+  if(campo==='fechaEntregado'&&valor&&p.estado!=='entregado'){
+    p.estado='entregado';
+    if(!p.historial)p.historial=[];
+    p.historial.push({estado:'entregado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking-timeline'});
+    if(p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
+  }
+  // Si limpia fechaEntregado y estado era entregado → volver a enviado
+  if(campo==='fechaEntregado'&&!valor&&p.estado==='entregado'){
+    p.estado='enviado';
+    if(!p.historial)p.historial=[];
+    p.historial.push({estado:'enviado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking-timeline'});
+  }
+  save();
+  document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
+  renderProvinciaContent();updateSidebarBadges();
+  showToast('📅 Fecha actualizada','success',1500);
 }
 
 function copiarTrValor(inputId,btn){
@@ -5365,21 +5357,12 @@ function copiarTrValor(inputId,btn){
     showToast('📋 Copiado: '+val,'success',1500);
   });
 }
-function copiarTrMensaje(btn){
-  const txt=document.getElementById('tr-mensaje').value;
-  if(!txt){showToast('Mensaje vacío','warn',1500);return;}
-  navigator.clipboard.writeText(txt).then(()=>{
-    const orig=btn.textContent;btn.textContent='✅ Copiado!';btn.style.color='var(--green)';
-    setTimeout(()=>{btn.textContent=orig;btn.style.color='';},2000);
-  });
-}
 
 function guardarTracking(){
   const id=parseInt(document.getElementById('tr-id').value);
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   const numOrdenPrev=p.numOrden||'';
   const codigoPrev=p.codigoEnvio||'';
-  const clavePrev=p.clave||'';
   const numOrdenNew=document.getElementById('tr-numOrden').value.trim();
   const codigoNew=document.getElementById('tr-codigoEnvio').value.trim();
   const claveNew=document.getElementById('tr-clave').value.trim();
@@ -5390,7 +5373,7 @@ function guardarTracking(){
     const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-conf-track';
     mod.innerHTML=`<div class="modal sm">
       <div class="modal-h"><div class="modal-title">📤 Marcar como Enviado</div><div class="mc" onclick="document.getElementById('modal-conf-track').remove()">×</div></div>
-      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Se cambiará el estado del pedido a <b>"Enviado"</b> y se registrará <b>HOY</b> (${hoy()}) como fecha de despacho.</div></div>
+      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Se cambiará el estado del pedido a <b>"Enviado"</b> y se registrará <b>HOY</b> (${hoy()}) como fecha de "En camino".</div></div>
       <div style="display:flex;gap:10px;flex-direction:column">
         <button class="btn btn-primary" onclick="aplicarTracking(true)">✅ Confirmar y marcar como enviado</button>
         <button class="btn btn-ghost" onclick="aplicarTracking(false)">Solo guardar tracking (sin cambiar estado)</button>
@@ -5410,10 +5393,8 @@ function aplicarTracking(cambiarAEnviado){
   const codigoNew=document.getElementById('tr-codigoEnvio').value.trim();
   const claveNew=document.getElementById('tr-clave').value.trim();
   const llenoOrdenOCodigo=numOrdenNew||codigoNew;
-  // Auto fechaDespacho
+  // Auto fechaDespacho solo al llenar numOrden/codigoEnvio (NO al llenar clave)
   if(llenoOrdenOCodigo&&!p.fechaDespacho)p.fechaDespacho=hoy();
-  // Auto fechaAgencia
-  if(claveNew&&!p.fechaAgencia)p.fechaAgencia=hoy();
   p.numOrden=numOrdenNew;
   p.codigoEnvio=codigoNew;
   p.clave=claveNew;
@@ -5424,6 +5405,55 @@ function aplicarTracking(cambiarAEnviado){
   }
   save();closeModal('modal-tracking');renderProvinciaContent();updateSidebarBadges();
   showToast('✅ Tracking guardado','success',1800);
+}
+
+// =====================================================================
+// MENSAJE WHATSAPP — Modal accesible desde Acciones de cada pedido
+// =====================================================================
+function abrirMensajeWA(id){
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-mensaje-wa';
+  mod.innerHTML=`<div class="modal" style="max-width:580px">
+    <div class="modal-h">
+      <div class="modal-title">📲 Mensaje a ${p.nombre}</div>
+      <div class="mc" onclick="document.getElementById('modal-mensaje-wa').remove()">×</div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Selecciona una plantilla y copia / abre WhatsApp. <a href="#" onclick="document.getElementById('modal-mensaje-wa').remove();showPage('whatsapp',document.querySelector('.nav-item[onclick*=whatsapp]'));return false" style="color:var(--accent)">✏️ Editar plantillas</a></div>
+    <div id="msgwa-ped-id" style="display:none">${p.id}</div>
+    <div id="msgwa-list" style="max-height:64vh;overflow-y:auto;padding-right:4px"></div>
+  </div>`;
+  document.body.appendChild(mod);
+  renderMensajeWALista(p);
+}
+
+function renderMensajeWALista(p){
+  const miNum=localStorage.getItem('wa_mi_numero')||'999888777';
+  const vars={
+    nombre:p.nombre||'',celular:p.celular||'',producto:p.producto||'',
+    cantidad:String(p.cantidad||1),precio:String(p.precio||0),
+    adelanto:String(p.adelanto||0),pendiente:String(p.pendiente||0),
+    fecha:p.fecha||'',distrito:p.dist||'',sede:p.sede||'',
+    clave:p.clave||'',numOrden:p.numOrden||'',codigoEnvio:p.codigoEnvio||'',
+    fechaDespacho:p.fechaDespacho||'',fechaAgencia:p.fechaAgencia||'',
+    diasDespacho:p.fechaDespacho?String(diasDesde(p.fechaDespacho)):'',
+    diasAgencia:p.fechaAgencia?String(diasDesde(p.fechaAgencia)):'',
+    mi_numero:miNum
+  };
+  const list=document.getElementById('msgwa-list');if(!list)return;
+  list.innerHTML=(DB.waTmpls||[]).map(t=>{
+    const filled=t.body.replace(/\{(\w+)\}/g,(m,k)=>vars[k]!==undefined&&vars[k]!==''?vars[k]:m);
+    const phone=p.celular?p.celular.replace(/\D/g,''):'';
+    const waUrl=phone?`https://wa.me/${phone.startsWith('51')?phone:'51'+phone}?text=${encodeURIComponent(filled)}`:`https://wa.me/?text=${encodeURIComponent(filled)}`;
+    const b64=btoa(unescape(encodeURIComponent(filled)));
+    return `<div class="wa-tmpl" style="margin-bottom:10px">
+      <div class="wa-tmpl-title" style="margin-bottom:6px">💬 ${t.nombre}</div>
+      <div class="wa-tmpl-body" style="color:var(--text);font-size:13px;line-height:1.55">${filled.replace(/\n/g,'<br>')}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-xs" onclick="copiarWA('${b64}',this)">📋 Copiar</button>
+        <a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">📱 Abrir WhatsApp${phone?' ('+p.celular+')':''}</a>
+      </div>
+    </div>`;
+  }).join('')||`<div class="empty" style="padding:30px">Sin plantillas. Crea desde la página "Plantillas WA".</div>`;
 }
 
 // =====================================================================
@@ -7498,10 +7528,11 @@ function renderWhatsapp(){
       <div class="card">
         <div class="card-title">📱 Tu número (para plantillas)</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" id="wa-mi-numero" placeholder="Ej: 51999999999"
+          <input type="text" id="wa-mi-numero" placeholder="Ej: 999888777"
             value="${localStorage.getItem('wa_mi_numero')||''}"
             oninput="localStorage.setItem('wa_mi_numero',this.value);renderWATmpls()"
             style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;font-family:var(--mono)">
+          <button type="button" onclick="if(confirm('¿Limpiar el número guardado?')){localStorage.removeItem('wa_mi_numero');document.getElementById('wa-mi-numero').value='';renderWATmpls();}" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--text3);cursor:pointer" title="Borrar número guardado">🗑️</button>
           <span style="font-size:11px;color:var(--text3)">Variable: <code style="color:var(--accent)">{mi_numero}</code></span>
         </div>
       </div>
@@ -7566,7 +7597,7 @@ function seleccionarWAPed(id){
 
 function renderWATmpls(){
   const ped=window._waPedSel||null;
-  const miNum=localStorage.getItem('wa_mi_numero')||'{mi_numero}';
+  const miNum=localStorage.getItem('wa_mi_numero')||'999888777';
   const vars={
     nombre:ped?.nombre||'{nombre}',
     celular:ped?.celular||'{celular}',

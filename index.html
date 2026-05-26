@@ -2554,13 +2554,10 @@ async function syncWorkerChanges(){
           if(!existeAsesor){DB.asesores.push(wa);changed=true;}
         });
       }
-      // Asesor de este worker (para filtrar actualizaciones)
-      const chAsesor=DB.asesores.find(a=>a.workerId===ch.worker_id);
       wDB.pedidos.forEach(wp=>{
         if(pedidosMap.has(wp.id)){
-          // Pedido existente — solo sincronizar si está asignado a este worker
+          // Pedido existente — sincronizar estado/notas/adelanto/pendiente del worker
           const ap=pedidosMap.get(wp.id);
-          if(chAsesor&&String(ap.vendedor)!==String(chAsesor.id))return;
           let pChanged=false;
           if(ap.estado!==wp.estado){
             // Ajustar stock en la transición a entregado
@@ -2601,7 +2598,16 @@ async function syncWorkerChanges(){
           changed=true;
         }
       });
+      // Procesar borrados marcados por el worker
+      if(Array.isArray(wDB._deletedIds)&&wDB._deletedIds.length){
+        wDB._deletedIds.forEach(delId=>{
+          const idx=DB.pedidos.findIndex(p=>p.id===delId);
+          if(idx>=0){DB.pedidos.splice(idx,1);pedidosMap.delete(delId);changed=true;}
+        });
+      }
     });
+    // Nunca persistir _deletedIds en workspaces (es marca temporal del worker)
+    delete DB._deletedIds;
     if(!changed)return;
     const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
     if(maxId>=DB.nextId)DB.nextId=maxId+1;
@@ -3934,6 +3940,10 @@ function eliminarSeleccionados(){
   if(!ids.length)return;
   if(!confirm(`¿Eliminar ${ids.length} pedido(s) seleccionado(s)? Esta acción no se puede deshacer.`))return;
   DB.pedidos=DB.pedidos.filter(p=>!ids.includes(p.id));
+  if(!isAdmin()){
+    if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];
+    ids.forEach(id=>{if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);});
+  }
   save();renderPedidosContent();updateSidebarBadges();
 }
 
@@ -4283,7 +4293,7 @@ function guardarPedido(){
   save();closeModal('modal-pedido');renderPedidosContent();updateSidebarBadges();renderNotifications();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();if(document.getElementById('lima-view'))renderLimaContent();if(document.getElementById('prov-view'))renderProvinciaContent();
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
 }
-function eliminarPedido(id){if(!confirm('¿Eliminar pedido #'+id+'?'))return;DB.pedidos=DB.pedidos.filter(x=>x.id!==id);save();renderPedidosContent();updateSidebarBadges();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();}
+function eliminarPedido(id){if(!confirm('¿Eliminar pedido #'+id+'?'))return;DB.pedidos=DB.pedidos.filter(x=>x.id!==id);if(!isAdmin()){if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);}save();renderPedidosContent();updateSidebarBadges();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();}
 function cambiarEstado(id,estado){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   const prev=p.estado;

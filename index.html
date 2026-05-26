@@ -2316,14 +2316,12 @@ function initRealtime(){
           if(payload.eventType==='DELETE')return;
           clearTimeout(window._rtSyncTimer);
           window._rtSyncTimer=setTimeout(async()=>{
-            const before=(DB.pedidos||[]).length;
             await syncWorkerChanges();
-            const after=(DB.pedidos||[]).length;
             updateSidebarBadges();renderNotifications();
             const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones,rotulos:renderRotulos,productos:renderProductos,upsells:renderUpsells};
             if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-            if(after>before)showToast(`🔄 ${after-before} pedido(s) sincronizado(s)`,'success',2000);
-          },200);
+            showToast('🔄 Trabajador sincronizado','success',2000);
+          },800);
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   } else {
@@ -2446,37 +2444,14 @@ async function save(){
   if(SESSION.saViewMode){console.log('SA view mode — save blocked');return;}
   try{localStorage.setItem(getWsKey('db'),JSON.stringify(DB));}catch(e){}
   if(!isAdmin()){
-    const payload={
-      workspace_id:SESSION.workspace_id,
-      worker_id:SESSION.id,
-      db_data:DB,
-      updated_at:new Date().toISOString()
-    };
-    let synced=false;
-    // 1) Intentar UPSERT con onConflict
     try{
-      const{error}=await _supabase.from('worker_changes')
-        .upsert(payload,{onConflict:'workspace_id,worker_id'});
-      if(!error)synced=true;
-      else console.warn('Worker upsert error:',error.message);
-    }catch(e){console.warn('Worker upsert exception:',e);}
-    // 2) Fallback: DELETE + INSERT (si UNIQUE constraint no existe)
-    if(!synced){
-      try{
-        await _supabase.from('worker_changes').delete()
-          .eq('workspace_id',SESSION.workspace_id).eq('worker_id',SESSION.id);
-        const{error:e2}=await _supabase.from('worker_changes').insert(payload);
-        if(!e2)synced=true;
-        else console.warn('Worker insert fallback error:',e2.message);
-      }catch(e){console.warn('Worker fallback exception:',e);}
-    }
-    // 3) Si todo falló, mostrar advertencia visible
-    if(!synced){
-      window._workerSyncFailed=true;
-      try{showToast('⚠️ Sin sincronizar — el admin no verá tus cambios','warn',3500);}catch(_){}
-    } else if(window._workerSyncFailed){
-      window._workerSyncFailed=false;
-    }
+      await _supabase.from('worker_changes').upsert({
+        workspace_id:SESSION.workspace_id,
+        worker_id:SESSION.id,
+        db_data:DB,
+        updated_at:new Date().toISOString()
+      },{onConflict:'workspace_id,worker_id'});
+    }catch(e){console.warn('Worker sync error:',e);}
     return;
   }
   try{
@@ -2575,12 +2550,11 @@ async function restaurarBackup(index){
 }
 
 async function syncWorkerChanges(){
-  if(!isAdmin()||!SESSION?.workspace_id)return 0;
+  if(!isAdmin()||!SESSION?.workspace_id)return;
   try{
-    const{data:changes,error}=await _supabase.from('worker_changes')
+    const{data:changes}=await _supabase.from('worker_changes')
       .select('*').eq('workspace_id',SESSION.workspace_id);
-    if(error){console.warn('syncWorkerChanges read error:',error.message);return 0;}
-    if(!changes||!changes.length)return 0;
+    if(!changes||!changes.length)return;
     const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
     let changed=false;
     changes.forEach(ch=>{
@@ -2650,50 +2624,14 @@ async function syncWorkerChanges(){
         }
       });
     });
-    if(!changed)return 0;
-    // Ignorar IDs timestamp (worker IDs >1e10) — solo contar IDs secuenciales del admin
-    const seqIds=DB.pedidos.filter(p=>(p.id||0)<1e10).map(p=>p.id||0);
+    if(!changed)return;
+    // Ignorar IDs timestamp (worker IDs >1e12) — solo contar IDs secuenciales del admin
+    const seqIds=DB.pedidos.filter(p=>(p.id||0)<1e12).map(p=>p.id||0);
     const maxId=seqIds.length>0?Math.max(...seqIds):0;
     if(maxId>=DB.nextId)DB.nextId=maxId+1;
-    localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-    const{error:upErr}=await _supabase.from('workspaces').update({db_data:DB,updated_at:new Date().toISOString()}).eq('id',SESSION.workspace_id);
-    if(upErr){console.warn('syncWorkerChanges update error:',upErr.message);return 0;}
+    await _supabase.from('workspaces').update({db_data:DB,updated_at:new Date().toISOString()}).eq('id',SESSION.workspace_id);
     await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id);
-    return 1;
-  }catch(e){console.warn('syncWorkerChanges:',e);return 0;}
-}
-
-// Sincronización manual para admin (botón "Sincronizar ahora")
-async function manualSync(){
-  if(!isAdmin()){showToast('Solo el admin puede sincronizar','warn');return;}
-  showToast('🔄 Sincronizando...','success',1500);
-  // Diagnóstico: leer worker_changes directamente
-  try{
-    const{data:wc,error}=await _supabase.from('worker_changes').select('worker_id,db_data,updated_at').eq('workspace_id',SESSION.workspace_id);
-    if(error){
-      showToast('❌ Error leyendo worker_changes: '+error.message,'error',4500);
-      console.error('worker_changes read error:',error);
-      return;
-    }
-    if(!wc||!wc.length){
-      showToast('ℹ️ No hay cambios pendientes de workers','success',2500);
-      return;
-    }
-    const totPed=wc.reduce((s,r)=>s+((r.db_data?.pedidos||[]).length),0);
-    console.log(`📥 Encontrados ${wc.length} worker(s) con ${totPed} pedido(s) totales`);
-  }catch(e){
-    showToast('❌ Excepción: '+e.message,'error',4000);
-    return;
-  }
-  const before=(DB.pedidos||[]).length;
-  await syncWorkerChanges();
-  const after=(DB.pedidos||[]).length;
-  updateSidebarBadges();renderNotifications();
-  const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones,rotulos:renderRotulos,productos:renderProductos,upsells:renderUpsells};
-  if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-  const diff=after-before;
-  if(diff>0)showToast(`✅ ${diff} pedido(s) nuevo(s) sincronizado(s)`,'success',2500);
-  else showToast('✅ Sin cambios pendientes','success',1800);
+  }catch(e){console.warn('syncWorkerChanges:',e);}
 }
 
 
@@ -2938,7 +2876,7 @@ async function onSignedIn(user){
   renderNotifications();
   if(isAdmin()){
     syncWorkerChanges();
-    // Polling cada 10s como respaldo (por si el realtime no dispara)
+    // Polling cada 30s como respaldo (por si el realtime no dispara)
     clearInterval(window._adminSyncInterval);
     window._adminSyncInterval=setInterval(async()=>{
       const before=(DB.pedidos||[]).length;
@@ -2949,7 +2887,7 @@ async function onSignedIn(user){
         const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones,rotulos:renderRotulos,productos:renderProductos,upsells:renderUpsells};
         if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
       }
-    },10000);
+    },30000);
   }
   initRealtime();
   const startPage=isAdmin()?'dashboard':'pedidos';
@@ -3862,7 +3800,6 @@ function renderPedidos(){
   <div class="section-header"><div><div class="section-title">Pedidos</div><div class="section-sub" id="ped-count"></div></div>
   <div class="section-actions">
     <div class="tgrp"><button class="tbtn ${pVista==='tabla'?'active':''}" onclick="pVista='tabla';this.closest('.tgrp').querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPedidosContent()">📋 Tabla</button><button class="tbtn ${pVista==='kanban'?'active':''}" onclick="pVista='kanban';this.closest('.tgrp').querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPedidosContent()">🗂️ Kanban</button></div>
-    ${isAdmin()?`<button class="btn" onclick="manualSync()" title="Sincronizar pedidos de trabajadores ahora">🔄 Sincronizar</button>`:''}
     <button class="btn btn-primary" onclick="openNuevoPedido()">+ Nuevo pedido</button>
   </div></div>
   <div class="fbar">

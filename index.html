@@ -2137,7 +2137,7 @@ td{padding:11px 14px;font-size:13px}
   </div>
 
   <div id="tr-timeline" style="margin-top:14px;padding:12px;background:var(--surface3);border-radius:10px"></div>
-  <div style="font-size:10.5px;color:var(--text3);margin-top:6px;padding-left:4px">💡 Click en cada fecha para editar manualmente cualquier paso</div>
+  <div style="font-size:10.5px;color:var(--text3);margin-top:6px;padding-left:4px">💡 Click en el círculo para marcar/desmarcar (cascade hacia atrás al marcar, hacia adelante al desmarcar) · Click en la fecha para editar manualmente</div>
 
   <div style="display:flex;gap:10px;margin-top:18px">
     <button class="btn btn-primary" onclick="guardarTracking()">💾 Guardar</button>
@@ -4332,10 +4332,24 @@ function cambiarEstado(id,estado){
   p.estado=estado;
   if(!p.historial)p.historial=[];
   p.historial.push({estado,ts:new Date().toISOString(),user:SESSION?.name||'Sistema'});
-  // Tracking provincia: marcar fechaEntregado y devueltoSinRecoger
+  // Tracking provincia: sincronizar timeline con estado del pedido
   if(p.zona==='provincia'){
-    if(estado==='entregado'&&!p.fechaEntregado)p.fechaEntregado=hoy();
+    const today=hoy();
+    // Cambio a "entregado" → marcar todo el timeline (cascade fill atrás)
+    if(estado==='entregado'){
+      if(!p.fechaEntregado)p.fechaEntregado=today;
+      if(!p.fechaDespacho)p.fechaDespacho=today;
+      if(!p.fechaAgencia)p.fechaAgencia=today;
+    }
+    // Cambio de "confirmado" → "enviado": marcar fechaDespacho si vacía
+    if(estado==='enviado'&&prev==='confirmado'&&!p.fechaDespacho)p.fechaDespacho=today;
+    // Cambio a "confirmado" desde enviado/entregado: limpiar todo el timeline
+    if(estado==='confirmado'&&(prev==='enviado'||prev==='entregado')){
+      p.fechaDespacho='';p.fechaAgencia='';p.fechaEntregado='';
+    }
+    // Devuelto estando en agencia → marca devueltoSinRecoger
     if(estado==='devuelto'&&p.fechaAgencia&&!p.fechaEntregado)p.devueltoSinRecoger=true;
+    // Desmarcar entregado desde el dropdown → limpiar solo fechaEntregado
     if(estado!=='entregado'&&prev==='entregado')p.fechaEntregado='';
   }
   // Descontar stock al marcar como entregado
@@ -4363,6 +4377,8 @@ function cambiarEstado(id,estado){
         else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
       }
     });
+    // Restaurar pendiente en provincia (estaba en 0 por la entrega)
+    if(p.zona==='provincia'&&p.precio)p.pendiente=Math.max(0,p.precio-(p.adelanto||0));
   }
   save();renderNotifications();updateSidebarBadges();
   if(document.getElementById('lima-view'))renderLimaContent();
@@ -5295,56 +5311,127 @@ function openTracking(id){
   document.getElementById('modal-tracking').classList.add('open');
 }
 
+// Deriva el estado del pedido a partir del estado del timeline
+function deriveEstadoFromTracking(p,prevEstado){
+  if(['devuelto','rechazado','cancelado','no-contesta','reprogramado','nuevo'].includes(prevEstado))return prevEstado;
+  if(p.fechaEntregado)return 'entregado';
+  if(p.fechaDespacho||p.fechaAgencia)return 'enviado';
+  if(prevEstado==='enviado'||prevEstado==='entregado')return 'confirmado';
+  return prevEstado;
+}
+
+// Aplica un cambio de estado derivado del timeline: ajusta stock y pendiente
+function aplicarCambioEstadoTracking(p,prevEstado,newEstado){
+  if(newEstado===prevEstado)return false;
+  p.estado=newEstado;
+  if(!p.historial)p.historial=[];
+  p.historial.push({estado:newEstado,ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking-timeline'});
+  // Descontar stock al marcar entregado
+  if(newEstado==='entregado'&&prevEstado!=='entregado'){
+    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
+      if(!it.productoId)return;
+      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
+      if(prod&&prod.modalidad==='stock'){
+        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
+        if(varIdx>=0)prod.variantes[varIdx].stock=Math.max(0,prod.variantes[varIdx].stock-(parseInt(it.cantidad)||1));
+        else prod.stock=Math.max(0,(prod.stock||0)-(parseInt(it.cantidad)||1));
+      }
+    });
+    if(p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
+  }
+  // Revertir stock al desmarcar entregado
+  if(prevEstado==='entregado'&&newEstado!=='entregado'){
+    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
+      if(!it.productoId)return;
+      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
+      if(prod&&prod.modalidad==='stock'){
+        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
+        if(varIdx>=0)prod.variantes[varIdx].stock=(prod.variantes[varIdx].stock||0)+(parseInt(it.cantidad)||1);
+        else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
+      }
+    });
+    // Restaurar pendiente (provincia)
+    if(p.zona==='provincia'&&p.precio){p.pendiente=Math.max(0,p.precio-(p.adelanto||0));}
+  }
+  return true;
+}
+
 function trackingTimelineHTML(p){
-  const step=(campo,icon,label,fecha,extra)=>{
+  const today=hoy();
+  const step=(campo,icon,label,fecha)=>{
     const isDone=!!fecha;
-    const subText=fecha?fechaCorta(fecha)+(extra?' · '+extra:''):'Sin fecha';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
-      <div style="width:22px;height:22px;border-radius:50%;background:${isDone?'var(--green)':'var(--surface2)'};color:${isDone?'#fff':'var(--text3)'};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">${isDone?'●':'○'}</div>
-      <div style="flex:1;font-size:12.5px;font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'}">${icon} ${label}<div style="font-size:11px;color:var(--text3);font-weight:500">${subText}</div></div>
-      <input type="date" value="${fecha||''}" max="${hoy()}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Click para editar fecha">
-      ${isDone?`<button type="button" onclick="actualizarFechaTracking(${p.id},'${campo}','')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px" title="Limpiar fecha">✕</button>`:''}
+    const dias=fecha?diasDesde(fecha):0;
+    const subText=fecha?fechaCorta(fecha)+(dias>0?' · hace '+dias+'d':' · hoy'):'Sin fecha';
+    const titleHelp=isDone?'Click para desmarcar (limpia este paso y los siguientes)':'Click para marcar con HOY';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0">
+      <button type="button" onclick="toggleFechaTracking(${p.id},'${campo}')" style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'var(--text3)'};border:${isDone?'none':'2px solid var(--border2)'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;padding:0;font-weight:800;transition:all .15s" title="${titleHelp}" onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform=''">${isDone?'✓':''}</button>
+      <div style="flex:1;font-size:12.5px">
+        <div style="font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'}">${icon} ${label}</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:500">${subText}</div>
+      </div>
+      <input type="date" value="${fecha||''}" max="${today}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Editar fecha manualmente (no afecta otros pasos)">
     </div>`;
   };
   return `
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Línea de tiempo</div>
-    ${step('fechaDespacho','🚚','En camino',p.fechaDespacho,p.fechaDespacho?'hace '+diasDesde(p.fechaDespacho)+'d':'')}
-    ${step('fechaAgencia','📦','En agencia',p.fechaAgencia,p.fechaAgencia?'hace '+diasDesde(p.fechaAgencia)+'d':'')}
-    ${step('fechaEntregado','✅','Entregado',p.fechaEntregado,'')}`;
+    ${step('fechaDespacho','🚚','En camino',p.fechaDespacho)}
+    ${step('fechaAgencia','📦','En agencia',p.fechaAgencia)}
+    ${step('fechaEntregado','✅','Entregado',p.fechaEntregado)}`;
 }
 
+// Marca o desmarca un paso del timeline (con cascade)
+function toggleFechaTracking(id,campo){
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  const today=hoy();
+  const order=['fechaDespacho','fechaAgencia','fechaEntregado'];
+  const idx=order.indexOf(campo);
+  if(idx<0)return;
+  const isCurrentlyDone=!!p[campo];
+  const prevEstado=p.estado;
+  if(isCurrentlyDone){
+    // DESMARCAR: limpia este paso y todos los siguientes
+    for(let i=idx;i<order.length;i++)p[order[i]]='';
+  } else {
+    // MARCAR: pone HOY en este paso + en pasos anteriores vacíos (cascade backward)
+    for(let i=0;i<=idx;i++){if(!p[order[i]])p[order[i]]=today;}
+  }
+  // Derivar estado nuevo del pedido a partir del timeline
+  const newEstado=deriveEstadoFromTracking(p,prevEstado);
+  aplicarCambioEstadoTracking(p,prevEstado,newEstado);
+  save();
+  if(document.getElementById('tr-timeline'))document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
+  renderProvinciaContent();updateSidebarBadges();renderNotifications();
+  if(CURRENT_PAGE==='dashboard')renderDashboard();
+  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  showToast(isCurrentlyDone?'⭕ Paso desmarcado':'✅ Paso marcado','success',1500);
+}
+
+// Edición manual de una fecha específica (sin cascade)
 function actualizarFechaTracking(id,campo,valor){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
-  // Validar concordancia de fechas
+  // Validar concordancia de fechas (las fechas SÍ pueden coincidir, solo bloqueamos saltos imposibles)
   if(valor){
     if(valor>hoy()){showToast('⚠️ La fecha no puede ser futura','warn',2500);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-    if(campo==='fechaAgencia'&&p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ Fecha "En agencia" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    if(campo==='fechaAgencia'&&p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ "En agencia" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
     if(campo==='fechaEntregado'){
-      if(p.fechaAgencia&&valor<p.fechaAgencia){showToast('⚠️ Fecha "Entregado" no puede ser antes de "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-      if(p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ Fecha "Entregado" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaAgencia&&valor<p.fechaAgencia){showToast('⚠️ "Entregado" no puede ser antes de "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ "Entregado" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
     }
     if(campo==='fechaDespacho'){
-      if(p.fechaAgencia&&valor>p.fechaAgencia){showToast('⚠️ Fecha "En camino" no puede ser posterior a "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-      if(p.fechaEntregado&&valor>p.fechaEntregado){showToast('⚠️ Fecha "En camino" no puede ser posterior a "Entregado"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaAgencia&&valor>p.fechaAgencia){showToast('⚠️ "En camino" no puede ser posterior a "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaEntregado&&valor>p.fechaEntregado){showToast('⚠️ "En camino" no puede ser posterior a "Entregado"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
     }
   }
+  const prevEstado=p.estado;
   p[campo]=valor||'';
-  // Si llena fechaEntregado manualmente → cambiar estado a entregado
-  if(campo==='fechaEntregado'&&valor&&p.estado!=='entregado'){
-    p.estado='entregado';
-    if(!p.historial)p.historial=[];
-    p.historial.push({estado:'entregado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking-timeline'});
-    if(p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
-  }
-  // Si limpia fechaEntregado y estado era entregado → volver a enviado
-  if(campo==='fechaEntregado'&&!valor&&p.estado==='entregado'){
-    p.estado='enviado';
-    if(!p.historial)p.historial=[];
-    p.historial.push({estado:'enviado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking-timeline'});
-  }
+  // Derivar estado (por si la edición manual cambió la situación: ej. limpió fechaEntregado)
+  const newEstado=deriveEstadoFromTracking(p,prevEstado);
+  aplicarCambioEstadoTracking(p,prevEstado,newEstado);
   save();
-  document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
-  renderProvinciaContent();updateSidebarBadges();
+  if(document.getElementById('tr-timeline'))document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
+  renderProvinciaContent();updateSidebarBadges();renderNotifications();
+  if(CURRENT_PAGE==='dashboard')renderDashboard();
+  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
   showToast('📅 Fecha actualizada','success',1500);
 }
 

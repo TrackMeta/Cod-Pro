@@ -5243,14 +5243,13 @@ function renderProvinciaContent(){
 // =====================================================================
 // TRACKING PROVINCIA — Helpers
 // =====================================================================
-// Verifica que la fecha sea razonable (año entre 2020 y año actual+1)
+// Verifica que la fecha sea razonable (año mayor a 1900, para evitar datos corruptos tipo '0002')
 function fechaValida(fechaStr){
   if(!fechaStr)return false;
   const [y]=fechaStr.split('-');
   const year=parseInt(y);
   if(!year||isNaN(year))return false;
-  const curYear=new Date().getFullYear();
-  return year>=2020&&year<=curYear+1;
+  return year>=1900;
 }
 function diasDesde(fechaStr){
   if(!fechaValida(fechaStr))return 0;
@@ -5367,9 +5366,6 @@ function aplicarCambioEstadoTracking(p,prevEstado,newEstado){
 }
 
 function trackingTimelineHTML(p){
-  const today=hoy();
-  // Min: fecha del pedido si existe y es válida, sino 2020-01-01
-  const minFecha=(p.fecha&&fechaValida(p.fecha))?p.fecha:'2020-01-01';
   const step=(campo,icon,label,fecha)=>{
     const fechaOk=fechaValida(fecha);
     const isDone=!!fecha&&fechaOk;
@@ -5384,7 +5380,7 @@ function trackingTimelineHTML(p){
         <div style="font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'}">${icon} ${label}</div>
         <div style="font-size:11px;color:${fecha&&!fechaOk?'var(--red)':'var(--text3)'};font-weight:500">${subText}</div>
       </div>
-      <input type="date" value="${valForInput}" min="${minFecha}" max="${today}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Editar fecha manualmente (no afecta otros pasos)">
+      <input type="date" value="${valForInput}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value,this)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Editar fecha manualmente (no afecta otros pasos)">
     </div>`;
   };
   return `
@@ -5422,29 +5418,32 @@ function toggleFechaTracking(id,campo){
 }
 
 // Edición manual de una fecha específica (sin cascade)
-function actualizarFechaTracking(id,campo,valor){
+// Importante: en errores NO re-renderizamos el timeline (eso destruiría el input
+// y haría perder el foco mientras el usuario sigue tipeando). Solo revertimos el
+// valor del input específico al valor previo guardado.
+function actualizarFechaTracking(id,campo,valor,inputEl){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
-  // Validar concordancia de fechas (las fechas SÍ pueden coincidir, solo bloqueamos saltos imposibles)
+  const revertir=()=>{ if(inputEl){const prevVal=p[campo]||'';inputEl.value=fechaValida(prevVal)?prevVal:'';} };
+  // Validar concordancia de fechas (las fechas pueden coincidir, solo bloqueamos saltos imposibles)
   if(valor){
-    if(!fechaValida(valor)){showToast('⚠️ Año inválido (debe ser entre 2020 y '+(new Date().getFullYear()+1)+')','warn',3000);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-    if(p.fecha&&fechaValida(p.fecha)&&valor<p.fecha){showToast('⚠️ La fecha no puede ser antes de la creación del pedido ('+fechaCorta(p.fecha)+')','warn',3000);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-    if(valor>hoy()){showToast('⚠️ La fecha no puede ser futura','warn',2500);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-    if(campo==='fechaAgencia'&&p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ "En agencia" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    if(!fechaValida(valor)){showToast('⚠️ Fecha inválida — verifica el año','warn',2500);revertir();return;}
+    if(campo==='fechaAgencia'&&p.fechaDespacho&&fechaValida(p.fechaDespacho)&&valor<p.fechaDespacho){showToast('⚠️ "En agencia" no puede ser antes de "En camino"','warn',2800);revertir();return;}
     if(campo==='fechaEntregado'){
-      if(p.fechaAgencia&&valor<p.fechaAgencia){showToast('⚠️ "Entregado" no puede ser antes de "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-      if(p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ "Entregado" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaAgencia&&fechaValida(p.fechaAgencia)&&valor<p.fechaAgencia){showToast('⚠️ "Entregado" no puede ser antes de "En agencia"','warn',2800);revertir();return;}
+      if(p.fechaDespacho&&fechaValida(p.fechaDespacho)&&valor<p.fechaDespacho){showToast('⚠️ "Entregado" no puede ser antes de "En camino"','warn',2800);revertir();return;}
     }
     if(campo==='fechaDespacho'){
-      if(p.fechaAgencia&&valor>p.fechaAgencia){showToast('⚠️ "En camino" no puede ser posterior a "En agencia"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
-      if(p.fechaEntregado&&valor>p.fechaEntregado){showToast('⚠️ "En camino" no puede ser posterior a "Entregado"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+      if(p.fechaAgencia&&fechaValida(p.fechaAgencia)&&valor>p.fechaAgencia){showToast('⚠️ "En camino" no puede ser posterior a "En agencia"','warn',2800);revertir();return;}
+      if(p.fechaEntregado&&fechaValida(p.fechaEntregado)&&valor>p.fechaEntregado){showToast('⚠️ "En camino" no puede ser posterior a "Entregado"','warn',2800);revertir();return;}
     }
   }
   const prevEstado=p.estado;
   p[campo]=valor||'';
-  // Derivar estado (por si la edición manual cambió la situación: ej. limpió fechaEntregado)
+  // Derivar estado (por si la edición manual cambió la situación)
   const newEstado=deriveEstadoFromTracking(p,prevEstado);
   aplicarCambioEstadoTracking(p,prevEstado,newEstado);
   save();
+  // Solo re-renderizar si el cambio fue exitoso
   if(document.getElementById('tr-timeline'))document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
   renderProvinciaContent();updateSidebarBadges();renderNotifications();
   if(CURRENT_PAGE==='dashboard')renderDashboard();

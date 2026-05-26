@@ -5089,9 +5089,9 @@ function renderProvincia(){
   ${(()=>{
     const activos=[...conf,...env];
     const tr=activos.map(p=>({p,t:estadoTrackingVisual(p)}));
-    const enAgenciaCritico=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.color==='red');
-    const enAgenciaAviso=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.color==='amber');
-    const transitoCritico=tr.filter(x=>fechaValida(x.p.fechaDespacho)&&!fechaValida(x.p.fechaAgencia)&&x.t.color==='red');
+    const enAgenciaCritico=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.aging==='red');
+    const enAgenciaAviso=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.aging==='amber');
+    const transitoCritico=tr.filter(x=>fechaValida(x.p.fechaDespacho)&&!fechaValida(x.p.fechaAgencia)&&x.t.aging==='red');
     const alerts=[];
     if(enAgenciaCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🔴</span><div class="abox-text"><b>${enAgenciaCritico.length} pedido(s) +${CFG.trackAgenciaCritico||5} días en agencia sin recoger</b> — riesgo de devolución</div></div>`);
     if(enAgenciaAviso.length)alerts.push(`<div class="abox abox-amber" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🟡</span><div class="abox-text"><b>${enAgenciaAviso.length} pedido(s) +${CFG.trackAgenciaAviso||3} días en agencia</b> — considera recordar al cliente</div></div>`);
@@ -5195,11 +5195,14 @@ function renderProvinciaContent(){
       const diasT=p.fecha&&!entregado?Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24)):0;
       const urgente=diasT>=7,advertencia=diasT>=4;
       const tr=estadoTrackingVisual(p);
-      const trColorMap={green:'var(--green)',amber:'var(--amber)',red:'var(--red)'};
-      const trBgMap={green:'rgba(34,197,94,.08)',amber:'rgba(245,158,11,.08)',red:'rgba(239,68,68,.08)'};
-      const rowBg=tr.color==='red'?'background:rgba(239,68,68,.05)':tr.color==='amber'?'background:rgba(245,158,11,.05)':'';
+      // Colores fijos por estado (estilo solido como columna Clave)
+      const trBgSolid={green:'var(--green)',orange:'#f97316',yellow:'#eab308',red:'var(--red)'};
+      const trBgCellSoft={green:'rgba(16,212,106,.10)',orange:'rgba(249,115,22,.10)',yellow:'rgba(234,179,8,.10)',red:'rgba(240,68,85,.10)'};
+      // Fondo de fila segun aging (no segun color del estado)
+      const rowBg=tr.aging==='red'?'background:rgba(239,68,68,.05)':tr.aging==='amber'?'background:rgba(245,158,11,.05)':'';
+      const cellBg=trBgCellSoft[tr.color]||'transparent';
       const trackingCell=tr.text
-        ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:6px;background:${trBgMap[tr.color]||'transparent'};color:${trColorMap[tr.color]||'var(--text2)'};font-size:11.5px;font-weight:700;cursor:pointer" onclick="openTracking(${p.id})">${tr.icon} ${tr.text}</div>`
+        ? `<span style="background:${trBgSolid[tr.color]||'var(--surface3)'};color:#fff;font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;letter-spacing:.02em" onclick="openTracking(${p.id})" title="Click para editar tracking">${tr.icon} ${tr.text}</span>`
         : `<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="font-size:11px;color:var(--text3)">+ Agregar tracking</button>`;
       return `<tr style="${rowBg}">
     <td class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
@@ -5207,7 +5210,7 @@ function renderProvinciaContent(){
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
     <td style="color:var(--text2);font-size:11.5px">${p.sede||'-'}</td>
-    <td style="white-space:nowrap">${trackingCell}</td>
+    <td style="white-space:nowrap;background:${cellBg}">${trackingCell}</td>
     <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
     <td class="mono" style="color:var(--accent);font-weight:700">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.adelanto||0)}</td>
     <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.pendiente||0)}</td>
@@ -5236,7 +5239,7 @@ function renderProvinciaContent(){
   </tr>`;}).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(255,85,0,.10);color:var(--accent)">📦 Tracking</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado</th><th>Acciones</th></tr></thead>
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316">📦 Tracking</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 
@@ -5267,30 +5270,34 @@ function colorAviso(dias,avisoUmbral,criticoUmbral){
   if(dias>=avisoUmbral)return 'amber';
   return 'green';
 }
-// Devuelve {icon, text, color, dias} para mostrar en la columna Tracking
+// Devuelve {icon, text, color, dias, aging} para mostrar en la columna Tracking
+// - color: COLOR FIJO por estado (verde=entregado, naranja=en agencia, amarillo=en camino, rojo=devuelto)
+// - aging: nivel de envejecimiento (green/amber/red) basado en dias - usado para alertas y fondo de fila
 function estadoTrackingVisual(p){
   if(p.estado==='entregado'){
     const fEnt=fechaValida(p.fechaEntregado)?p.fechaEntregado:(fechaValida(p.fecha)?p.fecha:'');
-    return {icon:'✅',text:`Entregado${fEnt?' el '+fechaCorta(fEnt):''}`,color:'green',dias:0};
+    return {icon:'✅',text:`Entregado${fEnt?' el '+fechaCorta(fEnt):''}`,color:'green',dias:0,aging:'green'};
   }
   if(p.estado==='devuelto'){
     if(p.devueltoSinRecoger){
       const d=fechaValida(p.fechaAgencia)?diasDesde(p.fechaAgencia):0;
-      return {icon:'↩️',text:`Devuelto sin recoger${d?' ('+d+'d en agencia)':''}`,color:'red',dias:d};
+      return {icon:'↩️',text:`Devuelto sin recoger${d?' ('+d+'d en agencia)':''}`,color:'red',dias:d,aging:'red'};
     }
-    return {icon:'↩️',text:'Devuelto en tránsito',color:'red',dias:0};
+    return {icon:'↩️',text:'Devuelto en tránsito',color:'red',dias:0,aging:'red'};
   }
   if(fechaValida(p.fechaAgencia)){
     const d=diasDesde(p.fechaAgencia);
-    const c=colorAviso(d,CFG.trackAgenciaAviso||3,CFG.trackAgenciaCritico||5);
-    return {icon:'📦',text:`En agencia hace ${d}d`,color:c,dias:d};
+    const aging=colorAviso(d,CFG.trackAgenciaAviso||3,CFG.trackAgenciaCritico||5);
+    const urg=aging==='red'?' ⚠️':'';
+    return {icon:'📦',text:`En agencia hace ${d}d${urg}`,color:'orange',dias:d,aging};
   }
   if(fechaValida(p.fechaDespacho)){
     const d=diasDesde(p.fechaDespacho);
-    const c=colorAviso(d,CFG.trackTransitoAviso||3,CFG.trackTransitoCritico||7);
-    return {icon:'🚚',text:`En camino hace ${d}d`,color:c,dias:d};
+    const aging=colorAviso(d,CFG.trackTransitoAviso||3,CFG.trackTransitoCritico||7);
+    const urg=aging==='red'?' ⚠️':'';
+    return {icon:'🚚',text:`En camino hace ${d}d${urg}`,color:'yellow',dias:d,aging};
   }
-  return {icon:'',text:'',color:'',dias:0};
+  return {icon:'',text:'',color:'',dias:0,aging:''};
 }
 
 // =====================================================================

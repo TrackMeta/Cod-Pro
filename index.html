@@ -2628,6 +2628,22 @@ async function load(){
     try{const d=localStorage.getItem(getWsKey('db'));if(d)DB=JSON.parse(d);}catch(_){}
     try{const c=localStorage.getItem(getWsKey('cfg'));if(c)CFG=Object.assign({...CFG},JSON.parse(c));}catch(_){}
   }
+  // Workers: cargar sus cambios pendientes desde worker_changes
+  // (el save() del worker escribe ahí pero load() leía solo de workspaces,
+  // por eso los cambios desaparecían al refrescar)
+  if(SESSION&&SESSION.role!=='admin'){
+    try{
+      const{data:wc}=await _supabase.from('worker_changes')
+        .select('db_data')
+        .eq('workspace_id',SESSION.workspace_id)
+        .eq('worker_id',SESSION.id)
+        .limit(1);
+      if(wc&&wc[0]?.db_data?.pedidos){
+        DB=wc[0].db_data;
+        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+      }
+    }catch(_){}
+  }
   // Asegurar estructura correcta
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
   if(!DB.deliveries)DB.deliveries=[];

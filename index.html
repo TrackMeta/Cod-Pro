@@ -2103,16 +2103,56 @@ td{padding:11px 14px;font-size:13px}
 </div>
 </div>
 
-<!-- MODAL TRACKING SHALOM -->
+<!-- MODAL TRACKING SHALOM (Completo) -->
 <div class="overlay" id="modal-tracking">
-<div class="modal sm">
-  <div class="modal-h"><div class="modal-title">🔑 Clave de Recojo</div><div class="mc" onclick="closeModal('modal-tracking')">×</div></div>
+<div class="modal" style="max-width:560px">
+  <div class="modal-h"><div class="modal-title">📦 Tracking del Envío</div><div class="mc" onclick="closeModal('modal-tracking')">×</div></div>
   <input type="hidden" id="tr-id">
-  <div class="form-grid">
-    <div class="fg" style="grid-column:1/-1"><label>Clave de recojo</label><input type="text" id="tr-clave" placeholder="Ej: 1234" style="font-size:22px;font-weight:700;text-align:center;letter-spacing:.1em"></div>
+  <div id="tr-header" style="background:var(--surface3);border-radius:10px;padding:12px 14px;margin-bottom:14px"></div>
+
+  <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📋 Datos de envío Shalom</div>
+
+  <div class="fg" style="margin-bottom:10px">
+    <label>Número de orden</label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="tr-numOrden" placeholder="Ej: 23-45678" style="flex:1;font-family:var(--mono);font-weight:700">
+      <button type="button" class="btn btn-ghost btn-xs" onclick="copiarTrValor('tr-numOrden',this)" title="Copiar número de orden">📋</button>
+    </div>
   </div>
-  <div style="display:flex;gap:10px;margin-top:20px">
-    <button class="btn btn-primary" onclick="guardarTracking()">Guardar</button>
+
+  <div class="fg" style="margin-bottom:10px">
+    <label>Código de envío</label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="tr-codigoEnvio" placeholder="Ej: AB-12345" style="flex:1;font-family:var(--mono);font-weight:700">
+      <button type="button" class="btn btn-ghost btn-xs" onclick="copiarTrValor('tr-codigoEnvio',this)" title="Copiar código de envío">📋</button>
+    </div>
+  </div>
+
+  <div class="fg" style="margin-bottom:14px">
+    <label>🔑 Clave de recojo</label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="tr-clave" placeholder="Ej: 4521" style="flex:1;font-family:var(--mono);font-weight:800;font-size:18px;letter-spacing:.08em">
+      <button type="button" class="btn btn-ghost btn-xs" onclick="copiarTrValor('tr-clave',this)" title="Copiar clave">📋</button>
+    </div>
+  </div>
+
+  <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">📲 Mensaje al cliente</div>
+
+  <div class="fg" style="margin-bottom:8px">
+    <label>Plantilla</label>
+    <select id="tr-tmpl" onchange="renderTrMensaje()" style="width:100%"></select>
+  </div>
+
+  <div class="fg" style="margin-bottom:8px">
+    <label>Mensaje (editable)</label>
+    <textarea id="tr-mensaje" rows="6" style="font-family:var(--mono);font-size:12.5px;line-height:1.5"></textarea>
+  </div>
+  <button type="button" class="btn btn-ghost btn-xs" onclick="copiarTrMensaje(this)" style="margin-bottom:14px">📋 Copiar mensaje</button>
+
+  <div id="tr-timeline" style="margin-top:12px;padding:12px;background:var(--surface3);border-radius:10px"></div>
+
+  <div style="display:flex;gap:10px;margin-top:18px">
+    <button class="btn btn-primary" onclick="guardarTracking()">💾 Guardar</button>
     <button class="btn btn-ghost" onclick="closeModal('modal-tracking')">Cancelar</button>
   </div>
 </div>
@@ -2283,7 +2323,7 @@ const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // DB & CONFIG — datos en memoria, sincronizados con Supabase
 // =====================================================================
 let DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-let CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0};
+let CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5};
 let SESSION=null;   // { id, email, role, name, initials, workspace_id, negocio_name, logo_data }
 let WORKSPACE=null; // alias de SESSION para compatibilidad con código existente
 let notifTab='active';
@@ -2293,6 +2333,8 @@ const DEFAULT_WA=[
   {id:1,nombre:'✅ Confirmación Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\nTu delivery llegará al distrito de *{distrito}*. Te avisamos cuando esté en camino.\n\n¡Gracias por tu compra! 🙌'},
   {id:2,nombre:'💰 Solicitud de adelanto (Provincia)',body:'Hola {nombre} 👋, tu pedido de *{producto}* está listo para enviar.\n\nPara despachar necesitamos un adelanto de *S/{adelanto}* vía Yape/Plin al número: *{mi_numero}* 📲\n\nEn cuanto confirmemos el pago, enviamos tu paquete. ¡Gracias!'},
   {id:3,nombre:'📦 Llegada a agencia (Provincia)',body:'Hola {nombre} ✅, tu pedido *{producto}* ya llegó a la agencia *{sede}*.\n\n🔑 Tu clave de recojo: *{clave}*\n\nRecuerda llevar tu DNI y el pago restante de *S/{pendiente}*. ¡Que lo disfrutes!'},
+  {id:7,nombre:'🚚 Despacho confirmado (Provincia)',body:'Hola {nombre} 👋, tu pedido de *{producto}* ya está en camino vía Shalom.\n\n📋 Número de orden: *{numOrden}*\n📋 Código de envío: *{codigoEnvio}*\n📅 Estimamos llegada en 3-5 días a la sede *{sede}*.\n\nTe avisaremos cuando esté listo para recoger. ¡Gracias!'},
+  {id:8,nombre:'⏰ Recordatorio de recojo (Provincia)',body:'Hola {nombre} ⏰, tu pedido *{producto}* sigue esperándote en la sede *{sede}*.\n\n🔑 Clave: *{clave}*\n💵 Pago restante: *S/{pendiente}*\n\nLleva tu DNI y recógelo pronto. Shalom guarda los paquetes hasta 30 días.'},
   {id:4,nombre:'🏙️ Confirmación + Fecha Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\n📅 Fecha estimada de entrega: *{fechaEntregaLima}* en *{distrito}*.\n\nCualquier consulta, escríbenos. ¡Gracias!'},
   {id:5,nombre:'📵 Seguimiento sin respuesta',body:'Hola {nombre}, intentamos contactarte para coordinar tu pedido de *{producto}*.\n\nSi aún tienes interés, escríbenos pronto — ¡pocas unidades disponibles! 🙌'},
   {id:6,nombre:'⭐ Post-entrega',body:'Hola {nombre} 😊, esperamos que estés disfrutando tu *{producto}*.\n\nSi te gustó, cuéntanos o recomiéndanos. Ante cualquier consulta, aquí estamos. ¡Gracias por tu confianza! 🌟'},
@@ -2663,7 +2705,7 @@ async function load(){
 }
 
 function saveConfig(){
-  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault'].forEach(k=>{
+  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault','trackTransitoAviso','trackTransitoCritico','trackAgenciaAviso','trackAgenciaCritico'].forEach(k=>{
     const el=document.getElementById('cfg-'+k);if(el)CFG[k]=parseFloat(el.value)||0;
   });
   save();
@@ -2747,7 +2789,7 @@ async function doRegister(){
     negocio_name:negocio,
     logo_data:'',
     db_data:{pedidos:[],asesores:[],publicidad:[],gastos:[],deliveries:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA},
-    cfg_data:{adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20}
+    cfg_data:{adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5}
   }).select().single();
   if(wsErr){
     showLoginLoading(false,'btn-register');
@@ -2809,7 +2851,7 @@ async function onSignedIn(user){
   WORKSPACE=SESSION;
 
   DB={pedidos:[],asesores:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0};
+  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5};
   if(ws.db_data)DB=ws.db_data;
   if(ws.cfg_data)CFG=Object.assign({...CFG},ws.cfg_data);
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
@@ -2972,7 +3014,7 @@ async function doNewPassword(){
 function bootSaWorkspace(w,saInfo){
   // Load workspace DB and CFG
   DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0};
+  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5};
   if(w.db_data)DB=w.db_data;
   if(w.cfg_data)CFG=Object.assign({...CFG},w.cfg_data);
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
@@ -4300,6 +4342,12 @@ function cambiarEstado(id,estado){
   p.estado=estado;
   if(!p.historial)p.historial=[];
   p.historial.push({estado,ts:new Date().toISOString(),user:SESSION?.name||'Sistema'});
+  // Tracking provincia: marcar fechaEntregado y devueltoSinRecoger
+  if(p.zona==='provincia'){
+    if(estado==='entregado'&&!p.fechaEntregado)p.fechaEntregado=hoy();
+    if(estado==='devuelto'&&p.fechaAgencia&&!p.fechaEntregado)p.devueltoSinRecoger=true;
+    if(estado!=='entregado'&&prev==='entregado')p.fechaEntregado='';
+  }
   // Descontar stock al marcar como entregado
   if(estado==='entregado'&&prev!=='entregado'){
     (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
@@ -4364,6 +4412,8 @@ function confirmarDevolucion(id){
   if(nota)p.comentario=(p.comentario?p.comentario+' | ':'')+'DEV: '+nota;
   if(!p.historial)p.historial=[];
   p.historial.push({estado:'devuelto',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',motivo});
+  // Tracking provincia: marcar devuelto sin recoger si llegó a agencia pero no se entregó
+  if(p.zona==='provincia'&&p.fechaAgencia&&!p.fechaEntregado)p.devueltoSinRecoger=true;
   if(prev==='entregado'){
     (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
       if(!it.productoId)return;
@@ -5030,6 +5080,18 @@ function renderProvincia(){
     <button class="btn btn-primary" onclick="openNuevoPedido('provincia')">+ Pedido Provincia</button>
   </div></div>
   ${(()=>{const activos=[...conf,...env];const hD=new Date(hoy()+'T12:00:00');const viejos=activos.filter(p=>{if(!p.fecha)return false;const dif=Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24));return dif>=7;});return viejos.length?`<div class="abox abox-amber"><span class="abox-icon">⚠️</span><div class="abox-text"><b>${viejos.length} pedido(s) con 7+ días</b> en tránsito sin entrega confirmada</div></div>`:'';})()}
+  ${(()=>{
+    const activos=[...conf,...env];
+    const tr=activos.map(p=>({p,t:estadoTrackingVisual(p)}));
+    const enAgenciaCritico=tr.filter(x=>x.p.fechaAgencia&&x.t.color==='red');
+    const enAgenciaAviso=tr.filter(x=>x.p.fechaAgencia&&x.t.color==='amber');
+    const transitoCritico=tr.filter(x=>x.p.fechaDespacho&&!x.p.fechaAgencia&&x.t.color==='red');
+    const alerts=[];
+    if(enAgenciaCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🔴</span><div class="abox-text"><b>${enAgenciaCritico.length} pedido(s) +${CFG.trackAgenciaCritico||5} días en agencia sin recoger</b> — riesgo de devolución</div></div>`);
+    if(enAgenciaAviso.length)alerts.push(`<div class="abox abox-amber" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🟡</span><div class="abox-text"><b>${enAgenciaAviso.length} pedido(s) +${CFG.trackAgenciaAviso||3} días en agencia</b> — considera recordar al cliente</div></div>`);
+    if(transitoCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🚚</span><div class="abox-text"><b>${transitoCritico.length} pedido(s) +${CFG.trackTransitoCritico||7} días despachados sin clave</b> — verifica con Shalom</div></div>`);
+    return alerts.join('');
+  })()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Provincia</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
     <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
@@ -5041,7 +5103,7 @@ function renderProvincia(){
   <div class="fbar">
     <div class="fg-filter">
       <label>Buscar</label>
-      <input type="text" id="prov-q" placeholder="Cliente, celular, provincia..." oninput="renderProvinciaContent()">
+      <input type="text" id="prov-q" placeholder="Cliente, celular, provincia, # orden, código, clave..." oninput="renderProvinciaContent()">
     </div>
     <div class="fg-filter">
       <label>Estado</label>
@@ -5100,7 +5162,7 @@ function renderProvinciaContent(){
   } else {
     arr=filtrarPeriodo(arr,per);
   }
-  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.prov||'').toLowerCase().includes(q));
+  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.prov||'').toLowerCase().includes(q)||(p.numOrden||'').toLowerCase().includes(q)||(p.codigoEnvio||'').toLowerCase().includes(q)||(p.clave||'').toLowerCase().includes(q));
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('prov-view');if(!v)return;
@@ -5120,19 +5182,26 @@ function renderProvinciaContent(){
       cnt.entregado?`<span style="color:var(--blue);font-size:11px">📦 ${cnt.entregado}</span>`:'',
       (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);font-size:11px">↩️ ${cnt.devuelto+cnt.rechazado}</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
+    const sepRow=`<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">📅 ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
     const rows=its.map(p=>{
       const entregado=p.estado==='entregado';
       const hD=new Date(hoy()+'T12:00:00');
       const diasT=p.fecha&&!entregado?Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24)):0;
       const urgente=diasT>=7,advertencia=diasT>=4;
-      const rowBg=urgente?'background:rgba(239,68,68,.05)':advertencia?'background:rgba(245,158,11,.05)':'';
+      const tr=estadoTrackingVisual(p);
+      const trColorMap={green:'var(--green)',amber:'var(--amber)',red:'var(--red)'};
+      const trBgMap={green:'rgba(34,197,94,.08)',amber:'rgba(245,158,11,.08)',red:'rgba(239,68,68,.08)'};
+      const rowBg=tr.color==='red'?'background:rgba(239,68,68,.05)':tr.color==='amber'?'background:rgba(245,158,11,.05)':'';
+      const trackingCell=tr.text
+        ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:6px;background:${trBgMap[tr.color]||'transparent'};color:${trColorMap[tr.color]||'var(--text2)'};font-size:11.5px;font-weight:700;cursor:pointer" onclick="openTracking(${p.id})">${tr.icon} ${tr.text}</div>`
+        : `<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="font-size:11px;color:var(--text3)">+ Agregar tracking</button>`;
       return `<tr style="${rowBg}">
     <td class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
     <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
     <td style="color:var(--text2);font-size:11.5px">${p.sede||'-'}</td>
+    <td style="white-space:nowrap">${trackingCell}</td>
     <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
     <td class="mono" style="color:var(--accent);font-weight:700">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.adelanto||0)}</td>
     <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.pendiente||0)}</td>
@@ -5159,22 +5228,202 @@ function renderProvinciaContent(){
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
-  }).join(''):`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave de Recojo</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
+  }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
+  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(255,85,0,.10);color:var(--accent)">📦 Tracking</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)">🔑 Clave</th><th>Estado (editable)</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 
+// =====================================================================
+// TRACKING PROVINCIA — Helpers
+// =====================================================================
+function diasDesde(fechaStr){
+  if(!fechaStr)return 0;
+  const hD=new Date(hoy()+'T12:00:00');
+  const fD=new Date(fechaStr+'T12:00:00');
+  return Math.max(0,Math.floor((hD-fD)/(1000*60*60*24)));
+}
+function fechaCorta(fechaStr){
+  if(!fechaStr)return '';
+  const [y,m,d]=fechaStr.split('-');
+  return `${d}/${m}`;
+}
+function colorAviso(dias,avisoUmbral,criticoUmbral){
+  if(dias>=criticoUmbral)return 'red';
+  if(dias>=avisoUmbral)return 'amber';
+  return 'green';
+}
+// Devuelve {icon, text, color, dias} para mostrar en la columna Tracking
+function estadoTrackingVisual(p){
+  if(p.estado==='entregado'){
+    return {icon:'✅',text:`Entregado el ${fechaCorta(p.fechaEntregado||p.fecha)}`,color:'green',dias:0};
+  }
+  if(p.estado==='devuelto'){
+    if(p.devueltoSinRecoger){
+      const d=p.fechaAgencia?diasDesde(p.fechaAgencia):0;
+      return {icon:'↩️',text:`Devuelto sin recoger${d?' ('+d+'d en agencia)':''}`,color:'red',dias:d};
+    }
+    return {icon:'↩️',text:'Devuelto en tránsito',color:'red',dias:0};
+  }
+  if(p.fechaAgencia){
+    const d=diasDesde(p.fechaAgencia);
+    const c=colorAviso(d,CFG.trackAgenciaAviso||3,CFG.trackAgenciaCritico||5);
+    return {icon:'📦',text:`En agencia hace ${d}d`,color:c,dias:d};
+  }
+  if(p.fechaDespacho){
+    const d=diasDesde(p.fechaDespacho);
+    const c=colorAviso(d,CFG.trackTransitoAviso||3,CFG.trackTransitoCritico||7);
+    return {icon:'🚚',text:`Despachado hace ${d}d`,color:c,dias:d};
+  }
+  return {icon:'',text:'',color:'',dias:0};
+}
+
+// =====================================================================
+// TRACKING MODAL
+// =====================================================================
 function openTracking(id){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   document.getElementById('tr-id').value=id;
+  document.getElementById('tr-numOrden').value=p.numOrden||'';
+  document.getElementById('tr-codigoEnvio').value=p.codigoEnvio||'';
   document.getElementById('tr-clave').value=p.clave||'';
+  // Header
+  const dDesp=p.fechaDespacho?diasDesde(p.fechaDespacho):null;
+  const dAg=p.fechaAgencia?diasDesde(p.fechaAgencia):null;
+  let headerExtra='';
+  if(p.estado==='entregado')headerExtra=`<span style="color:var(--green);font-weight:700">✅ Entregado el ${fechaCorta(p.fechaEntregado||p.fecha)}</span>`;
+  else if(dAg!==null)headerExtra=`<span style="color:var(--purple);font-weight:700">📦 En agencia hace ${dAg}d</span>`;
+  else if(dDesp!==null)headerExtra=`<span style="color:var(--accent);font-weight:700">🚚 Despachado hace ${dDesp}d</span>`;
+  else headerExtra=`<span style="color:var(--text3)">Aún no despachado</span>`;
+  document.getElementById('tr-header').innerHTML=`
+    <div style="font-weight:700;font-size:14px">${p.nombre} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
+    <div style="font-size:12px;color:var(--text2);margin-top:3px">📦 ${p.producto||''}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:3px">Sede destino: <b style="color:var(--text2)">${p.sede||'-'}</b> · Pedido #${p.id}</div>
+    <div style="margin-top:6px;font-size:12px">${headerExtra}</div>`;
+  // Plantillas filtradas para tracking
+  const trTmpls=DB.waTmpls.filter(t=>/Provincia|agencia|recojo|despacho|tracking/i.test(t.nombre));
+  const tmplsToShow=trTmpls.length?trTmpls:DB.waTmpls;
+  const sel=document.getElementById('tr-tmpl');
+  sel.innerHTML=tmplsToShow.map(t=>`<option value="${t.id}">${t.nombre}</option>`).join('');
+  // Plantilla por defecto según estado
+  let defTmpl=null;
+  if(p.clave)defTmpl=DB.waTmpls.find(t=>/llegada|agencia|recojo/i.test(t.nombre));
+  else if(p.fechaDespacho)defTmpl=DB.waTmpls.find(t=>/despacho|camino/i.test(t.nombre));
+  if(defTmpl)sel.value=defTmpl.id;
+  renderTrMensaje();
+  // Timeline
+  document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
   document.getElementById('modal-tracking').classList.add('open');
 }
+
+function trackingTimelineHTML(p){
+  const step=(done,icon,label,sub)=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:4px 0">
+      <div style="width:22px;height:22px;border-radius:50%;background:${done?'var(--green)':'var(--surface2)'};color:${done?'#fff':'var(--text3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${done?'●':'○'}</div>
+      <div style="flex:1">
+        <div style="font-size:12.5px;font-weight:${done?'700':'500'};color:${done?'var(--text)':'var(--text3)'}">${icon} ${label}</div>
+        ${sub?`<div style="font-size:11px;color:var(--text3)">${sub}</div>`:''}
+      </div>
+    </div>`;
+  return `
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Línea de tiempo</div>
+    ${step(!!p.fechaDespacho,'🚚','Despachado',p.fechaDespacho?fechaCorta(p.fechaDespacho)+' · hace '+diasDesde(p.fechaDespacho)+'d':'Pendiente')}
+    ${step(!!p.fechaAgencia,'📦','En agencia',p.fechaAgencia?fechaCorta(p.fechaAgencia)+(p.clave?' · clave '+p.clave:''):'Pendiente')}
+    ${step(p.estado==='entregado','✅','Entregado',p.estado==='entregado'?fechaCorta(p.fechaEntregado||p.fecha):p.estado==='devuelto'?'<span style="color:var(--red)">↩️ Devuelto</span>':'Pendiente')}`;
+}
+
+function renderTrMensaje(){
+  const id=parseInt(document.getElementById('tr-id').value);
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  const tmplId=parseInt(document.getElementById('tr-tmpl').value);
+  const t=DB.waTmpls.find(x=>x.id===tmplId);if(!t){document.getElementById('tr-mensaje').value='';return;}
+  // Aplicar variables con valores actuales del modal (no del DB todavía)
+  const numOrden=document.getElementById('tr-numOrden').value||p.numOrden||'';
+  const codigoEnvio=document.getElementById('tr-codigoEnvio').value||p.codigoEnvio||'';
+  const clave=document.getElementById('tr-clave').value||p.clave||'';
+  const miNum=localStorage.getItem('wa_mi_numero')||'';
+  const vars={
+    nombre:p.nombre||'',celular:p.celular||'',producto:p.producto||'',
+    cantidad:String(p.cantidad||1),precio:String(p.precio||0),
+    adelanto:String(p.adelanto||0),pendiente:String(p.pendiente||0),
+    fecha:p.fecha||'',distrito:p.dist||'',sede:p.sede||'',
+    clave,numOrden,codigoEnvio,
+    fechaDespacho:p.fechaDespacho||'',fechaAgencia:p.fechaAgencia||'',
+    diasDespacho:p.fechaDespacho?String(diasDesde(p.fechaDespacho)):'',
+    diasAgencia:p.fechaAgencia?String(diasDesde(p.fechaAgencia)):'',
+    mi_numero:miNum
+  };
+  const filled=t.body.replace(/\{(\w+)\}/g,(m,k)=>vars[k]!==undefined&&vars[k]!==''?vars[k]:m);
+  document.getElementById('tr-mensaje').value=filled;
+}
+
+function copiarTrValor(inputId,btn){
+  const val=document.getElementById(inputId).value.trim();
+  if(!val){showToast('Vacío, nada que copiar','warn',1500);return;}
+  navigator.clipboard.writeText(val).then(()=>{
+    const orig=btn.textContent;btn.textContent='✅';btn.style.color='var(--green)';
+    setTimeout(()=>{btn.textContent=orig;btn.style.color='';},1500);
+    showToast('📋 Copiado: '+val,'success',1500);
+  });
+}
+function copiarTrMensaje(btn){
+  const txt=document.getElementById('tr-mensaje').value;
+  if(!txt){showToast('Mensaje vacío','warn',1500);return;}
+  navigator.clipboard.writeText(txt).then(()=>{
+    const orig=btn.textContent;btn.textContent='✅ Copiado!';btn.style.color='var(--green)';
+    setTimeout(()=>{btn.textContent=orig;btn.style.color='';},2000);
+  });
+}
+
 function guardarTracking(){
   const id=parseInt(document.getElementById('tr-id').value);
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
-  p.clave=document.getElementById('tr-clave').value.trim();
-  save();closeModal('modal-tracking');renderProvinciaContent();
+  const numOrdenPrev=p.numOrden||'';
+  const codigoPrev=p.codigoEnvio||'';
+  const clavePrev=p.clave||'';
+  const numOrdenNew=document.getElementById('tr-numOrden').value.trim();
+  const codigoNew=document.getElementById('tr-codigoEnvio').value.trim();
+  const claveNew=document.getElementById('tr-clave').value.trim();
+  // Detectar si es la primera vez que se llena tracking en un pedido confirmado
+  const llenaTrackingAhora=(numOrdenNew||codigoNew)&&!numOrdenPrev&&!codigoPrev&&!p.fechaDespacho;
+  if(llenaTrackingAhora&&p.estado==='confirmado'){
+    // Pedir confirmación
+    const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-conf-track';
+    mod.innerHTML=`<div class="modal sm">
+      <div class="modal-h"><div class="modal-title">📤 Marcar como Enviado</div><div class="mc" onclick="document.getElementById('modal-conf-track').remove()">×</div></div>
+      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Se cambiará el estado del pedido a <b>"Enviado"</b> y se registrará <b>HOY</b> (${hoy()}) como fecha de despacho.</div></div>
+      <div style="display:flex;gap:10px;flex-direction:column">
+        <button class="btn btn-primary" onclick="aplicarTracking(true)">✅ Confirmar y marcar como enviado</button>
+        <button class="btn btn-ghost" onclick="aplicarTracking(false)">Solo guardar tracking (sin cambiar estado)</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mod);
+    return;
+  }
+  aplicarTracking(false);
+}
+
+function aplicarTracking(cambiarAEnviado){
+  document.getElementById('modal-conf-track')?.remove();
+  const id=parseInt(document.getElementById('tr-id').value);
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  const numOrdenNew=document.getElementById('tr-numOrden').value.trim();
+  const codigoNew=document.getElementById('tr-codigoEnvio').value.trim();
+  const claveNew=document.getElementById('tr-clave').value.trim();
+  const llenoOrdenOCodigo=numOrdenNew||codigoNew;
+  // Auto fechaDespacho
+  if(llenoOrdenOCodigo&&!p.fechaDespacho)p.fechaDespacho=hoy();
+  // Auto fechaAgencia
+  if(claveNew&&!p.fechaAgencia)p.fechaAgencia=hoy();
+  p.numOrden=numOrdenNew;
+  p.codigoEnvio=codigoNew;
+  p.clave=claveNew;
+  if(cambiarAEnviado&&p.estado==='confirmado'){
+    p.estado='enviado';
+    if(!p.historial)p.historial=[];
+    p.historial.push({estado:'enviado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking'});
+  }
+  save();closeModal('modal-tracking');renderProvinciaContent();updateSidebarBadges();
+  showToast('✅ Tracking guardado','success',1800);
 }
 
 // =====================================================================
@@ -7331,6 +7580,12 @@ function renderWATmpls(){
     fechaEntregaLima:ped?.fechaEntregaLima||'{fechaEntregaLima}',
     sede:ped?.sede||'{sede}',
     clave:ped?.clave||'{clave}',
+    numOrden:ped?.numOrden||'{numOrden}',
+    codigoEnvio:ped?.codigoEnvio||'{codigoEnvio}',
+    fechaDespacho:ped?.fechaDespacho||'{fechaDespacho}',
+    fechaAgencia:ped?.fechaAgencia||'{fechaAgencia}',
+    diasDespacho:ped?.fechaDespacho?String(diasDesde(ped.fechaDespacho)):'{diasDespacho}',
+    diasAgencia:ped?.fechaAgencia?String(diasDesde(ped.fechaAgencia)):'{diasAgencia}',
     mi_numero:miNum
   };
   function fillVars(tmpl){
@@ -7373,7 +7628,7 @@ let waEditId=null;
 function openModalWA(id){
   waEditId=id||null;
   const t=id?DB.waTmpls.find(x=>x.id===id):null;
-  const varsList=['{nombre}','{celular}','{producto}','{cantidad}','{precio}','{fecha}','{distrito}','{fechaEntregaLima}','{sede}','{clave}','{adelanto}','{pendiente}','{mi_numero}'];
+  const varsList=['{nombre}','{celular}','{producto}','{cantidad}','{precio}','{fecha}','{distrito}','{fechaEntregaLima}','{sede}','{clave}','{numOrden}','{codigoEnvio}','{fechaDespacho}','{fechaAgencia}','{diasDespacho}','{diasAgencia}','{adelanto}','{pendiente}','{mi_numero}'];
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-wa-tmp';
   mod.innerHTML=`<div class="modal" style="max-width:540px">
     <div class="modal-h"><div class="modal-title">${t?'✏️ Editar plantilla':'💬 Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
@@ -7685,6 +7940,24 @@ function renderConfig(){
       <div class="cfg-row">
         <div><div class="cfg-label">Horas sin enviar</div><div class="cfg-sub">Alerta si pedido confirmado no se envía</div></div>
         <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-horasAlerta" value="${CFG.horasAlerta}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">h</span></div>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">📦 Tracking Provincia</div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Tránsito · aviso amarillo</div><div class="cfg-sub">Días despachado sin clave → 🟡</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-trackTransitoAviso" value="${CFG.trackTransitoAviso||3}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">d</span></div>
+      </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Tránsito · crítico rojo</div><div class="cfg-sub">Días despachado sin clave → 🔴</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-trackTransitoCritico" value="${CFG.trackTransitoCritico||7}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">d</span></div>
+      </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">En agencia · aviso amarillo</div><div class="cfg-sub">Días en agencia sin recoger → 🟡</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-trackAgenciaAviso" value="${CFG.trackAgenciaAviso||3}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">d</span></div>
+      </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">En agencia · crítico rojo</div><div class="cfg-sub">Días en agencia sin recoger → 🔴</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-trackAgenciaCritico" value="${CFG.trackAgenciaCritico||5}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">d</span></div>
       </div>
 
       <!-- Resumen de valores actuales -->

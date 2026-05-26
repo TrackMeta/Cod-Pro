@@ -5089,9 +5089,9 @@ function renderProvincia(){
   ${(()=>{
     const activos=[...conf,...env];
     const tr=activos.map(p=>({p,t:estadoTrackingVisual(p)}));
-    const enAgenciaCritico=tr.filter(x=>x.p.fechaAgencia&&x.t.color==='red');
-    const enAgenciaAviso=tr.filter(x=>x.p.fechaAgencia&&x.t.color==='amber');
-    const transitoCritico=tr.filter(x=>x.p.fechaDespacho&&!x.p.fechaAgencia&&x.t.color==='red');
+    const enAgenciaCritico=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.color==='red');
+    const enAgenciaAviso=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.color==='amber');
+    const transitoCritico=tr.filter(x=>fechaValida(x.p.fechaDespacho)&&!fechaValida(x.p.fechaAgencia)&&x.t.color==='red');
     const alerts=[];
     if(enAgenciaCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🔴</span><div class="abox-text"><b>${enAgenciaCritico.length} pedido(s) +${CFG.trackAgenciaCritico||5} días en agencia sin recoger</b> — riesgo de devolución</div></div>`);
     if(enAgenciaAviso.length)alerts.push(`<div class="abox abox-amber" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🟡</span><div class="abox-text"><b>${enAgenciaAviso.length} pedido(s) +${CFG.trackAgenciaAviso||3} días en agencia</b> — considera recordar al cliente</div></div>`);
@@ -5243,14 +5243,23 @@ function renderProvinciaContent(){
 // =====================================================================
 // TRACKING PROVINCIA — Helpers
 // =====================================================================
+// Verifica que la fecha sea razonable (año entre 2020 y año actual+1)
+function fechaValida(fechaStr){
+  if(!fechaStr)return false;
+  const [y]=fechaStr.split('-');
+  const year=parseInt(y);
+  if(!year||isNaN(year))return false;
+  const curYear=new Date().getFullYear();
+  return year>=2020&&year<=curYear+1;
+}
 function diasDesde(fechaStr){
-  if(!fechaStr)return 0;
+  if(!fechaValida(fechaStr))return 0;
   const hD=new Date(hoy()+'T12:00:00');
   const fD=new Date(fechaStr+'T12:00:00');
   return Math.max(0,Math.floor((hD-fD)/(1000*60*60*24)));
 }
 function fechaCorta(fechaStr){
-  if(!fechaStr)return '';
+  if(!fechaValida(fechaStr))return '';
   const [y,m,d]=fechaStr.split('-');
   return `${d}/${m}`;
 }
@@ -5262,21 +5271,22 @@ function colorAviso(dias,avisoUmbral,criticoUmbral){
 // Devuelve {icon, text, color, dias} para mostrar en la columna Tracking
 function estadoTrackingVisual(p){
   if(p.estado==='entregado'){
-    return {icon:'✅',text:`Entregado el ${fechaCorta(p.fechaEntregado||p.fecha)}`,color:'green',dias:0};
+    const fEnt=fechaValida(p.fechaEntregado)?p.fechaEntregado:(fechaValida(p.fecha)?p.fecha:'');
+    return {icon:'✅',text:`Entregado${fEnt?' el '+fechaCorta(fEnt):''}`,color:'green',dias:0};
   }
   if(p.estado==='devuelto'){
     if(p.devueltoSinRecoger){
-      const d=p.fechaAgencia?diasDesde(p.fechaAgencia):0;
+      const d=fechaValida(p.fechaAgencia)?diasDesde(p.fechaAgencia):0;
       return {icon:'↩️',text:`Devuelto sin recoger${d?' ('+d+'d en agencia)':''}`,color:'red',dias:d};
     }
     return {icon:'↩️',text:'Devuelto en tránsito',color:'red',dias:0};
   }
-  if(p.fechaAgencia){
+  if(fechaValida(p.fechaAgencia)){
     const d=diasDesde(p.fechaAgencia);
     const c=colorAviso(d,CFG.trackAgenciaAviso||3,CFG.trackAgenciaCritico||5);
     return {icon:'📦',text:`En agencia hace ${d}d`,color:c,dias:d};
   }
-  if(p.fechaDespacho){
+  if(fechaValida(p.fechaDespacho)){
     const d=diasDesde(p.fechaDespacho);
     const c=colorAviso(d,CFG.trackTransitoAviso||3,CFG.trackTransitoCritico||7);
     return {icon:'🚚',text:`En camino hace ${d}d`,color:c,dias:d};
@@ -5294,10 +5304,10 @@ function openTracking(id){
   document.getElementById('tr-codigoEnvio').value=p.codigoEnvio||'';
   document.getElementById('tr-clave').value=p.clave||'';
   // Header
-  const dDesp=p.fechaDespacho?diasDesde(p.fechaDespacho):null;
-  const dAg=p.fechaAgencia?diasDesde(p.fechaAgencia):null;
+  const dDesp=fechaValida(p.fechaDespacho)?diasDesde(p.fechaDespacho):null;
+  const dAg=fechaValida(p.fechaAgencia)?diasDesde(p.fechaAgencia):null;
   let headerExtra='';
-  if(p.estado==='entregado')headerExtra=`<span style="color:var(--green);font-weight:700">✅ Entregado el ${fechaCorta(p.fechaEntregado||p.fecha)}</span>`;
+  if(p.estado==='entregado')headerExtra=`<span style="color:var(--green);font-weight:700">✅ Entregado${fechaValida(p.fechaEntregado||p.fecha)?' el '+fechaCorta(p.fechaEntregado||p.fecha):''}</span>`;
   else if(dAg!==null)headerExtra=`<span style="color:var(--purple);font-weight:700">📦 En agencia hace ${dAg}d</span>`;
   else if(dDesp!==null)headerExtra=`<span style="color:var(--accent);font-weight:700">🚚 En camino hace ${dDesp}d</span>`;
   else headerExtra=`<span style="color:var(--text3)">Aún no enviado</span>`;
@@ -5358,18 +5368,23 @@ function aplicarCambioEstadoTracking(p,prevEstado,newEstado){
 
 function trackingTimelineHTML(p){
   const today=hoy();
+  // Min: fecha del pedido si existe y es válida, sino 2020-01-01
+  const minFecha=(p.fecha&&fechaValida(p.fecha))?p.fecha:'2020-01-01';
   const step=(campo,icon,label,fecha)=>{
-    const isDone=!!fecha;
-    const dias=fecha?diasDesde(fecha):0;
-    const subText=fecha?fechaCorta(fecha)+(dias>0?' · hace '+dias+'d':' · hoy'):'Sin fecha';
+    const fechaOk=fechaValida(fecha);
+    const isDone=!!fecha&&fechaOk;
+    const dias=fechaOk?diasDesde(fecha):0;
+    const subText=fechaOk?fechaCorta(fecha)+(dias>0?' · hace '+dias+'d':' · hoy'):(fecha?'Fecha inválida — corrige':'Sin fecha');
     const titleHelp=isDone?'Click para desmarcar (limpia este paso y los siguientes)':'Click para marcar con HOY';
+    // Si la fecha guardada es inválida, mostramos vacío en el input para que el usuario re-ingrese
+    const valForInput=fechaOk?fecha:'';
     return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0">
       <button type="button" onclick="toggleFechaTracking(${p.id},'${campo}')" style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'var(--text3)'};border:${isDone?'none':'2px solid var(--border2)'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;padding:0;font-weight:800;transition:all .15s" title="${titleHelp}" onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform=''">${isDone?'✓':''}</button>
       <div style="flex:1;font-size:12.5px">
         <div style="font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'}">${icon} ${label}</div>
-        <div style="font-size:11px;color:var(--text3);font-weight:500">${subText}</div>
+        <div style="font-size:11px;color:${fecha&&!fechaOk?'var(--red)':'var(--text3)'};font-weight:500">${subText}</div>
       </div>
-      <input type="date" value="${fecha||''}" max="${today}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Editar fecha manualmente (no afecta otros pasos)">
+      <input type="date" value="${valForInput}" min="${minFecha}" max="${today}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Editar fecha manualmente (no afecta otros pasos)">
     </div>`;
   };
   return `
@@ -5411,6 +5426,8 @@ function actualizarFechaTracking(id,campo,valor){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   // Validar concordancia de fechas (las fechas SÍ pueden coincidir, solo bloqueamos saltos imposibles)
   if(valor){
+    if(!fechaValida(valor)){showToast('⚠️ Año inválido (debe ser entre 2020 y '+(new Date().getFullYear()+1)+')','warn',3000);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
+    if(p.fecha&&fechaValida(p.fecha)&&valor<p.fecha){showToast('⚠️ La fecha no puede ser antes de la creación del pedido ('+fechaCorta(p.fecha)+')','warn',3000);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
     if(valor>hoy()){showToast('⚠️ La fecha no puede ser futura','warn',2500);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
     if(campo==='fechaAgencia'&&p.fechaDespacho&&valor<p.fechaDespacho){showToast('⚠️ "En agencia" no puede ser antes de "En camino"','warn',2800);document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);return;}
     if(campo==='fechaEntregado'){

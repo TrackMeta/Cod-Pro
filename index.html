@@ -5410,45 +5410,65 @@ function toggleFechaTracking(id,campo){
   const newEstado=deriveEstadoFromTracking(p,prevEstado);
   aplicarCambioEstadoTracking(p,prevEstado,newEstado);
   save();
-  if(document.getElementById('tr-timeline'))document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
   renderProvinciaContent();updateSidebarBadges();renderNotifications();
   if(CURRENT_PAGE==='dashboard')renderDashboard();
   if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  refreshTrackingTimeline(p,0);
   showToast(isCurrentlyDone?'⭕ Paso desmarcado':'✅ Paso marcado','success',1500);
 }
 
+// Re-render del timeline diferido: solo refresca cuando el usuario YA NO está
+// dentro de un input date del timeline. Si está tipeando, esperamos a que salga.
+function refreshTrackingTimeline(p,delay){
+  clearTimeout(window._trTimelineRefresh);
+  window._trTimelineRefresh=setTimeout(()=>{
+    const tl=document.getElementById('tr-timeline');
+    if(!tl)return;
+    const active=document.activeElement;
+    // Si el usuario tiene foco en un input dentro del timeline, no destruimos su input
+    if(active&&active.tagName==='INPUT'&&active.type==='date'&&tl.contains(active)){
+      // Re-intentar cuando pierda el foco
+      const onBlur=()=>{active.removeEventListener('blur',onBlur);if(document.getElementById('tr-timeline'))document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);};
+      active.addEventListener('blur',onBlur,{once:true});
+      return;
+    }
+    tl.innerHTML=trackingTimelineHTML(p);
+  },delay||0);
+}
+
 // Edición manual de una fecha específica (sin cascade)
-// Importante: en errores NO re-renderizamos el timeline (eso destruiría el input
-// y haría perder el foco mientras el usuario sigue tipeando). Solo revertimos el
-// valor del input específico al valor previo guardado.
+// No revierte el input ni re-renderiza inmediatamente — eso destruiría lo que el
+// usuario está tipeando. Solo valida concordancia y muestra toast; el input
+// conserva lo que el usuario escribió.
 function actualizarFechaTracking(id,campo,valor,inputEl){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
-  const revertir=()=>{ if(inputEl){const prevVal=p[campo]||'';inputEl.value=fechaValida(prevVal)?prevVal:'';} };
-  // Validar concordancia de fechas (las fechas pueden coincidir, solo bloqueamos saltos imposibles)
-  if(valor){
-    if(!fechaValida(valor)){showToast('⚠️ Fecha inválida — verifica el año','warn',2500);revertir();return;}
-    if(campo==='fechaAgencia'&&p.fechaDespacho&&fechaValida(p.fechaDespacho)&&valor<p.fechaDespacho){showToast('⚠️ "En agencia" no puede ser antes de "En camino"','warn',2800);revertir();return;}
+  // Solo bloqueamos saltos imposibles (A > B > C) si AMBAS fechas son válidas.
+  // Si una de ellas es inválida (ej. el usuario está corrigiéndola), no validamos
+  // para no estorbar.
+  if(valor&&fechaValida(valor)){
+    if(campo==='fechaAgencia'&&fechaValida(p.fechaDespacho)&&valor<p.fechaDespacho){showToast('⚠️ "En agencia" no puede ser antes de "En camino"','warn',2800);return;}
     if(campo==='fechaEntregado'){
-      if(p.fechaAgencia&&fechaValida(p.fechaAgencia)&&valor<p.fechaAgencia){showToast('⚠️ "Entregado" no puede ser antes de "En agencia"','warn',2800);revertir();return;}
-      if(p.fechaDespacho&&fechaValida(p.fechaDespacho)&&valor<p.fechaDespacho){showToast('⚠️ "Entregado" no puede ser antes de "En camino"','warn',2800);revertir();return;}
+      if(fechaValida(p.fechaAgencia)&&valor<p.fechaAgencia){showToast('⚠️ "Entregado" no puede ser antes de "En agencia"','warn',2800);return;}
+      if(fechaValida(p.fechaDespacho)&&valor<p.fechaDespacho){showToast('⚠️ "Entregado" no puede ser antes de "En camino"','warn',2800);return;}
     }
     if(campo==='fechaDespacho'){
-      if(p.fechaAgencia&&fechaValida(p.fechaAgencia)&&valor>p.fechaAgencia){showToast('⚠️ "En camino" no puede ser posterior a "En agencia"','warn',2800);revertir();return;}
-      if(p.fechaEntregado&&fechaValida(p.fechaEntregado)&&valor>p.fechaEntregado){showToast('⚠️ "En camino" no puede ser posterior a "Entregado"','warn',2800);revertir();return;}
+      if(fechaValida(p.fechaAgencia)&&valor>p.fechaAgencia){showToast('⚠️ "En camino" no puede ser posterior a "En agencia"','warn',2800);return;}
+      if(fechaValida(p.fechaEntregado)&&valor>p.fechaEntregado){showToast('⚠️ "En camino" no puede ser posterior a "Entregado"','warn',2800);return;}
     }
   }
   const prevEstado=p.estado;
   p[campo]=valor||'';
-  // Derivar estado (por si la edición manual cambió la situación)
   const newEstado=deriveEstadoFromTracking(p,prevEstado);
   aplicarCambioEstadoTracking(p,prevEstado,newEstado);
   save();
-  // Solo re-renderizar si el cambio fue exitoso
-  if(document.getElementById('tr-timeline'))document.getElementById('tr-timeline').innerHTML=trackingTimelineHTML(p);
+  // NO re-renderizamos el timeline aquí (destruiría el input que el usuario tiene activo).
+  // Solo actualizamos las otras vistas. El timeline se refresca cuando el usuario
+  // sale del input o cierra y reabre el modal.
   renderProvinciaContent();updateSidebarBadges();renderNotifications();
   if(CURRENT_PAGE==='dashboard')renderDashboard();
   if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
-  showToast('📅 Fecha actualizada','success',1500);
+  refreshTrackingTimeline(p,300);
+  showToast('📅 Fecha guardada','success',1200);
 }
 
 function copiarTrValor(inputId,btn){

@@ -2343,58 +2343,6 @@ function pedidoEsDeAsesor(p,a){
   return false;
 }
 
-// =====================================================================
-// 🆕 PEDIDOS TABLE helpers — los pedidos ahora viven en su propia tabla
-// =====================================================================
-// Convierte una row de Supabase {id, numero, data, ...} a un pedido JS:
-// - p.id = numero (mantiene compatibilidad con todo el código existente)
-// - p._rowId = id del row (bigint, lo usamos para UPDATE/DELETE)
-function _rowToPedido(row){
-  if(!row)return null;
-  const data=row.data||{};
-  return {...data,id:row.numero,_rowId:row.id};
-}
-// Persiste un pedido a la tabla pedidos (INSERT si nuevo, UPDATE si existe)
-// Si es INSERT y el numero es null/0, el trigger SQL asigna uno secuencial
-async function _persistPedido(p){
-  if(!p||!SESSION?.workspace_id)return;
-  try{
-    const{_rowId,...rest}=p;
-    const data={...rest};
-    if(_rowId){
-      // UPDATE existente
-      await _supabase.from('pedidos').update({data}).eq('id',_rowId);
-    } else {
-      // INSERT nuevo — el trigger SQL asigna numero si es null
-      const{data:inserted,error}=await _supabase.from('pedidos')
-        .insert({workspace_id:SESSION.workspace_id,numero:data.id||null,data})
-        .select('id,numero').single();
-      if(!error&&inserted){
-        p._rowId=inserted.id;
-        p.id=inserted.numero;
-        // Sincronizar p.id en data también para consistencia
-        data.id=inserted.numero;
-        // Re-guardar con el numero correcto en data
-        await _supabase.from('pedidos').update({data}).eq('id',inserted.id);
-      } else if(error){
-        console.warn('_persistPedido INSERT error:',error.message);
-      }
-    }
-  }catch(e){console.warn('_persistPedido excepción:',e);}
-}
-// Borra un pedido de la tabla
-async function _deletePedidoRow(p){
-  if(!p||!SESSION?.workspace_id)return;
-  try{
-    if(p._rowId){
-      await _supabase.from('pedidos').delete().eq('id',p._rowId);
-    } else {
-      await _supabase.from('pedidos').delete()
-        .eq('workspace_id',SESSION.workspace_id).eq('numero',p.id);
-    }
-  }catch(e){console.warn('_deletePedidoRow excepción:',e);}
-}
-
 // Comisión que se paga al vendedor por ESTE pedido específico.
 // Fuente de verdad: el asesor en Equipo & Usuarios (a.comLima/a.comProv).
 // Si no hay vendedor asignado (admin vendió) o el asesor no existe → 0.
@@ -2455,67 +2403,80 @@ function initRealtime(){
   const wsId=SESSION.workspace_id;
   if(_rtChannel){try{_supabase.removeChannel(_rtChannel);}catch(_){}  _rtChannel=null;}
   if(_rtChannel2){try{_supabase.removeChannel(_rtChannel2);}catch(_){}  _rtChannel2=null;}
-  // Canal 1: cambios en workspaces.db_data (asesores, productos, etc. — admin)
-  _rtChannel=_supabase.channel(`rt-ws-${wsId}`)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
-      payload=>{
-        const nd=payload.new;
-        if(!nd?.db_data)return;
-        // Preservar nuestros pedidos locales (los pedidos viven en su tabla, no en db_data)
-        const myPedidos=DB.pedidos||[];
-        DB=nd.db_data;
-        DB.pedidos=myPedidos;
-        if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
-        if(!DB.asesores)DB.asesores=[];if(!DB.productos)DB.productos=[];
-        if(!DB.deliveries)DB.deliveries=[];if(!DB.gastos)DB.gastos=[];
-        if(!DB.upsells)DB.upsells=[];if(!DB.publicidad)DB.publicidad=[];
-        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-        refrescarVistasPedidos();
-        if(!isAdmin())showToast('🔄 Catálogo actualizado','success',1500);
-      })
-    .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
-  // Canal 2: cambios en la tabla pedidos (TODOS los usuarios reciben todo)
-  _rtChannel2=_supabase.channel(`rt-pedidos-${wsId}`)
-    .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`workspace_id=eq.${wsId}`},
-      payload=>{
-        if(payload.eventType==='INSERT'){
-          const nuevo=_rowToPedido(payload.new);
-          if(!nuevo)return;
-          // Evitar duplicado si ya lo tenemos (eco de nuestra propia inserción)
-          const existe=DB.pedidos.find(x=>x._rowId===nuevo._rowId||x.id===nuevo.id);
-          if(!existe)DB.pedidos.push(nuevo);
-        } else if(payload.eventType==='UPDATE'){
-          const actualizado=_rowToPedido(payload.new);
-          if(!actualizado)return;
-          const idx=DB.pedidos.findIndex(x=>x._rowId===actualizado._rowId);
-          if(idx>=0){
-            // Detectar transición de estado para ajustar stock local
-            const prev=DB.pedidos[idx];
-            if(prev.estado!=='entregado'&&actualizado.estado==='entregado'){
-              descontarStockPedido(actualizado);
-            } else if(prev.estado==='entregado'&&actualizado.estado!=='entregado'){
-              restaurarStockPedido(actualizado);
+  if(isAdmin()){
+    // Admin: escucha cambios de workers para auto-sincronizar
+    _rtChannel=_supabase.channel(`rt-workers-${wsId}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
+        async(payload)=>{
+          if(payload.eventType==='DELETE')return;
+          clearTimeout(window._rtSyncTimer);
+          window._rtSyncTimer=setTimeout(async()=>{
+            await syncWorkerChanges();
+            updateSidebarBadges();renderNotifications();
+            const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones};
+            if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+            showToast('🔄 Trabajador sincronizado','success',2000);
+          },800);
+        })
+      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+  } else {
+    // Worker — usamos DOS canales separados (Supabase v2 tiene problemas
+    // con múltiples bindings de postgres_changes en el mismo canal).
+    // Canal 1: workspaces UPDATE (cambios oficiales del admin)
+    _rtChannel=_supabase.channel(`rt-worker-ws-${wsId}`)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
+        payload=>{
+          const nd=payload.new;
+          if(!nd?.db_data)return;
+          DB=nd.db_data;
+          if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
+          if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
+          if(!DB.productos)DB.productos=[];if(!DB.deliveries)DB.deliveries=[];
+          if(!DB.gastos)DB.gastos=[];if(!DB.upsells)DB.upsells=[];
+          localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+          updateSidebarBadges();renderNotifications();
+          const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
+          if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+          showToast('🔄 Actualizado por admin','success',1800);
+        })
+      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+    // Canal 2: worker_changes (sync entre workers, sin pasar por admin)
+    _rtChannel2=_supabase.channel(`rt-worker-changes-${wsId}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
+        async(payload)=>{
+          if(payload.eventType==='DELETE')return;
+          const row=payload.new;
+          if(!row||row.worker_id===SESSION.id)return;
+          const otherDB=row.db_data;
+          if(!otherDB?.pedidos)return;
+          let changed=false;
+          const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
+          otherDB.pedidos.forEach(wp=>{
+            if(pedidosMap.has(wp.id)){
+              const ap=pedidosMap.get(wp.id);
+              Object.keys(wp).forEach(k=>{
+                if(k==='id'||k==='_prevId')return;
+                if(JSON.stringify(ap[k])!==JSON.stringify(wp[k])){
+                  ap[k]=wp[k];
+                  changed=true;
+                }
+              });
+            } else {
+              DB.pedidos.push(wp);
+              changed=true;
             }
-            DB.pedidos[idx]=actualizado;
-          } else {
-            DB.pedidos.push(actualizado);
-          }
-        } else if(payload.eventType==='DELETE'){
-          const oldId=payload.old?.id;
-          if(oldId){
-            const idx=DB.pedidos.findIndex(x=>x._rowId===oldId);
-            if(idx>=0){
-              const eliminado=DB.pedidos[idx];
-              // Si estaba entregado, restaurar stock local (no perderlo)
-              if(eliminado.estado==='entregado')restaurarStockPedido(eliminado);
-              DB.pedidos.splice(idx,1);
-            }
-          }
-        }
-        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-        refrescarVistasPedidos();
-      })
-    .subscribe();
+          });
+          if(!changed)return;
+          localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+          updateSidebarBadges();renderNotifications();
+          const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
+          if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+          const otroAsesor=DB.asesores.find(a=>a.workerId===row.worker_id);
+          const otroNombre=otroAsesor?otroAsesor.nombre:'Otro trabajador';
+          showToast(`🔄 ${otroNombre} actualizó pedidos`,'success',2000);
+        })
+      .subscribe();
+  }
 }
 function updateRtIndicator(connected){
   const el=document.getElementById('rt-indicator');
@@ -2600,20 +2561,21 @@ function getWsKey(sfx){return `cod_ws_${SESSION?.workspace_id||''}_${sfx}`;}
 async function save(){
   if(!SESSION?.workspace_id)return;
   if(SESSION.saViewMode){console.log('SA view mode — save blocked');return;}
-  // Persistir localStorage siempre (cache offline, incluye pedidos)
   try{localStorage.setItem(getWsKey('db'),JSON.stringify(DB));}catch(e){}
-  // Los WORKERS no escriben a workspaces (no tienen permiso). Sus cambios de
-  // pedidos van directo a la tabla pedidos vía _persistPedido (RLS lo permite).
-  // Los cambios de productos/asesores/etc no son editables por workers, así
-  // que su save() es solo cache local.
-  if(!isAdmin())return;
-  // ADMIN: persiste db_data SIN pedidos (los pedidos viven en su propia tabla)
+  if(!isAdmin()){
+    try{
+      await _supabase.from('worker_changes').upsert({
+        workspace_id:SESSION.workspace_id,
+        worker_id:SESSION.id,
+        db_data:DB,
+        updated_at:new Date().toISOString()
+      },{onConflict:'workspace_id,worker_id'});
+    }catch(e){console.warn('Worker sync error:',e);}
+    return;
+  }
   try{
-    const dbToSave={...DB};
-    delete dbToSave.pedidos;     // pedidos viven en tabla aparte
-    delete dbToSave._deletedIds; // ya no se usa
     const{error}=await _supabase.from('workspaces').update({
-      db_data:dbToSave,cfg_data:CFG,updated_at:new Date().toISOString()
+      db_data:DB,cfg_data:CFG,updated_at:new Date().toISOString()
     }).eq('id',SESSION.workspace_id);
     if(error)console.warn('Save error:',error.message);
     else autoBackup(); // ✅ Solo backup si Supabase confirmó el guardado
@@ -2706,39 +2668,149 @@ async function restaurarBackup(index){
   alert(`✅ Backup del ${fechaStr} restaurado correctamente.`);
 }
 
-// syncWorkerChanges() — OBSOLETO con la nueva arquitectura. Se mantiene como
-// no-op para que no truene si alguna parte vieja del código todavía la llama.
-// Workers ahora escriben directo a la tabla pedidos (no más queue).
-async function syncWorkerChanges(){/* no-op: workers usan tabla pedidos directamente */}
+async function syncWorkerChanges(){
+  if(!isAdmin()||!SESSION?.workspace_id)return;
+  try{
+    const{data:changes}=await _supabase.from('worker_changes')
+      .select('*').eq('workspace_id',SESSION.workspace_id);
+    if(!changes||!changes.length)return;
+    const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
+    let changed=false;
+    changes.forEach(ch=>{
+      const wDB=ch.db_data;
+      if(!wDB?.pedidos)return;
+      // Sync asesores: add any worker-created asesor not yet in admin DB
+      if(wDB.asesores){
+        wDB.asesores.forEach(wa=>{
+          if(!wa.workerId)return;
+          const existeAsesor=DB.asesores.find(a=>a.workerId===wa.workerId);
+          if(!existeAsesor){DB.asesores.push(wa);changed=true;}
+        });
+      }
+      wDB.pedidos.forEach(wp=>{
+        if(pedidosMap.has(wp.id)){
+          // Pedido existente — sincronizar TODOS los campos editables por el worker
+          const ap=pedidosMap.get(wp.id);
+          let pChanged=false;
+          // Manejar transición de estado primero (ajusta stock en DB.productos del admin)
+          if(ap.estado!==wp.estado){
+            if(wp.estado==='entregado'&&ap.estado!=='entregado'){
+              descontarStockPedido(wp);
+              if(wp.zona==='provincia'){wp.adelanto=0;wp.pendiente=0;}
+            }
+            if(ap.estado==='entregado'&&wp.estado!=='entregado'){
+              restaurarStockPedido(wp);
+              if(wp.zona==='provincia'&&wp.precio)wp.pendiente=Math.max(0,wp.precio-(wp.adelanto||0));
+            }
+          }
+          // Copiar TODOS los campos editables del worker (todo excepto id e internals)
+          // Esto incluye: tracking (numOrden, codigoEnvio, clave, fechas timeline),
+          // courier, cenvCobrado, motivoDevolucion, mpago, fechaEntregaLima,
+          // liquidado/fechaLiq, comentario, adelanto, pendiente, items, etc.
+          Object.keys(wp).forEach(k=>{
+            if(k==='id'||k==='_prevId')return;
+            if(JSON.stringify(ap[k])!==JSON.stringify(wp[k])){
+              ap[k]=wp[k];
+              pChanged=true;
+            }
+          });
+          if(pChanged)changed=true;
+        } else {
+          // Pedido nuevo — agregar
+          DB.pedidos.push(wp);
+          pedidosMap.set(wp.id,wp);
+          changed=true;
+        }
+      });
+      // Procesar borrados marcados por el worker
+      if(Array.isArray(wDB._deletedIds)&&wDB._deletedIds.length){
+        wDB._deletedIds.forEach(delId=>{
+          const idx=DB.pedidos.findIndex(p=>p.id===delId);
+          if(idx>=0){DB.pedidos.splice(idx,1);pedidosMap.delete(delId);changed=true;}
+        });
+      }
+    });
+    // Nunca persistir _deletedIds en workspaces (es marca temporal del worker)
+    delete DB._deletedIds;
+    if(!changed)return;
+    const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
+    if(maxId>=DB.nextId)DB.nextId=maxId+1;
+    await _supabase.from('workspaces').update({db_data:DB,updated_at:new Date().toISOString()}).eq('id',SESSION.workspace_id);
+    await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id);
+  }catch(e){console.warn('syncWorkerChanges:',e);}
+}
 
 
 async function load(){
   if(!SESSION?.workspace_id)return;
-  // 1. Cargar db_data (asesores, productos, etc.) y CFG desde workspaces
-  //    Los PEDIDOS se cargan aparte de la tabla pedidos (ya no están en db_data)
+  // Intentar cargar desde Supabase
   try{
     const{data,error}=await _supabase.from('workspaces').select('db_data,cfg_data').eq('id',SESSION.workspace_id).single();
     if(!error&&data){
       if(data.db_data)DB=data.db_data;
       if(data.cfg_data)CFG=Object.assign({...CFG},data.cfg_data);
+      // Actualizar caché local
+      localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+      localStorage.setItem(getWsKey('cfg'),JSON.stringify(CFG));
     }
   }catch(e){
     // Fallback a localStorage si no hay conexión
     try{const d=localStorage.getItem(getWsKey('db'));if(d)DB=JSON.parse(d);}catch(_){}
     try{const c=localStorage.getItem(getWsKey('cfg'));if(c)CFG=Object.assign({...CFG},JSON.parse(c));}catch(_){}
   }
-  // 2. Cargar PEDIDOS desde la tabla nueva (fuente de verdad única)
-  try{
-    const{data:rows,error}=await _supabase.from('pedidos')
-      .select('id,numero,data,created_at,updated_at')
-      .eq('workspace_id',SESSION.workspace_id)
-      .order('numero',{ascending:true});
-    if(!error&&Array.isArray(rows)){
-      DB.pedidos=rows.map(_rowToPedido);
-    } else if(error){
-      console.warn('Error cargando pedidos:',error.message);
-    }
-  }catch(e){console.warn('Excepción cargando pedidos:',e);}
+  // Workers: cargar TODOS los cambios pendientes (propios + de otros workers)
+  // y mergearlos sobre la base del admin. Así, si un worker refresca antes
+  // de que el admin sincronice, sigue viendo los cambios de los otros workers
+  // que tenía en memoria, además de los suyos propios.
+  if(SESSION&&SESSION.role!=='admin'){
+    console.log('[LOAD] worker, mi id:',SESSION.id);
+    console.log('[LOAD] DB inicial (de workspaces):',DB.pedidos?.length,'pedidos');
+    try{
+      const{data:wcRows,error:wcErr}=await _supabase.from('worker_changes')
+        .select('worker_id,db_data,updated_at')
+        .eq('workspace_id',SESSION.workspace_id);
+      if(wcErr)console.warn('[LOAD] error leyendo worker_changes:',wcErr);
+      console.log('[LOAD] worker_changes rows:',wcRows?.length||0);
+      if(wcRows)wcRows.forEach(r=>console.log('  • worker:',r.worker_id===SESSION.id?'YO':r.worker_id,'updated:',r.updated_at,'pedidos:',r.db_data?.pedidos?.length||0));
+      if(wcRows&&wcRows.length){
+        const sorted=[...wcRows].sort((a,b)=>(a.updated_at||'').localeCompare(b.updated_at||''));
+        if(!DB.pedidos)DB.pedidos=[];
+        const pedidosMap=new Map(DB.pedidos.map(p=>[p.id,p]));
+        let ownRow=null;
+        let added=0,merged=0;
+        sorted.forEach(row=>{
+          if(row.worker_id===SESSION.id)ownRow=row;
+          const wDB=row.db_data;
+          if(!wDB?.pedidos)return;
+          wDB.pedidos.forEach(wp=>{
+            if(pedidosMap.has(wp.id)){
+              const ap=pedidosMap.get(wp.id);
+              Object.keys(wp).forEach(k=>{
+                if(k==='id'||k==='_prevId')return;
+                ap[k]=wp[k];
+              });
+              merged++;
+            } else {
+              DB.pedidos.push(wp);
+              pedidosMap.set(wp.id,wp);
+              added++;
+            }
+          });
+        });
+        console.log('[LOAD] merge: agregados',added,'· actualizados',merged);
+        if(ownRow?.db_data?._deletedIds&&Array.isArray(ownRow.db_data._deletedIds)){
+          DB._deletedIds=ownRow.db_data._deletedIds.slice();
+          DB._deletedIds.forEach(delId=>{
+            const idx=DB.pedidos.findIndex(p=>p.id===delId);
+            if(idx>=0)DB.pedidos.splice(idx,1);
+          });
+          console.log('[LOAD] aplicados',DB._deletedIds.length,'borrados propios');
+        }
+        console.log('[LOAD] DB final:',DB.pedidos.length,'pedidos');
+        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+      }
+    }catch(e){console.warn('[LOAD] excepción:',e);}
+  }
   // Asegurar estructura correcta
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
   if(!DB.deliveries)DB.deliveries=[];
@@ -2746,14 +2818,9 @@ async function load(){
   if(!DB.productos)DB.productos=[];if(!DB.upsells)DB.upsells=[];
   if(!DB.notifTrash)DB.notifTrash=[];
   if(!DB.waTmpls||!DB.waTmpls.length)DB.waTmpls=DEFAULT_WA.map(t=>({...t}));
-  // nextId ya no se usa para pedidos (el trigger SQL asigna numero secuencial).
-  // Lo mantenemos por compatibilidad con código viejo que aún lo lea.
-  const seqIds=DB.pedidos.filter(p=>(p.id||0)<1e10).map(p=>p.id||0);
-  const maxId=seqIds.length>0?Math.max(...seqIds):0;
+  // Recalculate nextId from max existing ID to avoid gaps when orders are deleted
+  const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
   DB.nextId=maxId+1;
-  // Persistir cache local
-  localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-  localStorage.setItem(getWsKey('cfg'),JSON.stringify(CFG));
 }
 
 function saveConfig(){
@@ -3212,8 +3279,8 @@ async function eliminarTrabajador(userId){
   const nombre=asesor?.nombre||'este trabajador';
   if(!confirm(`¿Eliminar a ${nombre}?\n\nYa no podrá ingresar al sistema. Sus pedidos registrados se mantendrán.`))return;
   await _supabase.from('user_profiles').delete().eq('id',userId);
-  // Limpiar cualquier queue legacy del trabajador (tabla worker_changes obsoleta — protegido por try/catch)
-  try{await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id).eq('worker_id',userId);}catch(_){}
+  // Limpiar cambios pendientes del trabajador
+  await _supabase.from('worker_changes').delete().eq('workspace_id',SESSION.workspace_id).eq('worker_id',userId);
   showToast(`🗑️ ${nombre} eliminado del workspace`,'warn');
   renderUsuarios();
 }
@@ -4034,13 +4101,13 @@ function eliminarSeleccionados(){
   const ids=[...document.querySelectorAll('.ped-chk:checked')].map(c=>parseInt(c.dataset.id));
   if(!ids.length)return;
   if(!confirm(`¿Eliminar ${ids.length} pedido(s) seleccionado(s)? Esta acción no se puede deshacer.`))return;
-  // Capturar pedidos a borrar antes de filtrarlos
-  const peds=DB.pedidos.filter(p=>ids.includes(p.id));
   // Restaurar stock para los que estaban entregados antes de borrarlos
-  peds.filter(p=>p.estado==='entregado').forEach(restaurarStockPedido);
+  DB.pedidos.filter(p=>ids.includes(p.id)&&p.estado==='entregado').forEach(restaurarStockPedido);
   DB.pedidos=DB.pedidos.filter(p=>!ids.includes(p.id));
-  // Borrar cada uno de la tabla pedidos
-  peds.forEach(p=>_deletePedidoRow(p));
+  if(!isAdmin()){
+    if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];
+    ids.forEach(id=>{if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);});
+  }
   save();
   refrescarVistasPedidos();
 }
@@ -4292,7 +4359,7 @@ function recalcPend(){
   const pend=document.getElementById('p-pendiente');
   if(pend)pend.value=Math.max(0,totalPrecio-adv).toFixed(2);
 }
-async function guardarPedido(){
+function guardarPedido(){
   try{
   const nombre=document.getElementById('p-nombre').value.trim();
   const celular=document.getElementById('p-celular').value.trim();
@@ -4318,8 +4385,7 @@ async function guardarPedido(){
   }).join(', ');
 
   const p={
-    // Si es edición usa el id existente. Si es nuevo deja null y el trigger SQL asigna numero.
-    id:id?parseInt(id):null,
+    id:id?parseInt(id):DB.nextId++,
     fecha:document.getElementById('p-fecha').value,
     nombre,
     celular:celFinal,
@@ -4387,20 +4453,9 @@ async function guardarPedido(){
   });
   // Provincia entregado: limpiar adelanto/pendiente
   if(p.estado==='entregado'&&p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
-  if(id){
-    // EDITAR: preservar _rowId del pedido existente
-    const idx=DB.pedidos.findIndex(x=>x.id===parseInt(id));
-    if(idx>=0){
-      const prevRowId=DB.pedidos[idx]._rowId;
-      p._rowId=prevRowId;
-      DB.pedidos[idx]=p;
-    }
-  } else {
-    DB.pedidos.push(p);
-  }
-  // Persistir a la tabla pedidos (INSERT si nuevo, UPDATE si edita)
-  await _persistPedido(p);
-  save(); // persiste el resto del DB (productos con stock actualizado, etc.)
+  if(id){const idx=DB.pedidos.findIndex(x=>x.id===parseInt(id));DB.pedidos[idx]=p;}
+  else DB.pedidos.push(p);
+  save();
   closeModal('modal-pedido');
   refrescarVistasPedidos();
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
@@ -4412,8 +4467,10 @@ function eliminarPedido(id){
   // Restaurar stock si estaba entregado (el descuento se hizo al marcar entregado)
   if(p.estado==='entregado')restaurarStockPedido(p);
   DB.pedidos=DB.pedidos.filter(x=>x.id!==id);
-  // Borrar de la tabla pedidos (fire-and-forget)
-  _deletePedidoRow(p);
+  if(!isAdmin()){
+    if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];
+    if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);
+  }
   save();
   refrescarVistasPedidos();
 }
@@ -4455,7 +4512,6 @@ function cambiarEstado(id,estado){
     // Restaurar pendiente en provincia (estaba en 0 por la entrega)
     if(p.zona==='provincia'&&p.precio)p.pendiente=Math.max(0,p.precio-(p.adelanto||0));
   }
-  _persistPedido(p); // UPDATE tabla pedidos (fire-and-forget)
   save();
   refrescarVistasPedidos();
 }
@@ -4497,7 +4553,6 @@ function confirmarDevolucion(id){
     // Restaurar pendiente provincia (estaba en 0 por la entrega)
     if(p.zona==='provincia'&&p.precio)p.pendiente=Math.max(0,p.precio-(p.adelanto||0));
   }
-  _persistPedido(p);
   save();
   document.getElementById('modal-devolucion').remove();
   refrescarVistasPedidos();
@@ -5118,7 +5173,6 @@ function guardarCourier(){
   const id=parseInt(document.getElementById('co-id').value);
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   p.courier=document.getElementById('co-courier').value;
-  _persistPedido(p);
   save();closeModal('modal-courier');
   if(document.getElementById('lima-view'))renderLimaContent();
   if(document.querySelector('.section-title')?.textContent?.includes('Liquidación'))renderLiquidacion();
@@ -5140,7 +5194,6 @@ function cambiarEstadoRapido(id,nuevoEstado,selEl){
 function toggleCenvCobrado(id){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   p.cenvCobrado=p.cenvCobrado===false?true:false;
-  _persistPedido(p);
   save();
   if(document.getElementById('lima-view'))renderLimaContent();
 }
@@ -5477,7 +5530,6 @@ function toggleFechaTracking(id,campo){
   // Derivar estado nuevo del pedido a partir del timeline
   const newEstado=deriveEstadoFromTracking(p,prevEstado);
   aplicarCambioEstadoTracking(p,prevEstado,newEstado);
-  _persistPedido(p);
   save();
   renderProvinciaContent();updateSidebarBadges();renderNotifications();
   if(CURRENT_PAGE==='dashboard')renderDashboard();
@@ -5529,7 +5581,6 @@ function actualizarFechaTracking(id,campo,valor,inputEl){
   p[campo]=valor||'';
   const newEstado=deriveEstadoFromTracking(p,prevEstado);
   aplicarCambioEstadoTracking(p,prevEstado,newEstado);
-  _persistPedido(p);
   save();
   // NO re-renderizamos el timeline aquí (destruiría el input que el usuario tiene activo).
   // Solo actualizamos las otras vistas. El timeline se refresca cuando el usuario
@@ -5596,7 +5647,6 @@ function aplicarTracking(cambiarAEnviado){
     if(!p.historial)p.historial=[];
     p.historial.push({estado:'enviado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking'});
   }
-  _persistPedido(p);
   save();closeModal('modal-tracking');renderProvinciaContent();updateSidebarBadges();
   showToast('✅ Tracking guardado','success',1800);
 }
@@ -7734,7 +7784,6 @@ function liquidarPedido(id){
   p.liquidado=true;p.fechaLiq=hoy();
   if(!p.historial)p.historial=[];
   p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-page'});
-  _persistPedido(p);
   save();refrescarVistasPedidos();
 }
 function liquidarCourier(courier,neto){
@@ -7745,7 +7794,6 @@ function liquidarCourier(courier,neto){
     p.liquidado=true;p.fechaLiq=hoy();
     if(!p.historial)p.historial=[];
     p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-bulk',cenv:p.cenv});
-    _persistPedido(p);
   });
   save();refrescarVistasPedidos();
 }
@@ -7756,7 +7804,6 @@ function revertirLiquidacion(id){
   p.liquidado=false;delete p.fechaLiq;
   if(!p.historial)p.historial=[];
   p.historial.push({estado:'liquidacion-revertida',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-page'});
-  _persistPedido(p);
   save();refrescarVistasPedidos();
 }
 
@@ -7853,7 +7900,6 @@ function confirmarLiquidar(id){
   p.fechaLiq=hoy();
   if(!p.historial)p.historial=[];
   p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar',cenv:p.cenv});
-  _persistPedido(p);
   save();
   document.getElementById('modal-liq')?.remove();
   refrescarVistasPedidos();
@@ -7867,7 +7913,6 @@ function confirmarRevertirLiq(id){
   delete p.fechaLiq;
   if(!p.historial)p.historial=[];
   p.historial.push({estado:'liquidacion-revertida',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar'});
-  _persistPedido(p);
   save();
   document.getElementById('modal-rev-liq')?.remove();
   refrescarVistasPedidos();

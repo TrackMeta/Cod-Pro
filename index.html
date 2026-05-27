@@ -2758,18 +2758,48 @@ async function load(){
     try{const d=localStorage.getItem(getWsKey('db'));if(d)DB=JSON.parse(d);}catch(_){}
     try{const c=localStorage.getItem(getWsKey('cfg'));if(c)CFG=Object.assign({...CFG},JSON.parse(c));}catch(_){}
   }
-  // Workers: cargar sus cambios pendientes desde worker_changes
-  // (el save() del worker escribe ahí pero load() leía solo de workspaces,
-  // por eso los cambios desaparecían al refrescar)
+  // Workers: cargar TODOS los cambios pendientes (propios + de otros workers)
+  // y mergearlos sobre la base del admin. Así, si un worker refresca antes
+  // de que el admin sincronice, sigue viendo los cambios de los otros workers
+  // que tenía en memoria, además de los suyos propios.
   if(SESSION&&SESSION.role!=='admin'){
     try{
-      const{data:wc}=await _supabase.from('worker_changes')
-        .select('db_data')
-        .eq('workspace_id',SESSION.workspace_id)
-        .eq('worker_id',SESSION.id)
-        .limit(1);
-      if(wc&&wc[0]?.db_data?.pedidos){
-        DB=wc[0].db_data;
+      const{data:wcRows}=await _supabase.from('worker_changes')
+        .select('worker_id,db_data,updated_at')
+        .eq('workspace_id',SESSION.workspace_id);
+      if(wcRows&&wcRows.length){
+        // Ordenar por updated_at: más viejos primero, más reciente al final
+        // (el más reciente gana en caso de conflicto sobre el mismo pedido).
+        const sorted=[...wcRows].sort((a,b)=>(a.updated_at||'').localeCompare(b.updated_at||''));
+        if(!DB.pedidos)DB.pedidos=[];
+        const pedidosMap=new Map(DB.pedidos.map(p=>[p.id,p]));
+        let ownRow=null;
+        sorted.forEach(row=>{
+          if(row.worker_id===SESSION.id)ownRow=row;
+          const wDB=row.db_data;
+          if(!wDB?.pedidos)return;
+          wDB.pedidos.forEach(wp=>{
+            if(pedidosMap.has(wp.id)){
+              // Mergear campo a campo (excepto id/_prevId)
+              const ap=pedidosMap.get(wp.id);
+              Object.keys(wp).forEach(k=>{
+                if(k==='id'||k==='_prevId')return;
+                ap[k]=wp[k];
+              });
+            } else {
+              DB.pedidos.push(wp);
+              pedidosMap.set(wp.id,wp);
+            }
+          });
+        });
+        // Aplicar borrados del propio worker (no de otros — admin maneja eso)
+        if(ownRow?.db_data?._deletedIds&&Array.isArray(ownRow.db_data._deletedIds)){
+          DB._deletedIds=ownRow.db_data._deletedIds.slice();
+          DB._deletedIds.forEach(delId=>{
+            const idx=DB.pedidos.findIndex(p=>p.id===delId);
+            if(idx>=0)DB.pedidos.splice(idx,1);
+          });
+        }
         localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
       }
     }catch(_){}

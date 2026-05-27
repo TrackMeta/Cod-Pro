@@ -2419,8 +2419,9 @@ function initRealtime(){
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   } else {
-    // Worker: escucha cambios del admin en workspaces
-    _rtChannel=_supabase.channel(`rt-workspace-${wsId}`)
+    // Worker: escucha (1) cambios oficiales del admin en workspaces
+    // y (2) cambios de OTROS workers en worker_changes (sync entre pares)
+    _rtChannel=_supabase.channel(`rt-worker-${wsId}`)
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
         payload=>{
           const nd=payload.new;
@@ -2435,6 +2436,43 @@ function initRealtime(){
           const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
           if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
           showToast('🔄 Actualizado por admin','success',1800);
+        })
+      .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
+        async(payload)=>{
+          // Ignorar DELETE (sucede cuando admin sincroniza y limpia)
+          if(payload.eventType==='DELETE')return;
+          const row=payload.new;
+          // Ignorar nuestros propios cambios (eco)
+          if(!row||row.worker_id===SESSION.id)return;
+          // Mergear pedidos del otro worker en nuestro DB local (sin sobrescribir _deletedIds)
+          const otherDB=row.db_data;
+          if(!otherDB?.pedidos)return;
+          let changed=false;
+          const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
+          otherDB.pedidos.forEach(wp=>{
+            if(pedidosMap.has(wp.id)){
+              const ap=pedidosMap.get(wp.id);
+              Object.keys(wp).forEach(k=>{
+                if(k==='id'||k==='_prevId')return;
+                if(JSON.stringify(ap[k])!==JSON.stringify(wp[k])){
+                  ap[k]=wp[k];
+                  changed=true;
+                }
+              });
+            } else {
+              DB.pedidos.push(wp);
+              changed=true;
+            }
+          });
+          if(!changed)return;
+          localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+          updateSidebarBadges();renderNotifications();
+          const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
+          if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
+          // Toast con nombre del worker si lo encontramos
+          const otroAsesor=DB.asesores.find(a=>a.workerId===row.worker_id);
+          const otroNombre=otroAsesor?otroAsesor.nombre:'Otro trabajador';
+          showToast(`🔄 ${otroNombre} actualizó pedidos`,'success',2000);
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   }

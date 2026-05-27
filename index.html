@@ -2420,13 +2420,12 @@ function initRealtime(){
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   } else {
-    // Worker — usamos DOS canales separados para evitar problemas con
-    // múltiples bindings sobre el mismo canal en Supabase v2.
+    // Worker — usamos DOS canales separados (Supabase v2 tiene problemas
+    // con múltiples bindings de postgres_changes en el mismo canal).
     // Canal 1: workspaces UPDATE (cambios oficiales del admin)
     _rtChannel=_supabase.channel(`rt-worker-ws-${wsId}`)
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
         payload=>{
-          console.log('[RT] workspaces UPDATE recibido');
           const nd=payload.new;
           if(!nd?.db_data)return;
           DB=nd.db_data;
@@ -2440,18 +2439,16 @@ function initRealtime(){
           if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
           showToast('🔄 Actualizado por admin','success',1800);
         })
-      .subscribe(status=>{console.log('[RT] ws sub:',status);updateRtIndicator(status==='SUBSCRIBED');});
-    // Canal 2: worker_changes (sync entre workers)
+      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+    // Canal 2: worker_changes (sync entre workers, sin pasar por admin)
     _rtChannel2=_supabase.channel(`rt-worker-changes-${wsId}`)
       .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
         async(payload)=>{
-          console.log('[RT] worker_changes evento:',payload.eventType,'worker:',payload.new?.worker_id||payload.old?.worker_id);
           if(payload.eventType==='DELETE')return;
           const row=payload.new;
-          if(!row){console.log('[RT] sin row, ignorado');return;}
-          if(row.worker_id===SESSION.id){console.log('[RT] eco propio, ignorado');return;}
+          if(!row||row.worker_id===SESSION.id)return;
           const otherDB=row.db_data;
-          if(!otherDB?.pedidos){console.log('[RT] sin pedidos, ignorado');return;}
+          if(!otherDB?.pedidos)return;
           let changed=false;
           const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
           otherDB.pedidos.forEach(wp=>{
@@ -2469,7 +2466,6 @@ function initRealtime(){
               changed=true;
             }
           });
-          console.log('[RT] changed?',changed);
           if(!changed)return;
           localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
           updateSidebarBadges();renderNotifications();
@@ -2479,7 +2475,7 @@ function initRealtime(){
           const otroNombre=otroAsesor?otroAsesor.nombre:'Otro trabajador';
           showToast(`🔄 ${otroNombre} actualizó pedidos`,'success',2000);
         })
-      .subscribe(status=>console.log('[RT] wc sub:',status));
+      .subscribe();
   }
 }
 function updateRtIndicator(connected){

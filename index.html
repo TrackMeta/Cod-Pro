@@ -2332,6 +2332,17 @@ const DEFAULT_WA=[
 
 function isAdmin(){return SESSION?.role==='admin';}
 
+// Verifica si un pedido pertenece a un asesor. Matchea por:
+// - asesor.id (caso normal: pedido creado con el select de vendedor poblado)
+// - asesor.workerId (caso legacy: worker creó pedido cuando aún no tenía asesor
+//   auto-creado por admin, así que vendedor=SESSION.id que es la UUID del worker)
+function pedidoEsDeAsesor(p,a){
+  if(!p||!a||!p.vendedor)return false;
+  if(String(p.vendedor)===String(a.id))return true;
+  if(a.workerId&&String(p.vendedor)===String(a.workerId))return true;
+  return false;
+}
+
 // Comisión que se paga al vendedor por ESTE pedido específico.
 // Fuente de verdad: el asesor en Equipo & Usuarios (a.comLima/a.comProv).
 // Si no hay vendedor asignado (admin vendió) o el asesor no existe → 0.
@@ -2339,7 +2350,7 @@ function isAdmin(){return SESSION?.role==='admin';}
 function comisionDePedido(p){
   if(!p||p.estado!=='entregado')return 0;
   if(!p.vendedor)return 0;
-  const a=DB.asesores.find(x=>String(x.id)===String(p.vendedor));
+  const a=DB.asesores.find(x=>pedidoEsDeAsesor(p,x));
   if(!a)return 0;
   return p.zona==='lima'?(parseFloat(a.comLima)||0):(parseFloat(a.comProv)||0);
 }
@@ -3718,7 +3729,7 @@ function renderDashboard(){
     <div class="fr"><span class="fr-label">📦 Costo productos</span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
     <div class="fr"><span class="fr-label">🚚 Envíos + Embalaje</span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
     <div class="fr"><span class="fr-label">📢 Publicidad</span><span class="fr-val fv-neg">−${fmt(pub)}</span></div>
-    <div class="fr"><span class="fr-label">👥 Com. por entregas</span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
+    <div class="fr" title="Suma de comisiones de cada asesor por sus entregas en el período. Detalle exacto en Equipo & Usuarios."><span class="fr-label">👥 Com. por entregas <span style="font-size:10px;color:var(--text3);font-weight:400">(${ent.filter(p=>comisionDePedido(p)>0).length}/${ent.length} con vendedor)</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
     ${cgastos>0?`<div class="fr"><span class="fr-label">💸 Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>`:''}
     ${cDev>0?`<div class="fr"><span class="fr-label">↩️ Costo devoluciones</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
     ${sueldosTotal>0?`<div class="fr" style="opacity:.6"><span class="fr-label">💼 Sueldos fijos (info)</span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
@@ -5632,8 +5643,8 @@ function verResumenPedido(id){
   const esLima=p.zona==='lima';
   const esEntregado=p.estado==='entregado';
   const esDevuelto=p.estado==='devuelto'||p.estado==='rechazado';
-  // Asesor info
-  const asesor=p.vendedor?DB.asesores.find(a=>String(a.id)===String(p.vendedor)):null;
+  // Asesor info (matchea por asesor.id o workerId, igual que comisionDePedido)
+  const asesor=p.vendedor?DB.asesores.find(a=>pedidoEsDeAsesor(p,a)):null;
   const asesorNombre=asesor?asesor.nombre:(p.vendedor?'(asesor borrado)':'Sin asignar (admin)');
   // Estado visual del cobro
   let cobroEstado='';
@@ -6785,7 +6796,7 @@ function renderComisiones(){
   // ── VENDEDORES / ASESORES ──
   const vendedoresHtml=DB.asesores.length
     ?DB.asesores.map(a=>{
-        const aPeds=todos.filter(p=>p.vendedor===String(a.id));
+        const aPeds=todos.filter(p=>pedidoEsDeAsesor(p,a));
         const aEnt=aPeds.filter(p=>p.estado==='entregado');
         const aDev=aPeds.filter(p=>p.estado==='devuelto');
         const aLima=aEnt.filter(p=>p.zona==='lima');
@@ -6821,18 +6832,20 @@ function renderComisiones(){
     :`<div class="empty" style="padding:24px">Sin vendedores registrados. Agrega asesores/vendedores para medir su rendimiento y calcular comisiones.</div>`;
 
   // ── RESUMEN TOTAL A PAGAR ──
-  const totalComisiones=DB.asesores.reduce((s,a)=>{
-    const aEnt2=todos.filter(p=>p.estado==='entregado'&&p.vendedor===String(a.id));
-    return s+aEnt2.filter(p=>p.zona==='lima').length*(parseFloat(a.comLima)||0)
-            +aEnt2.filter(p=>p.zona==='provincia').length*(parseFloat(a.comProv)||0);
-  },0);
+  // Usamos comisionDePedido (helper unificado) — garantiza consistencia con Dashboard/Finanzas
+  const entregadosTodos=todos.filter(p=>p.estado==='entregado');
+  const totalComisiones=entregadosTodos.reduce((s,p)=>s+comisionDePedido(p),0);
   const totalSueldos=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
   const totalIngEquipo=DB.asesores.reduce((s,a)=>{
-    return s+todos.filter(p=>p.estado==='entregado'&&p.vendedor===String(a.id)).reduce((ss,p)=>ss+p.precio,0);
+    return s+entregadosTodos.filter(p=>pedidoEsDeAsesor(p,a)).reduce((ss,p)=>ss+p.precio,0);
   },0);
 
-  // Pedidos sin vendedor asignado en el período
-  const sinVendedor=todos.filter(p=>!p.vendedor||p.vendedor==='');
+  // Pedidos sin vendedor asignado en el período (vendedor vacío o que no matchea ningún asesor)
+  const sinVendedor=todos.filter(p=>{
+    if(!p.vendedor||p.vendedor==='')return true;
+    const a=DB.asesores.find(x=>pedidoEsDeAsesor(p,x));
+    return !a;
+  });
   const totalAPagar=totalComisiones+totalSueldos;
   const roiEquipo=totalAPagar>0?(totalIngEquipo/totalAPagar):0;
 
@@ -8567,11 +8580,11 @@ async function renderUsuarios(){
         ${wList.map(w=>{
           const asesor=DB.asesores.find(a=>a.workerId===w.id);
           // Últimas actividad: último pedido registrado por este worker
-          const wPeds=DB.pedidos.filter(p=>p.vendedor===String(asesor?.id||'')).slice(-1);
+          const wPeds=asesor?DB.pedidos.filter(p=>pedidoEsDeAsesor(p,asesor)).slice(-1):[];
           const ultimaAct=wPeds[0]?.fecha||null;
           // Entregas del mes (últimos 30 días)
           const hace30=new Date();hace30.setDate(hace30.getDate()-30);
-          const entMes=DB.pedidos.filter(p=>p.vendedor===String(asesor?.id||'')&&p.estado==='entregado'&&p.fecha&&new Date(p.fecha+'T12:00:00')>=hace30).length;
+          const entMes=asesor?DB.pedidos.filter(p=>pedidoEsDeAsesor(p,asesor)&&p.estado==='entregado'&&p.fecha&&new Date(p.fecha+'T12:00:00')>=hace30).length:0;
           const initials=w.initials||w.name?.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()||'??';
           return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">

@@ -2332,6 +2332,18 @@ const DEFAULT_WA=[
 
 function isAdmin(){return SESSION?.role==='admin';}
 
+// Comisión que se paga al vendedor por ESTE pedido específico.
+// Fuente de verdad: el asesor en Equipo & Usuarios (a.comLima/a.comProv).
+// Si no hay vendedor asignado (admin vendió) o el asesor no existe → 0.
+// Solo aplica si el pedido fue entregado.
+function comisionDePedido(p){
+  if(!p||p.estado!=='entregado')return 0;
+  if(!p.vendedor)return 0;
+  const a=DB.asesores.find(x=>String(x.id)===String(p.vendedor));
+  if(!a)return 0;
+  return p.zona==='lima'?(parseFloat(a.comLima)||0):(parseFloat(a.comProv)||0);
+}
+
 // =====================================================================
 // REALTIME — Actualizaciones en vivo sin recargar (no más F5)
 // =====================================================================
@@ -3554,8 +3566,8 @@ function renderDashboard(){
   const cprod=ent.reduce((s,x)=>s+(x.cprod||0),0);
   const cenv=ent.reduce((s,x)=>s+(x.cenv||0),0);
   const cemb=ent.reduce((s,x)=>s+(x.emb||0)*(x.cantidad||1),0);
-  // ✅ FIXED: comisiones por entrega del período, sueldos separados
-  const ccomEntregas=ent.filter(x=>x.zona==='lima').length*(CFG.comLima||1)+ent.filter(x=>x.zona==='provincia').length*(CFG.comProv||2);
+  // Comisiones reales por asesor (cada vendedor tiene su tarifa en Equipo & Usuarios)
+  const ccomEntregas=ent.reduce((s,p)=>s+comisionDePedido(p),0);
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
   const gastosArr=filtrarPeriodo(DB.gastos||[],filtro);
   const cgastos=gastosArr.reduce((s,g)=>s+(g.monto||0),0);
@@ -3589,7 +3601,7 @@ function renderDashboard(){
     const pDv=filtrarPeriodo(DB.pedidos.filter(x=>x.estado==='devuelto'),prevFiltro);
     pIng=pE.reduce((s,x)=>s+x.precio,0);
     const pCp=pE.reduce((s,x)=>s+(x.cprod||0),0),pCe=pE.reduce((s,x)=>s+(x.cenv||0),0),pCm=pE.reduce((s,x)=>s+(x.emb||0)*(x.cantidad||1),0);
-    const pCcom=pE.filter(x=>x.zona==='lima').length*(CFG.comLima||1)+pE.filter(x=>x.zona==='provincia').length*(CFG.comProv||2);
+    const pCcom=pE.reduce((s,p)=>s+comisionDePedido(p),0);
     const pGastos=filtrarPeriodo(DB.gastos||[],prevFiltro).reduce((s,g)=>s+(g.monto||0),0);
     const pDevArr=filtrarPeriodo(DB.pedidos.filter(x=>x.estado==='devuelto'),prevFiltro);
     const pCDev=pDevArr.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
@@ -6256,9 +6268,8 @@ function renderFinanzas(){
   const cemb=ent.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
   const cpub=pub.reduce((s,p)=>s+p.monto,0);
   const cgastos=gastosExtra.reduce((s,g)=>s+(g.monto||0),0);
-  // ✅ FIXED: comisiones por entrega (period-filtered), sueldos separados
-  const ccomEntregas=ent.filter(p=>p.zona==='lima').length*(CFG.comLima||1)
-    +ent.filter(p=>p.zona==='provincia').length*(CFG.comProv||2);
+  // Comisiones reales por asesor (cada vendedor tiene su tarifa en Equipo & Usuarios)
+  const ccomEntregas=ent.reduce((s,p)=>s+comisionDePedido(p),0);
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
   // ✅ NEW: impacto de devoluciones (costo sin ingreso)
   const cDevProd=dev.reduce((s,p)=>s+(p.cprod||0),0);
@@ -6294,7 +6305,7 @@ function renderFinanzas(){
     pIng=pE.reduce((s,p)=>s+p.precio,0);
     const pCp=pE.reduce((s,p)=>s+(p.cprod||0),0),pCe=pE.reduce((s,p)=>s+(p.cenv||0),0),pCm=pE.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pCpub=pPub.reduce((s,p)=>s+p.monto,0),pCg=pGas.reduce((s,g)=>s+(g.monto||0),0);
-    const pCcom=pE.filter(p=>p.zona==='lima').length*(CFG.comLima||1)+pE.filter(p=>p.zona==='provincia').length*(CFG.comProv||2);
+    const pCcom=pE.reduce((s,p)=>s+comisionDePedido(p),0);
     const pCdev=pDev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
     pUtil=pIng-(pCp+pCe+pCm+pCpub+pCg+pCcom+pCdev);
     pEnt=pE.length;pEf=pAP.length>0?Math.round(pE.length/pAP.length*100):0;
@@ -6641,8 +6652,8 @@ function renderComisiones(){
         const aDev=aPeds.filter(p=>p.estado==='devuelto');
         const aLima=aEnt.filter(p=>p.zona==='lima');
         const aProv=aEnt.filter(p=>p.zona==='provincia');
-        const comLima=aLima.length*(a.comLima||CFG.comLima||1);
-        const comProv=aProv.length*(a.comProv||CFG.comProv||2);
+        const comLima=aLima.length*(parseFloat(a.comLima)||0);
+        const comProv=aProv.length*(parseFloat(a.comProv)||0);
         const totalCom=comLima+comProv;
         const total=totalCom+a.sueldo;
         const ef=aPeds.length>0?Math.round(aEnt.length/aPeds.length*100):0;
@@ -6674,8 +6685,8 @@ function renderComisiones(){
   // ── RESUMEN TOTAL A PAGAR ──
   const totalComisiones=DB.asesores.reduce((s,a)=>{
     const aEnt2=todos.filter(p=>p.estado==='entregado'&&p.vendedor===String(a.id));
-    return s+aEnt2.filter(p=>p.zona==='lima').length*(a.comLima||CFG.comLima||1)
-            +aEnt2.filter(p=>p.zona==='provincia').length*(a.comProv||CFG.comProv||2);
+    return s+aEnt2.filter(p=>p.zona==='lima').length*(parseFloat(a.comLima)||0)
+            +aEnt2.filter(p=>p.zona==='provincia').length*(parseFloat(a.comProv)||0);
   },0);
   const totalSueldos=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
   const totalIngEquipo=DB.asesores.reduce((s,a)=>{
@@ -8199,9 +8210,10 @@ function renderConfig(){
       <div class="cfg-row"><div><div class="cfg-label">Envío Provincia (Shalom) S/</div><div class="cfg-sub">Default al crear pedido Provincia</div></div><input class="cfg-input" type="number" id="cfg-shalom" value="${CFG.shalom}" onchange="saveConfig()"></div>
       <div class="cfg-row"><div><div class="cfg-label">Embalaje por defecto S/</div><div class="cfg-sub">Se aplica al registrar cada nuevo pedido</div></div><input class="cfg-input" type="number" id="cfg-embDefault" value="${CFG.embDefault||0}" step="0.5" onchange="saveConfig()"></div>
 
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Comisiones de asesores (vendedores)</div>
-      <div class="cfg-row"><div><div class="cfg-label">Comisión asesor Lima S/</div><div class="cfg-sub">Por entrega exitosa — gasto separado, NO sale del cobro del courier</div></div><input class="cfg-input" type="number" id="cfg-comLima" value="${CFG.comLima}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Comisión asesor Provincia S/</div><div class="cfg-sub">Por entrega exitosa — gasto separado</div></div><input class="cfg-input" type="number" id="cfg-comProv" value="${CFG.comProv}" onchange="saveConfig()"></div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Comisión por defecto (al crear nuevos asesores)</div>
+      <div style="font-size:10.5px;color:var(--text3);padding:8px 10px;background:rgba(56,189,248,.08);border-left:3px solid var(--blue);border-radius:4px;margin-bottom:10px">💡 Estos valores solo se usan como sugerencia al <b>crear</b> un nuevo asesor. La comisión real de cada asesor se edita en <a href="#" onclick="showPage('comisiones',document.querySelector('.nav-item[onclick*=comisiones]'));return false" style="color:var(--accent);font-weight:600">Equipo & Usuarios</a> y desde ahí se calculan todos los reportes.</div>
+      <div class="cfg-row"><div><div class="cfg-label">Default Lima S/</div><div class="cfg-sub">Sugerencia inicial para nuevos asesores</div></div><input class="cfg-input" type="number" id="cfg-comLima" value="${CFG.comLima}" onchange="saveConfig()"></div>
+      <div class="cfg-row"><div><div class="cfg-label">Default Provincia S/</div><div class="cfg-sub">Sugerencia inicial para nuevos asesores</div></div><input class="cfg-input" type="number" id="cfg-comProv" value="${CFG.comProv}" onchange="saveConfig()"></div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Provincia</div>
       <div class="cfg-row"><div><div class="cfg-label">Adelanto estándar S/</div><div class="cfg-sub">Monto pre-cargado al confirmar provincia</div></div><input class="cfg-input" type="number" id="cfg-adelanto" value="${CFG.adelanto}" onchange="saveConfig()"></div>
@@ -8267,8 +8279,8 @@ function renderConfig(){
             ['Courier Lima','S/'+CFG.courier,'var(--blue)'],
             ['Shalom','S/'+CFG.shalom,'var(--accent)'],
             ['Embalaje','S/'+(CFG.embDefault||0),'var(--teal)'],
-            ['Com. Lima','S/'+CFG.comLima,'var(--green)'],
-            ['Com. Prov','S/'+CFG.comProv,'var(--green)'],
+            ['Default Com. Lima','S/'+CFG.comLima,'var(--text3)'],
+            ['Default Com. Prov','S/'+CFG.comProv,'var(--text3)'],
             ['Efectividad',CFG.metaEf+'%','var(--amber)'],
             ['Stock mín.',CFG.stockMinDefault||5,'var(--purple)'],
           ].map(([l,v,c])=>`<div style="padding:5px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
@@ -8641,7 +8653,7 @@ function exportarFinanzasExcel(){
   const cprod=ent.reduce((s,p)=>s+(p.cprod||0),0);
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
   const cemb=ent.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
-  const ccom=ent.filter(p=>p.zona==='lima').length*(CFG.comLima||1)+ent.filter(p=>p.zona==='provincia').length*(CFG.comProv||2);
+  const ccom=ent.reduce((s,p)=>s+comisionDePedido(p),0);
   const cdev=dev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
   const util=ing-cprod-cenv-cemb-pub-gastos-ccom-cdev;
   const ef=ped.length>0?Math.round(ent.length/ped.length*100):0;

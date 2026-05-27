@@ -2650,40 +2650,31 @@ async function syncWorkerChanges(){
       }
       wDB.pedidos.forEach(wp=>{
         if(pedidosMap.has(wp.id)){
-          // Pedido existente — sincronizar estado/notas/adelanto/pendiente del worker
+          // Pedido existente — sincronizar TODOS los campos editables por el worker
           const ap=pedidosMap.get(wp.id);
           let pChanged=false;
+          // Manejar transición de estado primero (ajusta stock en DB.productos del admin)
           if(ap.estado!==wp.estado){
-            // Ajustar stock en la transición a entregado
             if(wp.estado==='entregado'&&ap.estado!=='entregado'){
-              (wp.items||[{productoId:wp.productoId,variante:wp.variante,cantidad:wp.cantidad}]).forEach(it=>{
-                if(!it.productoId)return;
-                const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-                if(prod&&prod.modalidad==='stock'){
-                  const vi=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-                  if(vi>=0)prod.variantes[vi].stock=Math.max(0,(prod.variantes[vi].stock||0)-(parseInt(it.cantidad)||1));
-                  else prod.stock=Math.max(0,(prod.stock||0)-(parseInt(it.cantidad)||1));
-                }
-              });
-              if(wp.zona==='provincia'){ap.adelanto=0;ap.pendiente=0;}
+              descontarStockPedido(wp);
+              if(wp.zona==='provincia'){wp.adelanto=0;wp.pendiente=0;}
             }
-            // Revertir stock si se desmarca entregado
             if(ap.estado==='entregado'&&wp.estado!=='entregado'){
-              (wp.items||[{productoId:wp.productoId,variante:wp.variante,cantidad:wp.cantidad}]).forEach(it=>{
-                if(!it.productoId)return;
-                const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-                if(prod&&prod.modalidad==='stock'){
-                  const vi=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-                  if(vi>=0)prod.variantes[vi].stock=(prod.variantes[vi].stock||0)+(parseInt(it.cantidad)||1);
-                  else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
-                }
-              });
+              restaurarStockPedido(wp);
+              if(wp.zona==='provincia'&&wp.precio)wp.pendiente=Math.max(0,wp.precio-(wp.adelanto||0));
             }
-            ap.estado=wp.estado;pChanged=true;
           }
-          if(ap.comentario!==wp.comentario){ap.comentario=wp.comentario;pChanged=true;}
-          if(ap.adelanto!==wp.adelanto){ap.adelanto=wp.adelanto;pChanged=true;}
-          if(ap.pendiente!==wp.pendiente){ap.pendiente=wp.pendiente;pChanged=true;}
+          // Copiar TODOS los campos editables del worker (todo excepto id e internals)
+          // Esto incluye: tracking (numOrden, codigoEnvio, clave, fechas timeline),
+          // courier, cenvCobrado, motivoDevolucion, mpago, fechaEntregaLima,
+          // liquidado/fechaLiq, comentario, adelanto, pendiente, items, etc.
+          Object.keys(wp).forEach(k=>{
+            if(k==='id'||k==='_prevId')return;
+            if(JSON.stringify(ap[k])!==JSON.stringify(wp[k])){
+              ap[k]=wp[k];
+              pChanged=true;
+            }
+          });
           if(pChanged)changed=true;
         } else {
           // Pedido nuevo — agregar

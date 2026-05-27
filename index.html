@@ -2763,46 +2763,53 @@ async function load(){
   // de que el admin sincronice, sigue viendo los cambios de los otros workers
   // que tenía en memoria, además de los suyos propios.
   if(SESSION&&SESSION.role!=='admin'){
+    console.log('[LOAD] worker, mi id:',SESSION.id);
+    console.log('[LOAD] DB inicial (de workspaces):',DB.pedidos?.length,'pedidos');
     try{
-      const{data:wcRows}=await _supabase.from('worker_changes')
+      const{data:wcRows,error:wcErr}=await _supabase.from('worker_changes')
         .select('worker_id,db_data,updated_at')
         .eq('workspace_id',SESSION.workspace_id);
+      if(wcErr)console.warn('[LOAD] error leyendo worker_changes:',wcErr);
+      console.log('[LOAD] worker_changes rows:',wcRows?.length||0);
+      if(wcRows)wcRows.forEach(r=>console.log('  • worker:',r.worker_id===SESSION.id?'YO':r.worker_id,'updated:',r.updated_at,'pedidos:',r.db_data?.pedidos?.length||0));
       if(wcRows&&wcRows.length){
-        // Ordenar por updated_at: más viejos primero, más reciente al final
-        // (el más reciente gana en caso de conflicto sobre el mismo pedido).
         const sorted=[...wcRows].sort((a,b)=>(a.updated_at||'').localeCompare(b.updated_at||''));
         if(!DB.pedidos)DB.pedidos=[];
         const pedidosMap=new Map(DB.pedidos.map(p=>[p.id,p]));
         let ownRow=null;
+        let added=0,merged=0;
         sorted.forEach(row=>{
           if(row.worker_id===SESSION.id)ownRow=row;
           const wDB=row.db_data;
           if(!wDB?.pedidos)return;
           wDB.pedidos.forEach(wp=>{
             if(pedidosMap.has(wp.id)){
-              // Mergear campo a campo (excepto id/_prevId)
               const ap=pedidosMap.get(wp.id);
               Object.keys(wp).forEach(k=>{
                 if(k==='id'||k==='_prevId')return;
                 ap[k]=wp[k];
               });
+              merged++;
             } else {
               DB.pedidos.push(wp);
               pedidosMap.set(wp.id,wp);
+              added++;
             }
           });
         });
-        // Aplicar borrados del propio worker (no de otros — admin maneja eso)
+        console.log('[LOAD] merge: agregados',added,'· actualizados',merged);
         if(ownRow?.db_data?._deletedIds&&Array.isArray(ownRow.db_data._deletedIds)){
           DB._deletedIds=ownRow.db_data._deletedIds.slice();
           DB._deletedIds.forEach(delId=>{
             const idx=DB.pedidos.findIndex(p=>p.id===delId);
             if(idx>=0)DB.pedidos.splice(idx,1);
           });
+          console.log('[LOAD] aplicados',DB._deletedIds.length,'borrados propios');
         }
+        console.log('[LOAD] DB final:',DB.pedidos.length,'pedidos');
         localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
       }
-    }catch(_){}
+    }catch(e){console.warn('[LOAD] excepción:',e);}
   }
   // Asegurar estructura correcta
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];

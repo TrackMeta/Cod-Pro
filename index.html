@@ -2397,11 +2397,12 @@ function refrescarVistasPedidos(){
 // =====================================================================
 // REALTIME — Actualizaciones en vivo sin recargar (no más F5)
 // =====================================================================
-let _rtChannel=null;
+let _rtChannel=null,_rtChannel2=null;
 function initRealtime(){
   if(!SESSION?.workspace_id)return;
   const wsId=SESSION.workspace_id;
   if(_rtChannel){try{_supabase.removeChannel(_rtChannel);}catch(_){}  _rtChannel=null;}
+  if(_rtChannel2){try{_supabase.removeChannel(_rtChannel2);}catch(_){}  _rtChannel2=null;}
   if(isAdmin()){
     // Admin: escucha cambios de workers para auto-sincronizar
     _rtChannel=_supabase.channel(`rt-workers-${wsId}`)
@@ -2419,11 +2420,13 @@ function initRealtime(){
         })
       .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   } else {
-    // Worker: escucha (1) cambios oficiales del admin en workspaces
-    // y (2) cambios de OTROS workers en worker_changes (sync entre pares)
-    _rtChannel=_supabase.channel(`rt-worker-${wsId}`)
+    // Worker — usamos DOS canales separados para evitar problemas con
+    // múltiples bindings sobre el mismo canal en Supabase v2.
+    // Canal 1: workspaces UPDATE (cambios oficiales del admin)
+    _rtChannel=_supabase.channel(`rt-worker-ws-${wsId}`)
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
         payload=>{
+          console.log('[RT] workspaces UPDATE recibido');
           const nd=payload.new;
           if(!nd?.db_data)return;
           DB=nd.db_data;
@@ -2437,16 +2440,18 @@ function initRealtime(){
           if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
           showToast('🔄 Actualizado por admin','success',1800);
         })
+      .subscribe(status=>{console.log('[RT] ws sub:',status);updateRtIndicator(status==='SUBSCRIBED');});
+    // Canal 2: worker_changes (sync entre workers)
+    _rtChannel2=_supabase.channel(`rt-worker-changes-${wsId}`)
       .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
         async(payload)=>{
-          // Ignorar DELETE (sucede cuando admin sincroniza y limpia)
+          console.log('[RT] worker_changes evento:',payload.eventType,'worker:',payload.new?.worker_id||payload.old?.worker_id);
           if(payload.eventType==='DELETE')return;
           const row=payload.new;
-          // Ignorar nuestros propios cambios (eco)
-          if(!row||row.worker_id===SESSION.id)return;
-          // Mergear pedidos del otro worker en nuestro DB local (sin sobrescribir _deletedIds)
+          if(!row){console.log('[RT] sin row, ignorado');return;}
+          if(row.worker_id===SESSION.id){console.log('[RT] eco propio, ignorado');return;}
           const otherDB=row.db_data;
-          if(!otherDB?.pedidos)return;
+          if(!otherDB?.pedidos){console.log('[RT] sin pedidos, ignorado');return;}
           let changed=false;
           const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
           otherDB.pedidos.forEach(wp=>{
@@ -2464,17 +2469,17 @@ function initRealtime(){
               changed=true;
             }
           });
+          console.log('[RT] changed?',changed);
           if(!changed)return;
           localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
           updateSidebarBadges();renderNotifications();
           const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
           if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-          // Toast con nombre del worker si lo encontramos
           const otroAsesor=DB.asesores.find(a=>a.workerId===row.worker_id);
           const otroNombre=otroAsesor?otroAsesor.nombre:'Otro trabajador';
           showToast(`🔄 ${otroNombre} actualizó pedidos`,'success',2000);
         })
-      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+      .subscribe(status=>console.log('[RT] wc sub:',status));
   }
 }
 function updateRtIndicator(connected){

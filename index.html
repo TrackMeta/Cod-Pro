@@ -7345,22 +7345,23 @@ function renderFlujoContent(){
 // =====================================================================
 function renderLiquidacion(){
   const hoyStr=hoy();
-  const comxEnt=CFG.comLima||1;
+  // Helper: costo de envío efectivo de un pedido (0 si fue marcado como no cobrado)
+  const cenvOf=p=>p.cenvCobrado===false?0:(parseFloat(p.cenv)||0);
 
   // Base: solo Lima entregados
   const limaEnt=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado');
   const pendLiq=limaEnt.filter(p=>!p.liquidado);
   const liquidados=limaEnt.filter(p=>p.liquidado);
 
-  // Totales pendientes
+  // Totales pendientes — se descuenta el cenv (lo que se queda el courier), NO comLima (eso es comisión asesor)
   const brutoPend=pendLiq.reduce((s,p)=>s+(p.precio||0),0);
-  const comPend=pendLiq.length*comxEnt;
-  const netoPend=brutoPend-comPend;
+  const cenvPend=pendLiq.reduce((s,p)=>s+cenvOf(p),0);
+  const netoPend=brutoPend-cenvPend;
 
   // Totales liquidados (histórico)
   const brutoLiq=liquidados.reduce((s,p)=>s+(p.precio||0),0);
-  const comLiq=liquidados.length*comxEnt;
-  const netoLiq=brutoLiq-comLiq;
+  const cenvLiq=liquidados.reduce((s,p)=>s+cenvOf(p),0);
+  const netoLiq=brutoLiq-cenvLiq;
 
   // Pedidos con más días sin liquidar
   const maxDias=pendLiq.length?Math.max(...pendLiq.map(p=>{
@@ -7406,9 +7407,9 @@ function renderLiquidacion(){
       <div class="mcard-sub">Los clientes ya pagaron este monto</div>
     </div>
     <div class="mcard mc-red">
-      <div class="mcard-label">🔧 Comisiones a descontar</div>
-      <div class="mcard-val mv-red">${fmt(comPend)}</div>
-      <div class="mcard-sub">S/${comxEnt} × ${pendLiq.length} entregas</div>
+      <div class="mcard-label">🚚 Costo de envío a descontar</div>
+      <div class="mcard-val mv-red">${fmt(cenvPend)}</div>
+      <div class="mcard-sub">Lo que se queda el courier (${pendLiq.length} entregas)</div>
     </div>
     <div class="mcard mc-green">
       <div class="mcard-label">✅ Total ya liquidado</div>
@@ -7434,8 +7435,8 @@ function renderLiquidacion(){
       const maxB=Math.max(...b[1].pedidos.map(p=>Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24))));
       return maxB-maxA;
     }).map(([courier,data])=>{
-      const com=data.pedidos.length*comxEnt;
-      const neto=data.bruto-com;
+      const cenvCourier=data.pedidos.reduce((s,p)=>s+cenvOf(p),0);
+      const neto=data.bruto-cenvCourier;
       const diasMax=Math.max(...data.pedidos.map(p=>Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24))));
       const urgente=diasMax>=3;
       const advertencia=diasMax>=1&&diasMax<3;
@@ -7453,7 +7454,7 @@ function renderLiquidacion(){
           </div>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <div style="text-align:right">
-              <div style="font-size:11px;color:var(--text3)">Bruto <span class="mono">${fmt(data.bruto)}</span> − Com <span class="mono" style="color:var(--red)">${fmt(com)}</span></div>
+              <div style="font-size:11px;color:var(--text3)">Bruto <span class="mono">${fmt(data.bruto)}</span> − Envío <span class="mono" style="color:var(--red)">${fmt(cenvCourier)}</span></div>
               <div style="font-size:20px;font-weight:800;font-family:var(--mono);color:var(--green)">S/ ${neto.toFixed(2)}</div>
             </div>
             <button class="btn btn-success btn-sm" onclick="liquidarCourier('${courier.replace(/'/g,"\\'")}',${neto})">✅ Liquidar todo<br><span style="font-size:10px;opacity:.8">Recibir S/${neto.toFixed(2)}</span></button>
@@ -7461,11 +7462,12 @@ function renderLiquidacion(){
         </div>
         <!-- TABLA PEDIDOS DEL COURIER -->
         <div class="tw"><table>
-          <thead><tr><th>Fecha</th><th>Días</th><th>#</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th><th style="text-align:right">Com.</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Días</th><th>#</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th><th style="text-align:right">Envío</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
           <tbody>${pedOrd.map(p=>{
             const dias=Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24));
             const dColor=dias>=3?'var(--red)':dias>=1?'var(--amber)':'var(--green)';
             const rowBg=dias>=3?'background:rgba(239,68,68,.04)':dias>=1?'background:rgba(245,158,11,.04)':'';
+            const cenvP=cenvOf(p);
             return`<tr style="${rowBg}">
               <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(p.fecha||'').slice(5)||'—'}</td>
               <td style="text-align:center"><span style="font-size:11px;font-weight:700;color:${dColor}">${dias}d</span></td>
@@ -7473,15 +7475,15 @@ function renderLiquidacion(){
               <td style="font-weight:600;font-size:12px">${p.nombre}</td>
               <td style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
               <td class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
-              <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(comxEnt)}</td>
-              <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-comxEnt)}</td>
-              <td><button class="btn btn-ghost btn-xs" onclick="liquidarPedido(${p.id})">💵 Liq.</button></td>
+              <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
+              <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
+              <td><button class="btn btn-ghost btn-xs" onclick="toggleLiquidadoPedido(${p.id})">💵 Liq.</button></td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr style="background:var(--surface3)">
             <td colspan="5" style="font-size:11px;font-weight:700;padding:6px 8px">Subtotal ${courier}</td>
             <td class="mono" style="text-align:right;font-weight:700">${fmt(data.bruto)}</td>
-            <td class="mono" style="text-align:right;color:var(--red)">−${fmt(com)}</td>
+            <td class="mono" style="text-align:right;color:var(--red)">−${fmt(cenvCourier)}</td>
             <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt(neto)}</td>
             <td></td>
           </tr></tfoot>
@@ -7500,28 +7502,31 @@ function renderLiquidacion(){
       </div>
     </div>
     ${Object.entries(byFechaLiq).sort((a,b)=>b[0].localeCompare(a[0])).map(([fecha,data])=>{
-      const comF=data.pedidos.length*comxEnt;
-      const netoF=data.bruto-comF;
+      const cenvF=data.pedidos.reduce((s,p)=>s+cenvOf(p),0);
+      const netoF=data.bruto-cenvF;
       const esMostrar=fecha!=='Sin fecha';
       return`<div style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface3);border-radius:6px;margin-bottom:6px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
           <div style="font-weight:700;font-size:13px">📅 ${esMostrar?fecha:'Sin fecha registrada'} <span style="font-size:11px;font-weight:400;color:var(--text3)">${data.pedidos.length} pedidos</span></div>
           <div style="display:flex;align-items:center;gap:12px">
-            <span style="font-size:11px;color:var(--text3)">Bruto <span class="mono">${fmt(data.bruto)}</span> − Com <span class="mono" style="color:var(--red)">${fmt(comF)}</span> = <span class="mono" style="color:var(--green);font-weight:700">${fmt(netoF)}</span></span>
+            <span style="font-size:11px;color:var(--text3)">Bruto <span class="mono">${fmt(data.bruto)}</span> − Envío <span class="mono" style="color:var(--red)">${fmt(cenvF)}</span> = <span class="mono" style="color:var(--green);font-weight:700">${fmt(netoF)}</span></span>
             <span style="color:var(--text3);font-size:11px">▼</span>
           </div>
         </div>
         <div class="tw">
-          <table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Courier</th><th style="text-align:right">Precio</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
-          <tbody>${[...data.pedidos].sort((a,b)=>(a.courier||'').localeCompare(b.courier||'')).map(p=>`<tr>
+          <table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Courier</th><th style="text-align:right">Precio</th><th style="text-align:right">Envío</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
+          <tbody>${[...data.pedidos].sort((a,b)=>(a.courier||'').localeCompare(b.courier||'')).map(p=>{
+            const cenvP=cenvOf(p);
+            return `<tr>
             <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
             <td style="font-size:12px;font-weight:600">${p.nombre}</td>
             <td style="font-size:11px;color:var(--text3)">${p.producto}</td>
             <td style="font-size:11px;color:var(--text2)">${p.courier||'—'}</td>
             <td class="mono" style="text-align:right;color:var(--text2)">${fmt(p.precio||0)}</td>
-            <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-comxEnt)}</td>
+            <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
+            <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
             <td><button class="btn btn-ghost btn-xs" onclick="revertirLiquidacion(${p.id})" title="Revertir">↩️</button></td>
-          </tr>`).join('')}</tbody></table>
+          </tr>`;}).join('')}</tbody></table>
         </div>
       </div>`;
     }).join('')}
@@ -7536,11 +7541,15 @@ function liquidarPedido(id){
   save();renderLiquidacion();
 }
 function liquidarCourier(courier,neto){
-  const count=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado'&&(p.courier||'Sin asignar')===courier&&!p.liquidado).length;
-  if(!confirm(`✅ LIQUIDAR — ${courier}\n\n${count} pedido(s)\nNeto a recibir: S/ ${(neto||0).toFixed(2)}\n\n¿Confirmar?`))return;
-  DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado'&&(p.courier||'Sin asignar')===courier&&!p.liquidado)
-    .forEach(p=>{p.liquidado=true;p.fechaLiq=hoy();});
-  save();renderLiquidacion();
+  const peds=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado'&&(p.courier||'Sin asignar')===courier&&!p.liquidado);
+  const count=peds.length;
+  if(!confirm(`✅ LIQUIDAR — ${courier}\n\n${count} pedido(s)\nNeto a recibir: S/ ${(neto||0).toFixed(2)}\n(Bruto cobrado − costo de envío)\n\n¿Confirmar?`))return;
+  peds.forEach(p=>{
+    p.liquidado=true;p.fechaLiq=hoy();
+    if(!p.historial)p.historial=[];
+    p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-bulk',cenv:p.cenv});
+  });
+  save();renderLiquidacion();updateSidebarBadges();
 }
 
 function revertirLiquidacion(id){
@@ -7583,20 +7592,30 @@ function toggleLiquidadoPedido(id){
     document.body.appendChild(mod);
   } else {
     // Liquidar
-    const com=CFG.comLima||1;
-    const neto=(p.precio||0)-com;
+    // El courier se queda con el cenv (costo de envío). La comisión del asesor
+    // (CFG.comLima) NO sale de aquí — es un gasto operativo separado que se
+    // calcula en Comisiones y Finanzas.
+    const cenvActual=p.cenvCobrado===false?0:(parseFloat(p.cenv)||0);
+    const neto=(p.precio||0)-cenvActual;
     const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-liq';
     mod.innerHTML=`<div class="modal sm">
       <div class="modal-h"><div class="modal-title">💵 Liquidar pedido #${p.id}</div><div class="mc" onclick="document.getElementById('modal-liq').remove()">×</div></div>
       <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:14px">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px">${p.nombre} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
         <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">📦 ${p.producto||''}</div>
-        <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Cobrado al cliente:</span><span class="mono" style="font-weight:700">${fmt(p.precio||0)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Comisión courier:</span><span class="mono" style="color:var(--red)">−${fmt(com)}</span></div>
-          <div style="border-top:1px solid var(--border);padding-top:7px;display:flex;justify-content:space-between"><span style="font-weight:700">Neto a tu favor:</span><span class="mono" style="font-weight:800;color:var(--green);font-size:16px">${fmt(neto)}</span></div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text2)">Cobrado al cliente:</span><span class="mono" style="font-weight:700">${fmt(p.precio||0)}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--text2)">Costo de envío (courier):</span>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="color:var(--red);font-weight:700">−S/</span>
+              <input type="number" id="liq-cenv-input" value="${cenvActual}" step="0.5" min="0" oninput="recalcLiqNeto(${p.id})" style="width:74px;text-align:right;font-family:var(--mono);font-weight:700;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--red);outline:none">
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:9px;display:flex;justify-content:space-between;align-items:center"><span style="font-weight:700">Neto a tu favor:</span><span id="liq-neto-display" class="mono" style="font-weight:800;color:var(--green);font-size:17px">${fmt(neto)}</span></div>
         </div>
         <div style="font-size:11.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">🛵 Courier: <b style="color:var(--text2)">${p.courier||'Sin asignar'}</b></div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:4px">💡 Puedes ajustar el costo de envío si el courier cobró distinto al estimado.${p.cenvCobrado===false?' <span style="color:var(--amber)">⚠ Este pedido tiene cenv marcado como "no cobrado".</span>':''}</div>
       </div>
       <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Confirma SOLO si el courier <b>ya te entregó el dinero</b> de este pedido.</div></div>
       <div style="display:flex;gap:10px">
@@ -7608,13 +7627,31 @@ function toggleLiquidadoPedido(id){
   }
 }
 
+// Actualiza el neto en vivo cuando el usuario cambia el costo de envío
+function recalcLiqNeto(id){
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  const cenvInput=document.getElementById('liq-cenv-input');
+  const netoEl=document.getElementById('liq-neto-display');
+  if(!cenvInput||!netoEl)return;
+  const cenv=parseFloat(cenvInput.value)||0;
+  const neto=(p.precio||0)-cenv;
+  netoEl.textContent=fmt(neto);
+  netoEl.style.color=neto>=0?'var(--green)':'var(--red)';
+}
+
 function confirmarLiquidar(id){
   const p=DB.pedidos.find(x=>x.id===id);
   if(!p)return;
+  // Guardar el cenv editado en el modal si cambió
+  const cenvInput=document.getElementById('liq-cenv-input');
+  if(cenvInput){
+    const nuevoCenv=parseFloat(cenvInput.value);
+    if(!isNaN(nuevoCenv)&&nuevoCenv>=0)p.cenv=nuevoCenv;
+  }
   p.liquidado=true;
   p.fechaLiq=hoy();
   if(!p.historial)p.historial=[];
-  p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar'});
+  p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar',cenv:p.cenv});
   save();
   document.getElementById('modal-liq')?.remove();
   if(document.getElementById('lima-view'))renderLimaContent();
@@ -8157,14 +8194,14 @@ function renderConfig(){
       <div class="card-title">💰 Costos & Comisiones por defecto</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Se usan al crear pedidos y calcular rentabilidad</div>
 
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Envíos</div>
-      <div class="cfg-row"><div><div class="cfg-label">Courier Lima S/</div><div class="cfg-sub">Costo de entrega Lima (por pedido)</div></div><input class="cfg-input" type="number" id="cfg-courier" value="${CFG.courier}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Shalom Provincia S/</div><div class="cfg-sub">Costo estimado envío a provincia</div></div><input class="cfg-input" type="number" id="cfg-shalom" value="${CFG.shalom}" onchange="saveConfig()"></div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Costos de envío (lo que se queda el courier)</div>
+      <div class="cfg-row"><div><div class="cfg-label">Envío Lima S/</div><div class="cfg-sub">Default al crear pedido Lima — se descuenta en liquidación</div></div><input class="cfg-input" type="number" id="cfg-courier" value="${CFG.courier}" onchange="saveConfig()"></div>
+      <div class="cfg-row"><div><div class="cfg-label">Envío Provincia (Shalom) S/</div><div class="cfg-sub">Default al crear pedido Provincia</div></div><input class="cfg-input" type="number" id="cfg-shalom" value="${CFG.shalom}" onchange="saveConfig()"></div>
       <div class="cfg-row"><div><div class="cfg-label">Embalaje por defecto S/</div><div class="cfg-sub">Se aplica al registrar cada nuevo pedido</div></div><input class="cfg-input" type="number" id="cfg-embDefault" value="${CFG.embDefault||0}" step="0.5" onchange="saveConfig()"></div>
 
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Comisiones de asesores</div>
-      <div class="cfg-row"><div><div class="cfg-label">Comisión Lima S/</div><div class="cfg-sub">Por cada entrega exitosa Lima</div></div><input class="cfg-input" type="number" id="cfg-comLima" value="${CFG.comLima}" onchange="saveConfig()"></div>
-      <div class="cfg-row"><div><div class="cfg-label">Comisión Provincia S/</div><div class="cfg-sub">Por cada entrega exitosa Provincia</div></div><input class="cfg-input" type="number" id="cfg-comProv" value="${CFG.comProv}" onchange="saveConfig()"></div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Comisiones de asesores (vendedores)</div>
+      <div class="cfg-row"><div><div class="cfg-label">Comisión asesor Lima S/</div><div class="cfg-sub">Por entrega exitosa — gasto separado, NO sale del cobro del courier</div></div><input class="cfg-input" type="number" id="cfg-comLima" value="${CFG.comLima}" onchange="saveConfig()"></div>
+      <div class="cfg-row"><div><div class="cfg-label">Comisión asesor Provincia S/</div><div class="cfg-sub">Por entrega exitosa — gasto separado</div></div><input class="cfg-input" type="number" id="cfg-comProv" value="${CFG.comProv}" onchange="saveConfig()"></div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Provincia</div>
       <div class="cfg-row"><div><div class="cfg-label">Adelanto estándar S/</div><div class="cfg-sub">Monto pre-cargado al confirmar provincia</div></div><input class="cfg-input" type="number" id="cfg-adelanto" value="${CFG.adelanto}" onchange="saveConfig()"></div>

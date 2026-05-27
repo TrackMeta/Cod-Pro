@@ -2356,6 +2356,45 @@ function comisionDePedido(p){
 }
 
 // =====================================================================
+// 📦 STOCK helpers — unifica logica de descuento/restauracion
+// =====================================================================
+// Itera los items (o el legacy single-item) y aplica un delta al stock
+// del producto (variante o stock general). Solo afecta productos con
+// modalidad='stock'. Aliclick no descuenta stock interno.
+function _aplicarDeltaStock(p,signo){
+  const items=p.items&&p.items.length?p.items:[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}];
+  items.forEach(it=>{
+    if(!it.productoId)return;
+    const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
+    if(!prod||prod.modalidad!=='stock')return;
+    const cant=parseInt(it.cantidad)||1;
+    const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
+    if(varIdx>=0){
+      prod.variantes[varIdx].stock=Math.max(0,(prod.variantes[varIdx].stock||0)+(signo*cant));
+    } else {
+      prod.stock=Math.max(0,(prod.stock||0)+(signo*cant));
+    }
+  });
+}
+function descontarStockPedido(p){_aplicarDeltaStock(p,-1);}
+function restaurarStockPedido(p){_aplicarDeltaStock(p,+1);}
+
+// Refresca todas las vistas que pueden mostrar datos derivados de pedidos.
+// Usar despues de cualquier mutacion (crear/editar/borrar/cambio estado).
+function refrescarVistasPedidos(){
+  if(document.getElementById('lima-view'))renderLimaContent();
+  if(document.getElementById('prov-view'))renderProvinciaContent();
+  if(CURRENT_PAGE==='pedidos')renderPedidosContent();
+  if(CURRENT_PAGE==='dashboard')renderDashboard();
+  if(CURRENT_PAGE==='finanzas')renderFinanzas();
+  if(CURRENT_PAGE==='flujo')renderFlujoContent();
+  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  if(CURRENT_PAGE==='comisiones')renderUsuarios();
+  if(CURRENT_PAGE==='rotulos')renderRotulosContent();
+  updateSidebarBadges();renderNotifications();
+}
+
+// =====================================================================
 // REALTIME — Actualizaciones en vivo sin recargar (no más F5)
 // =====================================================================
 let _rtChannel=null;
@@ -3995,12 +4034,15 @@ function eliminarSeleccionados(){
   const ids=[...document.querySelectorAll('.ped-chk:checked')].map(c=>parseInt(c.dataset.id));
   if(!ids.length)return;
   if(!confirm(`¿Eliminar ${ids.length} pedido(s) seleccionado(s)? Esta acción no se puede deshacer.`))return;
+  // Restaurar stock para los que estaban entregados antes de borrarlos
+  DB.pedidos.filter(p=>ids.includes(p.id)&&p.estado==='entregado').forEach(restaurarStockPedido);
   DB.pedidos=DB.pedidos.filter(p=>!ids.includes(p.id));
   if(!isAdmin()){
     if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];
     ids.forEach(id=>{if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);});
   }
-  save();renderPedidosContent();updateSidebarBadges();
+  save();
+  refrescarVistasPedidos();
 }
 
 // ── MULTI-ITEM PEDIDO ─────────────────────────────────────────────────
@@ -4346,10 +4388,25 @@ function guardarPedido(){
   if(p.estado==='entregado'&&p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
   if(id){const idx=DB.pedidos.findIndex(x=>x.id===parseInt(id));DB.pedidos[idx]=p;}
   else DB.pedidos.push(p);
-  save();closeModal('modal-pedido');renderPedidosContent();updateSidebarBadges();renderNotifications();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();if(document.getElementById('lima-view'))renderLimaContent();if(document.getElementById('prov-view'))renderProvinciaContent();
+  save();
+  closeModal('modal-pedido');
+  refrescarVistasPedidos();
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
 }
-function eliminarPedido(id){if(!confirm('¿Eliminar pedido #'+id+'?'))return;DB.pedidos=DB.pedidos.filter(x=>x.id!==id);if(!isAdmin()){if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);}save();renderPedidosContent();updateSidebarBadges();if(CURRENT_PAGE==='dashboard')renderDashboard();if(CURRENT_PAGE==='liquidacion')renderLiquidacion();}
+function eliminarPedido(id){
+  const p=DB.pedidos.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm('¿Eliminar pedido #'+id+'?'))return;
+  // Restaurar stock si estaba entregado (el descuento se hizo al marcar entregado)
+  if(p.estado==='entregado')restaurarStockPedido(p);
+  DB.pedidos=DB.pedidos.filter(x=>x.id!==id);
+  if(!isAdmin()){
+    if(!Array.isArray(DB._deletedIds))DB._deletedIds=[];
+    if(!DB._deletedIds.includes(id))DB._deletedIds.push(id);
+  }
+  save();
+  refrescarVistasPedidos();
+}
 function cambiarEstado(id,estado){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   const prev=p.estado;
@@ -4378,38 +4435,18 @@ function cambiarEstado(id,estado){
   }
   // Descontar stock al marcar como entregado
   if(estado==='entregado'&&prev!=='entregado'){
-    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
-      if(!it.productoId)return;
-      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-      if(prod&&prod.modalidad==='stock'){
-        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-        if(varIdx>=0)prod.variantes[varIdx].stock=Math.max(0,prod.variantes[varIdx].stock-(parseInt(it.cantidad)||1));
-        else prod.stock=Math.max(0,(prod.stock||0)-(parseInt(it.cantidad)||1));
-      }
-    });
+    descontarStockPedido(p);
     // Provincia: si se entregó, limpiar adelanto y pendiente
     if(p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
   }
   // Revertir stock si se deshace entregado
   if(prev==='entregado'&&estado!=='entregado'){
-    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
-      if(!it.productoId)return;
-      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-      if(prod&&prod.modalidad==='stock'){
-        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-        if(varIdx>=0)prod.variantes[varIdx].stock=(prod.variantes[varIdx].stock||0)+(parseInt(it.cantidad)||1);
-        else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
-      }
-    });
+    restaurarStockPedido(p);
     // Restaurar pendiente en provincia (estaba en 0 por la entrega)
     if(p.zona==='provincia'&&p.precio)p.pendiente=Math.max(0,p.precio-(p.adelanto||0));
   }
-  save();renderNotifications();updateSidebarBadges();
-  if(document.getElementById('lima-view'))renderLimaContent();
-  if(document.getElementById('prov-view'))renderProvinciaContent();
-  if(CURRENT_PAGE==='dashboard')renderDashboard();
-  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
-  if(CURRENT_PAGE==='rotulos')renderRotulosContent();
+  save();
+  refrescarVistasPedidos();
 }
 
 function marcarDevuelto(id){
@@ -4445,23 +4482,13 @@ function confirmarDevolucion(id){
   // Tracking provincia: marcar devuelto sin recoger si llegó a agencia pero no se entregó
   if(p.zona==='provincia'&&p.fechaAgencia&&!p.fechaEntregado)p.devueltoSinRecoger=true;
   if(prev==='entregado'){
-    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
-      if(!it.productoId)return;
-      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-      if(prod&&prod.modalidad==='stock'){
-        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-        if(varIdx>=0)prod.variantes[varIdx].stock=(prod.variantes[varIdx].stock||0)+(parseInt(it.cantidad)||1);
-        else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
-      }
-    });
+    restaurarStockPedido(p);
+    // Restaurar pendiente provincia (estaba en 0 por la entrega)
+    if(p.zona==='provincia'&&p.precio)p.pendiente=Math.max(0,p.precio-(p.adelanto||0));
   }
-  save();renderNotifications();updateSidebarBadges();
+  save();
   document.getElementById('modal-devolucion').remove();
-  if(document.getElementById('lima-view'))renderLimaContent();
-  if(document.getElementById('prov-view'))renderProvinciaContent();
-  if(CURRENT_PAGE==='dashboard')renderDashboard();
-  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
-  if(CURRENT_PAGE==='rotulos')renderRotulosContent();
+  refrescarVistasPedidos();
 }
 
 // =====================================================================
@@ -5381,29 +5408,12 @@ function aplicarCambioEstadoTracking(p,prevEstado,newEstado){
   p.historial.push({estado:newEstado,ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'tracking-timeline'});
   // Descontar stock al marcar entregado
   if(newEstado==='entregado'&&prevEstado!=='entregado'){
-    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
-      if(!it.productoId)return;
-      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-      if(prod&&prod.modalidad==='stock'){
-        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-        if(varIdx>=0)prod.variantes[varIdx].stock=Math.max(0,prod.variantes[varIdx].stock-(parseInt(it.cantidad)||1));
-        else prod.stock=Math.max(0,(prod.stock||0)-(parseInt(it.cantidad)||1));
-      }
-    });
+    descontarStockPedido(p);
     if(p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
   }
   // Revertir stock al desmarcar entregado
   if(prevEstado==='entregado'&&newEstado!=='entregado'){
-    (p.items||[{productoId:p.productoId,variante:p.variante,cantidad:p.cantidad}]).forEach(it=>{
-      if(!it.productoId)return;
-      const prod=DB.productos.find(x=>x.id===parseInt(it.productoId));
-      if(prod&&prod.modalidad==='stock'){
-        const varIdx=prod.variantes&&it.variante?prod.variantes.findIndex(v=>v.nombre===it.variante):-1;
-        if(varIdx>=0)prod.variantes[varIdx].stock=(prod.variantes[varIdx].stock||0)+(parseInt(it.cantidad)||1);
-        else prod.stock=(prod.stock||0)+(parseInt(it.cantidad)||1);
-      }
-    });
-    // Restaurar pendiente (provincia)
+    restaurarStockPedido(p);
     if(p.zona==='provincia'&&p.precio){p.pendiente=Math.max(0,p.precio-(p.adelanto||0));}
   }
   return true;
@@ -7226,17 +7236,22 @@ function renderFlujoContent(){
 
   const porDia=dias.map(dia=>{
     const entDia=ent.filter(p=>p.fecha===dia);
+    const devDia=ped.filter(p=>p.estado==='devuelto'&&p.fecha===dia);
     const ing=entDia.reduce((s,p)=>s+(p.precio||0),0);
     const cprodD=entDia.reduce((s,p)=>s+(p.cprod||0),0);
     const cenvD=entDia.reduce((s,p)=>s+(p.cenv||0),0);
     const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
+    const ccomD=entDia.reduce((s,p)=>s+comisionDePedido(p),0);
+    const cDevD=devDia.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
     const gastosDia=(DB.gastos||[]).filter(g=>g.fecha===dia).reduce((s,g)=>s+(g.monto||0),0);
     // Entradas reales del día: adelantos cobrados de pedidos nuevos de provincia
     const entradas=ped.filter(p=>p.zona==='provincia'&&p.fecha===dia&&(p.adelanto||0)>0)
       .reduce((s,p)=>s+(p.adelanto||0),0);
     const dow=DOW[new Date(dia+'T12:00:00').getDay()];
-    return {dia,dow,ing,pub,gastos:gastosDia,entradas,util:ing-cprodD-cenvD-cembD-pub-gastosDia,ent:entDia.length};
+    // Util consistente con Dashboard/Finanzas: ing - cprod - cenv - cemb - pub - gastos - com - cDev
+    const util=ing-cprodD-cenvD-cembD-pub-gastosDia-ccomD-cDevD;
+    return {dia,dow,ing,pub,gastos:gastosDia,entradas,util,ent:entDia.length,com:ccomD,cdev:cDevD};
   });
 
   const maxBar=Math.max(...porDia.map(d=>Math.max(d.ing,d.pub+d.gastos)),1);
@@ -7700,7 +7715,9 @@ function liquidarPedido(id){
   const p=DB.pedidos.find(x=>x.id===id);
   if(!p)return;
   p.liquidado=true;p.fechaLiq=hoy();
-  save();renderLiquidacion();
+  if(!p.historial)p.historial=[];
+  p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-page'});
+  save();refrescarVistasPedidos();
 }
 function liquidarCourier(courier,neto){
   const peds=DB.pedidos.filter(p=>p.zona==='lima'&&p.estado==='entregado'&&(p.courier||'Sin asignar')===courier&&!p.liquidado);
@@ -7711,14 +7728,16 @@ function liquidarCourier(courier,neto){
     if(!p.historial)p.historial=[];
     p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-bulk',cenv:p.cenv});
   });
-  save();renderLiquidacion();updateSidebarBadges();
+  save();refrescarVistasPedidos();
 }
 
 function revertirLiquidacion(id){
   if(!confirm('¿Revertir este pedido a "No Liquidado"?'))return;
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   p.liquidado=false;delete p.fechaLiq;
-  save();renderLiquidacion();
+  if(!p.historial)p.historial=[];
+  p.historial.push({estado:'liquidacion-revertida',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'liquidacion-page'});
+  save();refrescarVistasPedidos();
 }
 
 // =====================================================================
@@ -7816,10 +7835,7 @@ function confirmarLiquidar(id){
   p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar',cenv:p.cenv});
   save();
   document.getElementById('modal-liq')?.remove();
-  if(document.getElementById('lima-view'))renderLimaContent();
-  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
-  if(CURRENT_PAGE==='dashboard')renderDashboard();
-  updateSidebarBadges();renderNotifications();
+  refrescarVistasPedidos();
   showToast(`✅ Pedido #${id} liquidado`,'success',2200);
 }
 
@@ -7832,10 +7848,7 @@ function confirmarRevertirLiq(id){
   p.historial.push({estado:'liquidacion-revertida',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar'});
   save();
   document.getElementById('modal-rev-liq')?.remove();
-  if(document.getElementById('lima-view'))renderLimaContent();
-  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
-  if(CURRENT_PAGE==='dashboard')renderDashboard();
-  updateSidebarBadges();renderNotifications();
+  refrescarVistasPedidos();
   showToast(`↩️ Liquidación de #${id} revertida`,'warn',2200);
 }
 

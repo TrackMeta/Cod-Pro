@@ -5011,8 +5011,19 @@ function renderLimaContent(){
           +'<option value="entregado" '+(p.estado==='entregado'?'selected':'')+'>&#128230; Entregado</option>'
           +'<option value="devuelto" '+(p.estado==='devuelto'?'selected':'')+'>&#8617;&#65039; Devuelto</option>'
           +'<option value="rechazado" '+(p.estado==='rechazado'?'selected':'')+'>&#10060; Rechazado</option>'
-          +'</select>'+motivo+'</td>'
-          +'<td><div style="display:flex;gap:4px">'
+          +'</select>'+motivo+'</td>';
+        // Botón de liquidación rápida (solo si el pedido está entregado)
+        let liqBtn='';
+        if(p.estado==='entregado'){
+          if(p.liquidado){
+            const fLiq=fechaCorta(p.fechaLiq||'')||'';
+            liqBtn='<button class="btn btn-ghost btn-xs" onclick="toggleLiquidadoPedido('+p.id+')" title="Liquidado'+(fLiq?' el '+fLiq:'')+'. Click para revertir." style="background:rgba(16,212,106,.15);color:var(--green);font-weight:700;white-space:nowrap">&#9989; Liq.'+(fLiq?' '+fLiq:'')+'</button>';
+          } else {
+            liqBtn='<button class="btn btn-ghost btn-xs" onclick="toggleLiquidadoPedido('+p.id+')" title="Marcar como liquidado por courier" style="background:rgba(240,165,32,.18);color:var(--amber);font-weight:700;white-space:nowrap">&#128181; Liquidar</button>';
+          }
+        }
+        limaHtml+='<td><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">'
+          +liqBtn
           +'<button class="btn btn-ghost btn-xs" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
           +'<button class="btn btn-ghost btn-xs" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'
           +'</div></td>'
@@ -7537,6 +7548,96 @@ function revertirLiquidacion(id){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   p.liquidado=false;delete p.fechaLiq;
   save();renderLiquidacion();
+}
+
+// =====================================================================
+// LIQUIDACIÓN RÁPIDA — Acceso desde Acciones de Lima Control de Envío
+// =====================================================================
+function toggleLiquidadoPedido(id){
+  const p=DB.pedidos.find(x=>x.id===id);
+  if(!p)return;
+  if(p.estado!=='entregado'){
+    showToast('Solo pedidos entregados pueden liquidarse','warn',2500);
+    return;
+  }
+  if(p.liquidado){
+    // Revertir — restricto a admin para auditoría
+    if(!isAdmin()){
+      showToast('Solo el admin puede revertir una liquidación','warn',3000);
+      return;
+    }
+    const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-rev-liq';
+    mod.innerHTML=`<div class="modal sm">
+      <div class="modal-h"><div class="modal-title">↩️ Revertir liquidación</div><div class="mc" onclick="document.getElementById('modal-rev-liq').remove()">×</div></div>
+      <div class="abox abox-amber" style="margin-bottom:14px"><span class="abox-icon">⚠️</span><div class="abox-text">Este pedido volverá a aparecer como <b>pendiente de cobro</b> en la sección Liquidación Courier.</div></div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;background:var(--surface3);padding:12px;border-radius:8px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">Pedido #${p.id} · ${p.nombre}</div>
+        <div style="font-size:12px;color:var(--text3)">Liquidado el ${fechaCorta(p.fechaLiq||'')||'(sin fecha)'}</div>
+        <div style="font-size:12px;color:var(--text3)">Courier: ${p.courier||'Sin asignar'}</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-danger" onclick="confirmarRevertirLiq(${p.id})">Sí, revertir</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('modal-rev-liq').remove()">Cancelar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mod);
+  } else {
+    // Liquidar
+    const com=CFG.comLima||1;
+    const neto=(p.precio||0)-com;
+    const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-liq';
+    mod.innerHTML=`<div class="modal sm">
+      <div class="modal-h"><div class="modal-title">💵 Liquidar pedido #${p.id}</div><div class="mc" onclick="document.getElementById('modal-liq').remove()">×</div></div>
+      <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">${p.nombre} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
+        <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">📦 ${p.producto||''}</div>
+        <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Cobrado al cliente:</span><span class="mono" style="font-weight:700">${fmt(p.precio||0)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Comisión courier:</span><span class="mono" style="color:var(--red)">−${fmt(com)}</span></div>
+          <div style="border-top:1px solid var(--border);padding-top:7px;display:flex;justify-content:space-between"><span style="font-weight:700">Neto a tu favor:</span><span class="mono" style="font-weight:800;color:var(--green);font-size:16px">${fmt(neto)}</span></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">🛵 Courier: <b style="color:var(--text2)">${p.courier||'Sin asignar'}</b></div>
+      </div>
+      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Confirma SOLO si el courier <b>ya te entregó el dinero</b> de este pedido.</div></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="confirmarLiquidar(${p.id})">✅ Confirmar liquidación</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('modal-liq').remove()">Cancelar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mod);
+  }
+}
+
+function confirmarLiquidar(id){
+  const p=DB.pedidos.find(x=>x.id===id);
+  if(!p)return;
+  p.liquidado=true;
+  p.fechaLiq=hoy();
+  if(!p.historial)p.historial=[];
+  p.historial.push({estado:'liquidado',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar'});
+  save();
+  document.getElementById('modal-liq')?.remove();
+  if(document.getElementById('lima-view'))renderLimaContent();
+  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  if(CURRENT_PAGE==='dashboard')renderDashboard();
+  updateSidebarBadges();renderNotifications();
+  showToast(`✅ Pedido #${id} liquidado`,'success',2200);
+}
+
+function confirmarRevertirLiq(id){
+  const p=DB.pedidos.find(x=>x.id===id);
+  if(!p)return;
+  p.liquidado=false;
+  delete p.fechaLiq;
+  if(!p.historial)p.historial=[];
+  p.historial.push({estado:'liquidacion-revertida',ts:new Date().toISOString(),user:SESSION?.name||'Sistema',fuente:'lima-liquidar'});
+  save();
+  document.getElementById('modal-rev-liq')?.remove();
+  if(document.getElementById('lima-view'))renderLimaContent();
+  if(CURRENT_PAGE==='liquidacion')renderLiquidacion();
+  if(CURRENT_PAGE==='dashboard')renderDashboard();
+  updateSidebarBadges();renderNotifications();
+  showToast(`↩️ Liquidación de #${id} revertida`,'warn',2200);
 }
 
 // =====================================================================

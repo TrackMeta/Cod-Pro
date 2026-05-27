@@ -3953,6 +3953,7 @@ function renderPedidosContent(){
     <td>${badge(p.estado)}</td>
     <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px">❌ Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-xs" onclick="verResumenPedido(${p.id})" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">💰</button>
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarPedido(${p.id})" title="Eliminar">🗑️</button>
@@ -5036,6 +5037,7 @@ function renderLimaContent(){
         }
         limaHtml+='<td><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">'
           +liqBtn
+          +'<button class="btn btn-ghost btn-xs" onclick="verResumenPedido('+p.id+')" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">&#128176;</button>'
           +'<button class="btn btn-ghost btn-xs" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
           +'<button class="btn btn-ghost btn-xs" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'
           +'</div></td>'
@@ -5256,6 +5258,7 @@ function renderProvinciaContent(){
     </td>
     <td><div style="display:flex;gap:4px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-xs" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp" style="background:rgba(37,211,102,.10);color:#25D366">📲</button>
+      <button class="btn btn-ghost btn-xs" onclick="verResumenPedido(${p.id})" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">💰</button>
       <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar pedido">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
     </div></td>
@@ -5607,6 +5610,141 @@ function renderMensajeWALista(p){
       </div>
     </div>`;
   }).join('')||`<div class="empty" style="padding:30px">Sin plantillas. Crea desde la página "Plantillas WA".</div>`;
+}
+
+// =====================================================================
+// 💰 RESUMEN FINANCIERO POR PEDIDO
+// =====================================================================
+function verResumenPedido(id){
+  const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  const items=p.items&&p.items.length?p.items:[{nombre:p.producto||'(sin nombre)',cantidad:p.cantidad||1,precio:p.precio||0,cprod:p.cprod||0,productoId:p.productoId}];
+  const cantTotal=items.reduce((s,it)=>s+(parseInt(it.cantidad)||1),0);
+  const precioTotal=parseFloat(p.precio)||0;
+  const cprodTotal=parseFloat(p.cprod)||0;
+  const cenv=parseFloat(p.cenv)||0;
+  const embUnit=parseFloat(p.emb)||0;
+  const embTotal=embUnit*cantTotal;
+  const cenvEfectivo=p.cenvCobrado===false?0:cenv;
+  const comision=comisionDePedido(p);
+  const ganBruta=precioTotal-cprodTotal;
+  const gananciaNeta=precioTotal-cprodTotal-cenvEfectivo-embTotal-comision;
+  const margen=precioTotal>0?(gananciaNeta/precioTotal*100):0;
+  const esLima=p.zona==='lima';
+  const esEntregado=p.estado==='entregado';
+  const esDevuelto=p.estado==='devuelto'||p.estado==='rechazado';
+  // Asesor info
+  const asesor=p.vendedor?DB.asesores.find(a=>String(a.id)===String(p.vendedor)):null;
+  const asesorNombre=asesor?asesor.nombre:(p.vendedor?'(asesor borrado)':'Sin asignar (admin)');
+  // Estado visual del cobro
+  let cobroEstado='';
+  if(esLima){
+    if(esEntregado){
+      if(p.liquidado)cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(16,212,106,.12);border-radius:6px;font-size:12px;color:var(--green);font-weight:700">✅ Liquidado por courier${p.fechaLiq?' el '+fechaCorta(p.fechaLiq):''}</div>`;
+      else cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(240,165,32,.12);border-radius:6px;font-size:12px;color:var(--amber);font-weight:700">💵 Pendiente: courier debe entregar S/${(precioTotal-cenvEfectivo).toFixed(2)}</div>`;
+    } else if(p.estado==='enviado')cobroEstado=`<div style="font-size:12px;color:var(--text3);padding:6px 10px">🚚 En camino con courier — sin cobro aún</div>`;
+    else if(p.estado==='confirmado')cobroEstado=`<div style="font-size:12px;color:var(--text3);padding:6px 10px">✅ Confirmado — pendiente envío</div>`;
+  } else {
+    // Provincia
+    const adel=parseFloat(p.adelanto)||0;
+    const pend=parseFloat(p.pendiente)||0;
+    if(esEntregado){
+      cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(16,212,106,.12);border-radius:6px;font-size:12px;color:var(--green);font-weight:700">✅ Entregado — cobro total recibido</div>`;
+    } else {
+      cobroEstado=`<div style="background:var(--surface3);border-radius:6px;padding:8px 10px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--text2)">Adelanto cobrado:</span><span class="mono" style="color:var(--green);font-weight:700">${fmt(adel)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Pendiente de cobro:</span><span class="mono" style="color:var(--amber);font-weight:700">${fmt(pend)}</span></div>
+      </div>`;
+    }
+  }
+  // Línea por item
+  const itemsHtml=items.map(it=>{
+    const cant=parseInt(it.cantidad)||1;
+    const itPrecio=parseFloat(it.precio)||0;
+    const itCprod=parseFloat(it.cprod)||0;
+    const itGan=itPrecio-itCprod;
+    const itCostoUnit=cant>0?itCprod/cant:0;
+    const itPrecioUnit=cant>0?itPrecio/cant:0;
+    const itVar=it.variante?' ('+it.variante+')':'';
+    return `<div style="padding:8px 0;border-bottom:1px dashed var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+        <div style="font-weight:600;font-size:13px">${it.nombre||'(sin nombre)'}${itVar} <span style="color:var(--text3);font-weight:400">×${cant}</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text3)"><span>Costo (${fmt(itCostoUnit)} c/u):</span><span class="mono">${fmt(itCprod)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text3)"><span>Venta (${fmt(itPrecioUnit)} c/u):</span><span class="mono">${fmt(itPrecio)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:${itGan>=0?'var(--green)':'var(--red)'};font-weight:700;margin-top:2px"><span>Ganancia bruta:</span><span class="mono">${fmt(itGan)}</span></div>
+    </div>`;
+  }).join('');
+  const cprodWarn=cprodTotal===0&&precioTotal>0?'<div style="font-size:10.5px;color:var(--amber);padding:6px 10px;background:rgba(240,165,32,.10);border-radius:5px;margin-top:6px">⚠️ Costo de producto en 0 — ganancia mostrada puede ser irreal. Edita el costo en el catálogo o en el pedido.</div>':'';
+  // Texto plano para copiar
+  const txtPlano=`RESUMEN PEDIDO #${p.id}
+Cliente: ${p.nombre||''}
+Producto: ${p.producto||''}
+─────────────────────
+Cobrado: S/${precioTotal.toFixed(2)}
+Costo productos: S/${cprodTotal.toFixed(2)}
+Envío (${esLima?'Lima':'Provincia'}): S/${cenvEfectivo.toFixed(2)}
+Embalaje: S/${embTotal.toFixed(2)}
+Comisión ${asesorNombre}: S/${comision.toFixed(2)}
+─────────────────────
+GANANCIA NETA: S/${gananciaNeta.toFixed(2)}
+Margen: ${margen.toFixed(1)}%`;
+  const txtB64=btoa(unescape(encodeURIComponent(txtPlano)));
+  // Render modal
+  const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-resumen-ped';
+  mod.innerHTML=`<div class="modal" style="max-width:520px">
+    <div class="modal-h">
+      <div class="modal-title">💰 Resumen financiero — Pedido #${p.id}</div>
+      <div class="mc" onclick="document.getElementById('modal-resumen-ped').remove()">×</div>
+    </div>
+
+    <!-- Header del cliente -->
+    <div style="background:var(--surface3);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">👤 ${p.nombre||'(sin nombre)'} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
+      <div style="font-size:11.5px;color:var(--text3)">📅 ${p.fecha||'sin fecha'} · 📍 ${esLima?(p.dist||'Lima'):(p.prov||'Provincia')+(p.sede?' / '+p.sede:'')} · ${badge?badge(p.estado):p.estado}</div>
+    </div>
+
+    <!-- Productos -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📦 Productos</div>
+    <div style="margin-bottom:12px">${itemsHtml}</div>
+    ${cprodWarn}
+
+    <!-- Costos logísticos + comisión -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">🛵 Costos logísticos + Comisión</div>
+    <div style="background:var(--surface3);border-radius:8px;padding:10px 12px;font-size:12.5px;display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Envío ${esLima?'(Lima)':'(Shalom)'}:</span><span class="mono" style="color:var(--red)">−${fmt(cenvEfectivo)}${p.cenvCobrado===false?' <span style=\"color:var(--text3);font-size:10px\">(no cobrado)</span>':''}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Embalaje (${fmt(embUnit)} × ${cantTotal} u):</span><span class="mono" style="color:var(--red)">−${fmt(embTotal)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Comisión vendedor:</span><span class="mono" style="color:var(--red)">−${fmt(comision)}</span></div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${asesor?'👤 '+asesorNombre+' · '+(esLima?'S/'+(parseFloat(asesor.comLima)||0)+' por entrega Lima':'S/'+(parseFloat(asesor.comProv)||0)+' por entrega Provincia'):'⚪ '+asesorNombre+(p.vendedor?'':' — sin comisión')}</div>
+    </div>
+
+    <!-- Cierre financiero -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">💰 Cierre financiero</div>
+    <div style="background:${gananciaNeta>=0?'linear-gradient(135deg,rgba(16,212,106,.12),rgba(16,212,106,.04))':'linear-gradient(135deg,rgba(240,68,85,.12),rgba(240,68,85,.04))'};border:1px solid ${gananciaNeta>=0?'rgba(16,212,106,.3)':'rgba(240,68,85,.3)'};border-radius:10px;padding:12px 14px;font-size:13px;display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Precio cobrado:</span><span class="mono" style="font-weight:700">${fmt(precioTotal)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">− Costo productos:</span><span class="mono" style="color:var(--red)">${fmt(cprodTotal)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">− Envío + embalaje:</span><span class="mono" style="color:var(--red)">${fmt(cenvEfectivo+embTotal)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">− Comisión vendedor:</span><span class="mono" style="color:var(--red)">${fmt(comision)}</span></div>
+      <div style="border-top:1px solid ${gananciaNeta>=0?'rgba(16,212,106,.3)':'rgba(240,68,85,.3)'};margin-top:4px;padding-top:7px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:800;font-size:14px">${gananciaNeta>=0?'🟢 GANANCIA NETA':'🔴 PÉRDIDA NETA'}:</span>
+        <div style="text-align:right">
+          <div class="mono" style="font-weight:800;font-size:18px;color:${gananciaNeta>=0?'var(--green)':'var(--red)'}">${fmt(gananciaNeta)}</div>
+          <div style="font-size:10.5px;color:var(--text3)">Margen ${margen.toFixed(1)}%</div>
+        </div>
+      </div>
+    </div>
+
+    ${esDevuelto?'<div style="margin-top:12px;padding:8px 10px;background:rgba(240,68,85,.10);border-left:3px solid var(--red);border-radius:5px;font-size:11.5px"><b style="color:var(--red)">↩️ Pedido devuelto/rechazado</b><br><span style="color:var(--text3)">'+(p.motivoDevolucion||'(sin motivo)')+'</span></div>':''}
+
+    <!-- Estado de cobro -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">📊 Estado de cobro</div>
+    ${cobroEstado}
+
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button class="btn btn-ghost" onclick="copiarWA('${txtB64}',this)">📋 Copiar resumen</button>
+      <button class="btn btn-primary" onclick="document.getElementById('modal-resumen-ped').remove()">Cerrar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mod);
 }
 
 // =====================================================================

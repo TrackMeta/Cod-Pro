@@ -5132,7 +5132,7 @@ function renderLimaContent(){
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('lima-view');if(!v)return;
   // Helper: formatear fechaCreado
-  function fmtReg(iso){if(!iso)return'—';const p=iso.split('T');const d=(p[0]||'').slice(5).split('-').reverse().join('/');const t=(p[1]||'').substring(0,5);return d+(t?' · '+t:'');}
+  function fmtReg(iso){if(!iso)return'—';const dt=new Date(iso);if(isNaN(dt))return'—';const dd=String(dt.getDate()).padStart(2,'0'),mm=String(dt.getMonth()+1).padStart(2,'0');const hh=String(dt.getHours()).padStart(2,'0'),mi=String(dt.getMinutes()).padStart(2,'0');return dd+'/'+mm+' · '+hh+':'+mi;}
   // Agrupar por fecha
   const byDateL={};
   arr.forEach(function(p){const d=p.fecha||'—';if(!byDateL[d])byDateL[d]=[];byDateL[d].push(p);});

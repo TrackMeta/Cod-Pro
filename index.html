@@ -2403,6 +2403,13 @@ function refrescarVistasPedidos(){
 // =====================================================================
 let _pedidosSnapshot={};  // {numero(string): JSON.stringify(pedido)}
 
+// Convierte una row de la tabla pedidos a un objeto pedido JS.
+// p.id SIEMPRE = row.numero (el código existente usa p.id en todos lados).
+function _rowToPedido(row){
+  if(!row)return null;
+  return {...(row.data||{}),id:row.numero};
+}
+
 function _takePedidosSnapshot(){
   _pedidosSnapshot={};
   (DB.pedidos||[]).forEach(p=>{if(p&&p.id!=null)_pedidosSnapshot[String(p.id)]=JSON.stringify(p);});
@@ -2463,80 +2470,64 @@ function initRealtime(){
   const wsId=SESSION.workspace_id;
   if(_rtChannel){try{_supabase.removeChannel(_rtChannel);}catch(_){}  _rtChannel=null;}
   if(_rtChannel2){try{_supabase.removeChannel(_rtChannel2);}catch(_){}  _rtChannel2=null;}
-  if(isAdmin()){
-    // Admin: escucha cambios de workers para auto-sincronizar
-    _rtChannel=_supabase.channel(`rt-workers-${wsId}`)
-      .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
-        async(payload)=>{
-          if(payload.eventType==='DELETE')return;
-          clearTimeout(window._rtSyncTimer);
-          window._rtSyncTimer=setTimeout(async()=>{
-            await syncWorkerChanges();
-            updateSidebarBadges();renderNotifications();
-            const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderComisiones};
-            if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-            showToast('🔄 Trabajador sincronizado','success',2000);
-          },800);
-        })
-      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
-  } else {
-    // Worker — usamos DOS canales separados (Supabase v2 tiene problemas
-    // con múltiples bindings de postgres_changes en el mismo canal).
-    // Canal 1: workspaces UPDATE (cambios oficiales del admin)
-    _rtChannel=_supabase.channel(`rt-worker-ws-${wsId}`)
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
-        payload=>{
-          const nd=payload.new;
-          if(!nd?.db_data)return;
-          DB=nd.db_data;
-          if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
-          if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
-          if(!DB.productos)DB.productos=[];if(!DB.deliveries)DB.deliveries=[];
-          if(!DB.gastos)DB.gastos=[];if(!DB.upsells)DB.upsells=[];
-          localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-          updateSidebarBadges();renderNotifications();
-          const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
-          if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-          showToast('🔄 Actualizado por admin','success',1800);
-        })
-      .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
-    // Canal 2: worker_changes (sync entre workers, sin pasar por admin)
-    _rtChannel2=_supabase.channel(`rt-worker-changes-${wsId}`)
-      .on('postgres_changes',{event:'*',schema:'public',table:'worker_changes',filter:`workspace_id=eq.${wsId}`},
-        async(payload)=>{
-          if(payload.eventType==='DELETE')return;
-          const row=payload.new;
-          if(!row||row.worker_id===SESSION.id)return;
-          const otherDB=row.db_data;
-          if(!otherDB?.pedidos)return;
-          let changed=false;
-          const pedidosMap=new Map((DB.pedidos||[]).map(p=>[p.id,p]));
-          otherDB.pedidos.forEach(wp=>{
-            if(pedidosMap.has(wp.id)){
-              const ap=pedidosMap.get(wp.id);
-              Object.keys(wp).forEach(k=>{
-                if(k==='id'||k==='_prevId')return;
-                if(JSON.stringify(ap[k])!==JSON.stringify(wp[k])){
-                  ap[k]=wp[k];
-                  changed=true;
-                }
-              });
-            } else {
-              DB.pedidos.push(wp);
-              changed=true;
+  // === Canal 1: cambios en workspaces.db_data (asesores, productos, CFG, etc.) ===
+  // Preserva DB.pedidos (los pedidos viven en su tabla, no en db_data).
+  _rtChannel=_supabase.channel(`rt-ws-${wsId}`)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'workspaces',filter:`id=eq.${wsId}`},
+      payload=>{
+        const nd=payload.new;
+        if(!nd?.db_data)return;
+        const misPedidos=DB.pedidos||[];
+        DB=nd.db_data;
+        DB.pedidos=misPedidos; // preservar — la fuente de pedidos es la tabla
+        if(nd.cfg_data)CFG=Object.assign({...CFG},nd.cfg_data);
+        if(!DB.asesores)DB.asesores=[];if(!DB.productos)DB.productos=[];
+        if(!DB.deliveries)DB.deliveries=[];if(!DB.gastos)DB.gastos=[];
+        if(!DB.upsells)DB.upsells=[];if(!DB.publicidad)DB.publicidad=[];
+        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+        refrescarVistasPedidos();
+      })
+    .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
+  // === Canal 2: tabla pedidos (TODOS reciben INSERT/UPDATE/DELETE) ===
+  _rtChannel2=_supabase.channel(`rt-pedidos-${wsId}`)
+    .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`workspace_id=eq.${wsId}`},
+      payload=>{
+        if(!DB.pedidos)DB.pedidos=[];
+        if(payload.eventType==='INSERT'){
+          const nuevo=_rowToPedido(payload.new);
+          if(nuevo&&!DB.pedidos.find(x=>x.id===nuevo.id)){
+            if(nuevo.estado==='entregado')descontarStockPedido(nuevo);
+            DB.pedidos.push(nuevo);
+          }
+        } else if(payload.eventType==='UPDATE'){
+          const actualizado=_rowToPedido(payload.new);
+          if(!actualizado)return;
+          const idx=DB.pedidos.findIndex(x=>x.id===actualizado.id);
+          if(idx>=0){
+            // Ajustar stock local en transición a/desde entregado
+            const prev=DB.pedidos[idx];
+            if(prev.estado!=='entregado'&&actualizado.estado==='entregado')descontarStockPedido(actualizado);
+            else if(prev.estado==='entregado'&&actualizado.estado!=='entregado')restaurarStockPedido(actualizado);
+            DB.pedidos[idx]=actualizado;
+          } else {
+            DB.pedidos.push(actualizado);
+          }
+        } else if(payload.eventType==='DELETE'){
+          const numBorrado=payload.old?.numero;
+          if(numBorrado!=null){
+            const idx=DB.pedidos.findIndex(x=>x.id===numBorrado);
+            if(idx>=0){
+              const elim=DB.pedidos[idx];
+              if(elim.estado==='entregado')restaurarStockPedido(elim);
+              DB.pedidos.splice(idx,1);
             }
-          });
-          if(!changed)return;
-          localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-          updateSidebarBadges();renderNotifications();
-          const renders={pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,rotulos:renderRotulos};
-          if(renders[CURRENT_PAGE])renders[CURRENT_PAGE]();
-          const otroAsesor=DB.asesores.find(a=>a.workerId===row.worker_id);
-          const otroNombre=otroAsesor?otroAsesor.nombre:'Otro trabajador';
-          showToast(`🔄 ${otroNombre} actualizó pedidos`,'success',2000);
-        })
-      .subscribe();
-  }
+          }
+        }
+        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
+        _takePedidosSnapshot(); // mantener baseline sincronizado con realtime
+        refrescarVistasPedidos();
+      })
+    .subscribe();
 }
 function updateRtIndicator(connected){
   const el=document.getElementById('rt-indicator');
@@ -2732,6 +2723,7 @@ async function restaurarBackup(index){
 }
 
 async function syncWorkerChanges(){
+  return; // OBSOLETO (Fase 3): los pedidos viven en la tabla 'pedidos'. No-op para no contaminar con worker_changes legacy.
   if(!isAdmin()||!SESSION?.workspace_id)return;
   try{
     const{data:changes}=await _supabase.from('worker_changes')
@@ -2806,63 +2798,32 @@ async function syncWorkerChanges(){
 
 async function load(){
   if(!SESSION?.workspace_id)return;
-  // Intentar cargar desde Supabase
+  // 1. Cargar db_data (asesores, productos, etc.) y CFG desde workspaces.
+  //    Los PEDIDOS ya NO se leen de aquí — vienen de la tabla pedidos.
   try{
     const{data,error}=await _supabase.from('workspaces').select('db_data,cfg_data').eq('id',SESSION.workspace_id).single();
     if(!error&&data){
       if(data.db_data)DB=data.db_data;
       if(data.cfg_data)CFG=Object.assign({...CFG},data.cfg_data);
-      // Actualizar caché local
-      localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-      localStorage.setItem(getWsKey('cfg'),JSON.stringify(CFG));
     }
   }catch(e){
-    // Fallback a localStorage si no hay conexión
     try{const d=localStorage.getItem(getWsKey('db'));if(d)DB=JSON.parse(d);}catch(_){}
     try{const c=localStorage.getItem(getWsKey('cfg'));if(c)CFG=Object.assign({...CFG},JSON.parse(c));}catch(_){}
   }
-  // Workers: cargar TODOS los cambios pendientes (propios + de otros workers)
-  // y mergearlos sobre la base del admin. Así, si un worker refresca antes
-  // de que el admin sincronice, sigue viendo los cambios de los otros workers
-  // que tenía en memoria, además de los suyos propios.
-  if(SESSION&&SESSION.role!=='admin'){
-    try{
-      const{data:wcRows}=await _supabase.from('worker_changes')
-        .select('worker_id,db_data,updated_at')
-        .eq('workspace_id',SESSION.workspace_id);
-      if(wcRows&&wcRows.length){
-        const sorted=[...wcRows].sort((a,b)=>(a.updated_at||'').localeCompare(b.updated_at||''));
-        if(!DB.pedidos)DB.pedidos=[];
-        const pedidosMap=new Map(DB.pedidos.map(p=>[p.id,p]));
-        let ownRow=null;
-        sorted.forEach(row=>{
-          if(row.worker_id===SESSION.id)ownRow=row;
-          const wDB=row.db_data;
-          if(!wDB?.pedidos)return;
-          wDB.pedidos.forEach(wp=>{
-            if(pedidosMap.has(wp.id)){
-              const ap=pedidosMap.get(wp.id);
-              Object.keys(wp).forEach(k=>{
-                if(k==='id'||k==='_prevId')return;
-                ap[k]=wp[k];
-              });
-            } else {
-              DB.pedidos.push(wp);
-              pedidosMap.set(wp.id,wp);
-            }
-          });
-        });
-        if(ownRow?.db_data?._deletedIds&&Array.isArray(ownRow.db_data._deletedIds)){
-          DB._deletedIds=ownRow.db_data._deletedIds.slice();
-          DB._deletedIds.forEach(delId=>{
-            const idx=DB.pedidos.findIndex(p=>p.id===delId);
-            if(idx>=0)DB.pedidos.splice(idx,1);
-          });
-        }
-        localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-      }
-    }catch(e){console.warn('[LOAD] excepción:',e);}
-  }
+  // 2. Cargar PEDIDOS desde la tabla (FUENTE DE VERDAD ÚNICA — Fase 3)
+  try{
+    const{data:rows,error}=await _supabase.from('pedidos')
+      .select('numero,data')
+      .eq('workspace_id',SESSION.workspace_id)
+      .order('numero',{ascending:true});
+    if(!error&&Array.isArray(rows)){
+      DB.pedidos=rows.map(_rowToPedido);
+    } else if(error){
+      console.warn('Error cargando pedidos de tabla:',error.message);
+      // Fallback: si la tabla falla, intentar leer del JSON (respaldo)
+      if(!DB.pedidos)DB.pedidos=[];
+    }
+  }catch(e){console.warn('Excepción cargando pedidos:',e);if(!DB.pedidos)DB.pedidos=[];}
   // Asegurar estructura correcta
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
   if(!DB.deliveries)DB.deliveries=[];
@@ -3045,6 +3006,20 @@ async function onSignedIn(user){
     return;
   }
   // ─────────────────────────────────────────────────────────────────
+
+  // ── Fase 3: cargar PEDIDOS desde la tabla 'pedidos' (fuente de verdad) ──
+  // Reemplaza los pedidos del JSON (db_data) — estos quedan solo como respaldo.
+  try{
+    const{data:rows,error}=await _supabase.from('pedidos')
+      .select('numero,data').eq('workspace_id',SESSION.workspace_id)
+      .order('numero',{ascending:true});
+    if(!error&&Array.isArray(rows)){
+      DB.pedidos=rows.map(_rowToPedido);
+      const _m=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
+      DB.nextId=_m+1;
+    } else if(error){console.warn('Error cargando pedidos de tabla:',error.message);}
+  }catch(e){console.warn('Excepción cargando pedidos:',e);}
+  _takePedidosSnapshot();
 
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -4413,7 +4388,7 @@ function recalcPend(){
   const pend=document.getElementById('p-pendiente');
   if(pend)pend.value=Math.max(0,totalPrecio-adv).toFixed(2);
 }
-function guardarPedido(){
+async function guardarPedido(){
   try{
   const nombre=document.getElementById('p-nombre').value.trim();
   const celular=document.getElementById('p-celular').value.trim();
@@ -4439,7 +4414,8 @@ function guardarPedido(){
   }).join(', ');
 
   const p={
-    id:id?parseInt(id):DB.nextId++,
+    // Edición: usa id existente. Nuevo: null temporal, el trigger SQL asigna numero.
+    id:id?parseInt(id):null,
     fecha:document.getElementById('p-fecha').value,
     nombre,
     celular:celFinal,
@@ -4507,9 +4483,28 @@ function guardarPedido(){
   });
   // Provincia entregado: limpiar adelanto/pendiente
   if(p.estado==='entregado'&&p.zona==='provincia'){p.adelanto=0;p.pendiente=0;}
-  if(id){const idx=DB.pedidos.findIndex(x=>x.id===parseInt(id));DB.pedidos[idx]=p;}
-  else DB.pedidos.push(p);
-  save();
+  if(id){
+    // EDITAR: actualizar local. El dual-write (save) hace UPSERT por numero.
+    const idx=DB.pedidos.findIndex(x=>x.id===parseInt(id));
+    if(idx>=0)DB.pedidos[idx]=p;
+  } else {
+    // NUEVO: INSERT a la tabla con numero asignado por el trigger SQL.
+    // Retry anti-colisión: si 2 workers crean a la vez y chocan, reintenta.
+    const dataObj={...p};delete dataObj.id;
+    let numero=null;
+    for(let intento=0;intento<6;intento++){
+      const{data:ins,error}=await _supabase.from('pedidos')
+        .insert({workspace_id:SESSION.workspace_id,numero:null,data:dataObj})
+        .select('numero').single();
+      if(!error&&ins){numero=ins.numero;break;}
+      if(error&&error.code==='23505')continue; // colisión → reintentar
+      if(error){console.warn('[pedidos] INSERT error:',error.message);alert('Error al crear pedido: '+error.message);return;}
+    }
+    if(numero==null){alert('No se pudo crear el pedido. Reintenta.');return;}
+    p.id=numero;
+    if(!DB.pedidos.find(x=>x.id===numero))DB.pedidos.push(p);
+  }
+  save(); // persiste stock en productos (+ dual-write del pedido editado/creado)
   closeModal('modal-pedido');
   refrescarVistasPedidos();
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}

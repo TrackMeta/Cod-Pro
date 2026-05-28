@@ -2450,6 +2450,7 @@ async function _dualWriteChangedPedidos(){
       const key=String(p.id);
       current.add(key);
       if(_pedidosSnapshot[key]!==JSON.stringify(p)){
+        console.log('[dual-write] cambio detectado #'+p.id+' → UPSERT');
         await _persistPedidoTabla(p);
       }
     }
@@ -2490,8 +2491,10 @@ function initRealtime(){
     .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   // === Canal 2: tabla pedidos (TODOS reciben INSERT/UPDATE/DELETE) ===
   _rtChannel2=_supabase.channel(`rt-pedidos-${wsId}`)
+    // (debug: log de suscripción del canal pedidos)
     .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`workspace_id=eq.${wsId}`},
       payload=>{
+        console.log('[RT-pedidos]',payload.eventType,'numero:',payload.new?.numero??payload.old?.numero);
         if(!DB.pedidos)DB.pedidos=[];
         if(payload.eventType==='INSERT'){
           const nuevo=_rowToPedido(payload.new);
@@ -2527,7 +2530,7 @@ function initRealtime(){
         _takePedidosSnapshot(); // mantener baseline sincronizado con realtime
         refrescarVistasPedidos();
       })
-    .subscribe();
+    .subscribe(s=>console.log('[RT-pedidos] sub:',s));
 }
 function updateRtIndicator(connected){
   const el=document.getElementById('rt-indicator');

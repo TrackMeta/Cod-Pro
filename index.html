@@ -2395,6 +2395,66 @@ function refrescarVistasPedidos(){
 }
 
 // =====================================================================
+// 🔄 DUAL-WRITE (Fase 1) — espejo de pedidos a la tabla 'pedidos'
+// La LECTURA sigue siendo del JSON (db_data). Esto solo MANTIENE la
+// tabla 'pedidos' actualizada en paralelo, para validar la consistencia
+// antes de cambiar la lectura (Fase 3). Si falla, no rompe nada — solo
+// logea con prefijo [dual-write].
+// =====================================================================
+let _pedidosSnapshot={};  // {numero(string): JSON.stringify(pedido)}
+
+function _takePedidosSnapshot(){
+  _pedidosSnapshot={};
+  (DB.pedidos||[]).forEach(p=>{if(p&&p.id!=null)_pedidosSnapshot[String(p.id)]=JSON.stringify(p);});
+}
+
+async function _persistPedidoTabla(p){
+  if(!p||p.id==null||!SESSION?.workspace_id)return;
+  const numero=parseInt(p.id);
+  if(isNaN(numero))return;
+  try{
+    const{_rowId,...data}=p; // excluir internals
+    const{error}=await _supabase.from('pedidos').upsert(
+      {workspace_id:SESSION.workspace_id,numero,data},
+      {onConflict:'workspace_id,numero'}
+    );
+    if(error)console.warn('[dual-write] UPSERT #'+numero+':',error.message);
+  }catch(e){console.warn('[dual-write] excepción UPSERT:',e);}
+}
+
+async function _deletePedidoTablaPorNumero(numero){
+  if(numero==null||!SESSION?.workspace_id)return;
+  try{
+    const{error}=await _supabase.from('pedidos').delete()
+      .eq('workspace_id',SESSION.workspace_id).eq('numero',parseInt(numero));
+    if(error)console.warn('[dual-write] DELETE #'+numero+':',error.message);
+  }catch(e){console.warn('[dual-write] excepción DELETE:',e);}
+}
+
+// Compara estado actual de pedidos vs snapshot y sincroniza SOLO los
+// cambios a la tabla. Fire-and-forget desde save().
+async function _dualWriteChangedPedidos(){
+  if(!SESSION?.workspace_id)return;
+  try{
+    const current=new Set();
+    // Upsert nuevos/editados
+    for(const p of (DB.pedidos||[])){
+      if(!p||p.id==null)continue;
+      const key=String(p.id);
+      current.add(key);
+      if(_pedidosSnapshot[key]!==JSON.stringify(p)){
+        await _persistPedidoTabla(p);
+      }
+    }
+    // Borrar los que estaban antes pero ya no
+    for(const key in _pedidosSnapshot){
+      if(!current.has(key))await _deletePedidoTablaPorNumero(key);
+    }
+    _takePedidosSnapshot(); // baseline nuevo
+  }catch(e){console.warn('[dual-write] excepción sync:',e);}
+}
+
+// =====================================================================
 // REALTIME — Actualizaciones en vivo sin recargar (no más F5)
 // =====================================================================
 let _rtChannel=null,_rtChannel2=null;
@@ -2562,6 +2622,9 @@ async function save(){
   if(!SESSION?.workspace_id)return;
   if(SESSION.saViewMode){console.log('SA view mode — save blocked');return;}
   try{localStorage.setItem(getWsKey('db'),JSON.stringify(DB));}catch(e){}
+  // 🔄 DUAL-WRITE (Fase 1): espejar cambios de pedidos a la tabla 'pedidos'.
+  // Fire-and-forget — no bloquea ni rompe el flujo actual.
+  _dualWriteChangedPedidos();
   if(!isAdmin()){
     try{
       await _supabase.from('worker_changes').upsert({
@@ -2763,21 +2826,15 @@ async function load(){
   // de que el admin sincronice, sigue viendo los cambios de los otros workers
   // que tenía en memoria, además de los suyos propios.
   if(SESSION&&SESSION.role!=='admin'){
-    console.log('[LOAD] worker, mi id:',SESSION.id);
-    console.log('[LOAD] DB inicial (de workspaces):',DB.pedidos?.length,'pedidos');
     try{
-      const{data:wcRows,error:wcErr}=await _supabase.from('worker_changes')
+      const{data:wcRows}=await _supabase.from('worker_changes')
         .select('worker_id,db_data,updated_at')
         .eq('workspace_id',SESSION.workspace_id);
-      if(wcErr)console.warn('[LOAD] error leyendo worker_changes:',wcErr);
-      console.log('[LOAD] worker_changes rows:',wcRows?.length||0);
-      if(wcRows)wcRows.forEach(r=>console.log('  • worker:',r.worker_id===SESSION.id?'YO':r.worker_id,'updated:',r.updated_at,'pedidos:',r.db_data?.pedidos?.length||0));
       if(wcRows&&wcRows.length){
         const sorted=[...wcRows].sort((a,b)=>(a.updated_at||'').localeCompare(b.updated_at||''));
         if(!DB.pedidos)DB.pedidos=[];
         const pedidosMap=new Map(DB.pedidos.map(p=>[p.id,p]));
         let ownRow=null;
-        let added=0,merged=0;
         sorted.forEach(row=>{
           if(row.worker_id===SESSION.id)ownRow=row;
           const wDB=row.db_data;
@@ -2789,24 +2846,19 @@ async function load(){
                 if(k==='id'||k==='_prevId')return;
                 ap[k]=wp[k];
               });
-              merged++;
             } else {
               DB.pedidos.push(wp);
               pedidosMap.set(wp.id,wp);
-              added++;
             }
           });
         });
-        console.log('[LOAD] merge: agregados',added,'· actualizados',merged);
         if(ownRow?.db_data?._deletedIds&&Array.isArray(ownRow.db_data._deletedIds)){
           DB._deletedIds=ownRow.db_data._deletedIds.slice();
           DB._deletedIds.forEach(delId=>{
             const idx=DB.pedidos.findIndex(p=>p.id===delId);
             if(idx>=0)DB.pedidos.splice(idx,1);
           });
-          console.log('[LOAD] aplicados',DB._deletedIds.length,'borrados propios');
         }
-        console.log('[LOAD] DB final:',DB.pedidos.length,'pedidos');
         localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
       }
     }catch(e){console.warn('[LOAD] excepción:',e);}
@@ -2821,6 +2873,8 @@ async function load(){
   // Recalculate nextId from max existing ID to avoid gaps when orders are deleted
   const maxId=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
   DB.nextId=maxId+1;
+  // 🔄 DUAL-WRITE (Fase 1): foto inicial del estado de pedidos como baseline
+  _takePedidosSnapshot();
 }
 
 function saveConfig(){

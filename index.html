@@ -920,7 +920,7 @@ td{padding:11px 14px;font-size:13px}
       </nav>
       <div class="sidebar-bottom">
         <div class="theme-toggle" onclick="toggleTheme()">
-          <span class="theme-toggle-label" id="theme-label">🌙 Modo oscuro</span>
+          <span class="theme-toggle-label" id="theme-label" style="display:inline-flex;align-items:center;gap:6px"><span data-ic="moon" data-ic-size="14"></span> Modo oscuro</span>
           <div class="toggle-sw on" id="theme-switch"></div>
         </div>
         <div class="user-card" style="margin-top:6px">
@@ -962,7 +962,7 @@ td{padding:11px 14px;font-size:13px}
             </div>
           </div>
           <span id="rt-indicator" class="rt-off" title="Tiempo real desconectado"><span id="rt-dot"></span>RT</span>
-          <div class="icon-btn" onclick="toggleNotifPanel()" id="notif-bell">🔔<div class="notif-dot" id="notif-dot" style="display:none"></div></div>
+          <div class="icon-btn" onclick="toggleNotifPanel()" id="notif-bell"><span data-ic="bell" data-ic-size="16"></span><div class="notif-dot" id="notif-dot" style="display:none"></div></div>
           <button class="btn btn-primary btn-sm" onclick="showPage('pedidos');setTimeout(openNuevoPedido,100)">+ Pedido</button>
         </div>
       </div>
@@ -980,7 +980,7 @@ td{padding:11px 14px;font-size:13px}
   <!-- NOTIF PANEL -->
   <div class="notif-panel" id="notif-panel">
     <div class="notif-panel-header">
-      <span>🔔 Alertas</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span data-ic="bell" data-ic-size="15"></span> Alertas</span>
       <div style="display:flex;gap:6px;align-items:center">
         <button onclick="clearAllNotif()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:11px;padding:3px 8px" title="Mover todas a papelera">Limpiar</button>
         <div class="mc" onclick="toggleNotifPanel()">×</div>
@@ -988,7 +988,7 @@ td{padding:11px 14px;font-size:13px}
     </div>
     <div class="notif-panel-tabs">
       <div class="notif-ptab active" id="ntab-active" onclick="switchNotifTab('active')">Activas</div>
-      <div class="notif-ptab" id="ntab-trash" onclick="switchNotifTab('trash')">🗑️ Papelera</div>
+      <div class="notif-ptab" id="ntab-trash" onclick="switchNotifTab('trash')"><span data-ic="trash" data-ic-size="13" style="vertical-align:-2px"></span> Papelera</div>
     </div>
     <div id="notif-list"></div>
   </div>
@@ -1003,7 +1003,7 @@ td{padding:11px 14px;font-size:13px}
   <div class="modal-h"><div class="modal-title" id="mp-title">Nuevo Pedido</div><div class="mc" onclick="closeModal('modal-pedido')">×</div></div>
   <input type="hidden" id="p-id">
   <!-- Fecha de registro (solo en modo edición) -->
-  <div id="fg-fecha-reg" style="display:none;margin-bottom:6px;padding:6px 10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)">📋 Registrado el: <span id="p-fecha-creado" style="color:var(--text2);font-weight:600"></span></div>
+  <div id="fg-fecha-reg" style="display:none;margin-bottom:6px;padding:6px 10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)"><span data-ic="note" data-ic-size="12"></span> Registrado el: <span id="p-fecha-creado" style="color:var(--text2);font-weight:600"></span></div>
   <!-- Cliente -->
   <div class="form-grid">
     <div class="fg"><label>Fecha</label><input type="date" id="p-fecha"></div>
@@ -1011,7 +1011,7 @@ td{padding:11px 14px;font-size:13px}
     <div class="fg"><label>Celular</label><input type="tel" id="p-celular" placeholder="+51 999 999 999" oninput="checkDuplicado()"></div>
     <div id="dup-alert-box" class="abox abox-amber" style="display:none;grid-column:1/-1"></div>
     <div class="fg"><label>DNI (opcional)</label><input type="text" id="p-dni" placeholder="12345678"></div>
-    <div class="fg"><label>👤 Vendedor / Asesor</label>
+    <div class="fg"><label><span data-ic="user" data-ic-size="13"></span> Vendedor / Asesor</label>
       <select id="p-vendedor">
         <option value="">— Sin asignar —</option>
       </select>
@@ -1021,7 +1021,7 @@ td{padding:11px 14px;font-size:13px}
 
   <!-- PRODUCTOS (multi-item) -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">🛒 Productos del pedido</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Productos del pedido</div>
     <button class="btn btn-ghost btn-sm" type="button" onclick="agregarItemPedido()">+ Agregar producto</button>
   </div>
   <div id="p-items-container"></div>
@@ -1040,7 +1040,7 @@ td{padding:11px 14px;font-size:13px}
 
   <!-- UPSELL -->
   <div style="margin-top:10px;padding:11px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px">⬆️ Upsell / Order Bump ofrecido</div>
+    <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Upsell / Order Bump ofrecido</div>
     <div class="form-grid">
       <div class="fg"><label>Producto upsell</label>
         <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value)"><option value="">— Sin upsell —</option></select>
@@ -1582,7 +1582,7 @@ td{padding:11px 14px;font-size:13px}
         <option value="ÓVALO MARIÁTEGUI" >ÓVALO MARIÁTEGUI</option>
       </select>
     </div>
-    <div class="fg" id="pg-tam" style="display:none"><label>📦 Tamaño paquete Shalom</label>
+    <div class="fg" id="pg-tam" style="display:none"><label><span data-ic="package" data-ic-size="13"></span> Tamaño paquete Shalom</label>
       <select id="p-shalom-tam">
         <option value="SOBRE">SOBRE</option>
         <option value="PAQUETE XXS">PAQUETE XXS</option>
@@ -2094,8 +2094,8 @@ td{padding:11px 14px;font-size:13px}
   <div class="fg" id="pg-dir" style="margin-top:10px"><label>Dirección completa</label><input type="text" id="p-dir" placeholder="Av. / Jr. / Mz."></div>
   <div class="form-grid" id="pg-lima-extra" style="margin-top:8px;display:none">
     <div class="fg"><label>Referencia <span style="font-size:10px;color:var(--text3)">(opcional)</span></label><input type="text" id="p-ref" placeholder="Ej: Frente al parque, casa azul"></div>
-    <div class="fg"><label>📍 GPS / Maps</label><input type="text" id="p-gps" placeholder="-12.0867, -77.0050 o link de Maps"></div>
-    <div class="fg"><label>💳 Método de cobranza</label>
+    <div class="fg"><label><span data-ic="map-pin" data-ic-size="13"></span> GPS / Maps</label><input type="text" id="p-gps" placeholder="-12.0867, -77.0050 o link de Maps"></div>
+    <div class="fg"><label><span data-ic="credit-card" data-ic-size="13"></span> Método de cobranza</label>
       <select id="p-eva-metodo">
         <option value="EFECTIVO">EFECTIVO</option>
         <option value="TRANSFERENCIA / YAPE">TRANSFERENCIA / YAPE</option>
@@ -2104,7 +2104,7 @@ td{padding:11px 14px;font-size:13px}
         <option value="POS">POS</option>
       </select>
     </div>
-    <div class="fg"><label>📅 Fecha entrega Lima <span style="font-size:10px;color:var(--text3)">(opcional)</span></label><input type="date" id="p-fecha-entrega-lima"></div>
+    <div class="fg"><label><span data-ic="calendar" data-ic-size="13"></span> Fecha entrega Lima <span style="font-size:10px;color:var(--text3)">(opcional)</span></label><input type="date" id="p-fecha-entrega-lima"></div>
   </div>
 
   <!-- PROVINCIA: adelanto -->
@@ -2147,7 +2147,7 @@ td{padding:11px 14px;font-size:13px}
   <input type="hidden" id="tr-id">
   <div id="tr-header" style="background:var(--surface3);border-radius:10px;padding:12px 14px;margin-bottom:14px"></div>
 
-  <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📋 Datos de envío Shalom</div>
+  <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:inline-flex;align-items:center;gap:6px"><span data-ic="note" data-ic-size="13"></span> Datos de envío Shalom</div>
 
   <div class="fg" style="margin-bottom:10px">
     <label>Número de orden</label>
@@ -2166,7 +2166,7 @@ td{padding:11px 14px;font-size:13px}
   </div>
 
   <div class="fg" style="margin-bottom:14px">
-    <label>🔑 Clave de recojo</label>
+    <label><span data-ic="key" data-ic-size="13"></span> Clave de recojo</label>
     <div style="display:flex;gap:6px;align-items:center">
       <input type="text" id="tr-clave" placeholder="Ej: 4521" style="flex:1;font-family:var(--mono);font-weight:800;font-size:18px;letter-spacing:.08em">
       <button type="button" class="btn btn-ghost btn-xs" onclick="copiarTrValor('tr-clave',this)" title="Copiar clave">📋</button>
@@ -2174,7 +2174,7 @@ td{padding:11px 14px;font-size:13px}
   </div>
 
   <div id="tr-timeline" style="margin-top:14px;padding:12px;background:var(--surface3);border-radius:10px"></div>
-  <div style="font-size:10.5px;color:var(--text3);margin-top:6px;padding-left:4px">💡 Click en el círculo para marcar/desmarcar (cascade hacia atrás al marcar, hacia adelante al desmarcar) · Click en la fecha para editar manualmente</div>
+  <div style="font-size:10.5px;color:var(--text3);margin-top:6px;padding-left:4px"><span data-ic="lightbulb" data-ic-size="12"></span> Click en el círculo para marcar/desmarcar (cascade hacia atrás al marcar, hacia adelante al desmarcar) · Click en la fecha para editar manualmente</div>
 
   <div style="display:flex;gap:10px;margin-top:18px">
     <button class="btn btn-primary" onclick="guardarTracking()"><span data-ic="save" data-ic-size="15"></span> Guardar</button>
@@ -2220,7 +2220,7 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">🎨 Colores / Variantes y Stock</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="palette" data-ic-size="14"></span> Colores / Variantes y Stock</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Si no hay variantes, usa solo "Stock general"</div>
       </div>
       <button class="btn btn-ghost btn-sm" type="button" onclick="agregarVariante()">+ Variante</button>
@@ -2235,7 +2235,7 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber)">🏷️ Ofertas por cantidad</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Ofertas por cantidad</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/79 · 2×S/119 · 3×S/149 — aparecen como botones al registrar pedidos</div>
       </div>
       <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaProd()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
@@ -2265,7 +2265,7 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber)">🏷️ Ofertas por cantidad</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Ofertas por cantidad</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/25 · 2×S/40 — aparecen como botones al registrar pedidos</div>
       </div>
       <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaUp()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
@@ -3500,13 +3500,13 @@ function toggleTheme(){
   const next=cur==='dark'?'light':'dark';
   document.documentElement.setAttribute('data-theme',next);
   localStorage.setItem('cod_v3_theme',next);
-  document.getElementById('theme-label').textContent=next==='dark'?'🌙 Modo oscuro':'☀️ Modo claro';
+  document.getElementById('theme-label').innerHTML=next==='dark'?ic('moon',14)+' Modo oscuro':ic('sun',14)+' Modo claro';
   document.getElementById('theme-switch').classList.toggle('on',next==='dark');
 }
 function loadTheme(){
   const t=localStorage.getItem('cod_v3_theme')||'dark';
   document.documentElement.setAttribute('data-theme',t);
-  document.getElementById('theme-label').textContent=t==='dark'?'🌙 Modo oscuro':'☀️ Modo claro';
+  document.getElementById('theme-label').innerHTML=t==='dark'?ic('moon',14)+' Modo oscuro':ic('sun',14)+' Modo claro';
   document.getElementById('theme-switch').classList.toggle('on',t==='dark');
 }
 
@@ -3788,7 +3788,15 @@ const ICONS={
   'alert-triangle':'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   'copy':'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   'save':'<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
-  'circle':'<circle cx="12" cy="12" r="10"/>'
+  'circle':'<circle cx="12" cy="12" r="10"/>',
+  'cart':'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  'map-pin':'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  'credit-card':'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+  'lightbulb':'<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  'bell':'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  'key':'<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+  'moon':'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  'sun':'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'
 };
 function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){

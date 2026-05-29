@@ -637,7 +637,7 @@ td{padding:11px 14px;font-size:13px}
   .tw-cards tbody{display:block}
   .tw-cards tbody tr{display:block;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 14px;box-shadow:var(--shadow)}
   .tw-cards tbody tr:hover td{background:transparent!important}
-  .tw-cards td{display:block;border:none!important;padding:5px 0!important;white-space:normal!important;background:transparent!important;text-align:left;font-size:13px}
+  .tw-cards tbody td{display:block;border:none!important;padding:5px 0!important;white-space:normal!important;background:transparent!important;text-align:left!important;font-size:13px}
   .tw-cards td::before{content:attr(data-label);display:block;font-weight:700;color:var(--text3);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
   .tw-cards td[data-label=""]::before,.tw-cards td:not([data-label])::before{display:none}
   .tw-cards td[data-label=""]{padding:2px 0!important}
@@ -648,6 +648,12 @@ td{padding:11px 14px;font-size:13px}
   .tw-cards tr.ped-date-sep:first-child{margin-top:0}
   .tw-cards tr.ped-date-sep td{display:block;padding:0!important}
   .tw-cards tr.ped-date-sep td::before{display:none}
+  /* tfoot (totales) como tarjeta resumen */
+  .tw-cards tfoot{display:block}
+  .tw-cards tfoot tr{display:block;background:var(--surface3);border:1px solid var(--border2);border-radius:12px;padding:8px 14px;margin-bottom:10px}
+  .tw-cards tfoot td{display:flex;justify-content:space-between;gap:10px;border:none!important;padding:4px 0!important;white-space:normal!important;font-weight:700}
+  .tw-cards tfoot td[colspan]:first-child{color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .tw-cards tfoot td:empty{display:none}
 
   /* Filter bars */
   .fbar{gap:8px;padding:10px 0 12px}
@@ -4076,16 +4082,16 @@ function renderDashboard(){
       <div class="card-title" style="margin:0">Últimos pedidos</div>
       <button class="btn btn-ghost btn-sm" onclick="showPage('pedidos')">Ver todos →</button>
     </div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Zona</th><th>Pago</th><th>Estado</th><th></th></tr></thead>
+    <div class="tw tw-cards"><table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Zona</th><th>Pago</th><th>Estado</th><th></th></tr></thead>
     <tbody>${[...p].sort((a,b)=>b.id-a.id).slice(0,8).map(x=>`<tr>
-      <td class="td-mono" style="color:var(--text3)">#${x.id}</td>
-      <td class="td-sm">${x.fecha}</td>
-      <td><div style="font-weight:600">${x.nombre}</div><div style="font-size:11px;color:var(--text3)">${x.celular}</div></td>
-      <td style="font-size:12.5px">${x.producto} <span style="color:var(--text3)">×${x.cantidad}</span></td>
-      <td style="color:${x.zona==='lima'?'var(--blue)':'var(--accent)'}"><b>${x.zona==='lima'?'Lima':'Prov.'}</b></td>
-      <td class="td-mono" style="font-weight:700">${fmt(x.precio)}</td>
-      <td>${badge(x.estado)}</td>
-      <td><div class="act-grp">
+      <td data-label="#" class="td-mono" style="color:var(--text3)">#${x.id}</td>
+      <td data-label="Fecha" class="td-sm">${x.fecha}</td>
+      <td data-label="Cliente"><div style="font-weight:600">${x.nombre}</div><div style="font-size:11px;color:var(--text3)">${x.celular}</div></td>
+      <td data-label="Producto" style="font-size:12.5px">${x.producto} <span style="color:var(--text3)">×${x.cantidad}</span></td>
+      <td data-label="Zona" style="color:${x.zona==='lima'?'var(--blue)':'var(--accent)'}"><b>${x.zona==='lima'?'Lima':'Prov.'}</b></td>
+      <td data-label="Pago" class="td-mono" style="font-weight:700">${fmt(x.precio)}</td>
+      <td data-label="Estado">${badge(x.estado)}</td>
+      <td data-label="Acciones"><div class="act-grp">
         <button class="act" onclick="editarPedido(${x.id})" title="Editar">${ic('pencil',15)}</button>
         <button class="act" onclick="renderHistorial(${x.id})" title="Historial">${ic('clock',15)}</button>
       </div></td>
@@ -6973,15 +6979,15 @@ function renderFinanzas(){
         <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">+ Agregar</button>
       </div>
     </div>
-    <div class="tw"><table><thead><tr><th>Fecha</th><th>Plataforma</th><th>Campaña</th><th style="text-align:right">Monto</th><th>Leads</th><th>CPL</th><th></th></tr></thead>
+    <div class="tw tw-cards"><table><thead><tr><th>Fecha</th><th>Plataforma</th><th>Campaña</th><th style="text-align:right">Monto</th><th>Leads</th><th>CPL</th><th></th></tr></thead>
     <tbody>${pub.length?[...pub].sort((a,b)=>b.fecha?.localeCompare(a.fecha||'')||0).map(p=>`<tr>
-      <td style="color:var(--text2);font-size:11px">${p.fecha}</td>
-      <td><span class="bdg bdg-nuevo">${p.plataforma}</span></td>
-      <td style="color:var(--text2);font-size:12px">${p.campana||'—'}</td>
-      <td class="mono" style="color:var(--red);font-weight:700;text-align:right">${fmt(p.monto)}</td>
-      <td class="mono" style="text-align:center">${p.leads||0}</td>
-      <td class="mono" style="color:var(--accent)">${(p.leads||0)>0?fmt(p.monto/p.leads):'—'}</td>
-      <td><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${p.id})">${ic('trash',14)}</button></td>
+      <td data-label="Fecha" style="color:var(--text2);font-size:11px">${p.fecha}</td>
+      <td data-label="Plataforma"><span class="bdg bdg-nuevo">${p.plataforma}</span></td>
+      <td data-label="Campaña" style="color:var(--text2);font-size:12px">${p.campana||'—'}</td>
+      <td data-label="Monto" class="mono" style="color:var(--red);font-weight:700">${fmt(p.monto)}</td>
+      <td data-label="Leads" class="mono">${p.leads||0}</td>
+      <td data-label="CPL" class="mono" style="color:var(--accent)">${(p.leads||0)>0?fmt(p.monto/p.leads):'—'}</td>
+      <td data-label="Acciones"><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${p.id})">${ic('trash',14)}</button></td>
     </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Sin gastos de publicidad en este período</td></tr>`}
     </tbody></table></div>
   </div>
@@ -6995,13 +7001,13 @@ function renderFinanzas(){
         <button class="btn btn-ghost btn-xs" onclick="abrirModalGastoExtra()">+ Agregar</button>
       </div>
     </div>
-    ${gastosExtra.length?`<div class="tw"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+    ${gastosExtra.length?`<div class="tw tw-cards"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th style="text-align:right">Monto</th><th></th></tr></thead>
     <tbody>${[...gastosExtra].sort((a,b)=>b.fecha?.localeCompare(a.fecha||'')||0).map(g=>`<tr>
-      <td style="color:var(--text2);font-size:11px">${g.fecha}</td>
-      <td><span class="bdg bdg-enviado">${g.categoria||'Otro'}</span></td>
-      <td style="color:var(--text2);font-size:12px">${g.descripcion||'—'}</td>
-      <td class="mono" style="color:var(--amber);font-weight:700;text-align:right">${fmt(g.monto)}</td>
-      <td><button class="btn btn-danger btn-xs" onclick="eliminarGastoExtra(${g.id})">${ic('trash',14)}</button></td>
+      <td data-label="Fecha" style="color:var(--text2);font-size:11px">${g.fecha}</td>
+      <td data-label="Categoría"><span class="bdg bdg-enviado">${g.categoria||'Otro'}</span></td>
+      <td data-label="Descripción" style="color:var(--text2);font-size:12px">${g.descripcion||'—'}</td>
+      <td data-label="Monto" class="mono" style="color:var(--amber);font-weight:700">${fmt(g.monto)}</td>
+      <td data-label="Acciones"><button class="btn btn-danger btn-xs" onclick="eliminarGastoExtra(${g.id})">${ic('trash',14)}</button></td>
     </tr>`).join('')}
     </tbody></table></div>`
     :`<div class="empty" style="padding:20px">Sin gastos extras en este período · <button class="btn btn-ghost btn-xs" onclick="abrirModalGastoExtra()">+ Registrar</button></div>`}
@@ -7104,18 +7110,18 @@ function renderComisiones(){
       <button class="btn btn-primary btn-sm" onclick="openModalDelivery()">+ Agregar delivery</button>
     </div>
     ${DB.deliveries.length
-      ?`<div class="tw"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Zona</th><th>Pedidos (período)</th><th>% Efectividad</th><th>Acciones</th></tr></thead><tbody>
+      ?`<div class="tw tw-cards"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Zona</th><th>Pedidos (período)</th><th>% Efectividad</th><th>Acciones</th></tr></thead><tbody>
       ${DB.deliveries.map(d=>{
         const dPeds=todos.filter(p=>p.courier===d.nombre);
         const dEnt=dPeds.filter(p=>p.estado==='entregado');
         const dDev=dPeds.filter(p=>p.estado==='devuelto');
         const ef=dPeds.length>0?Math.round(dEnt.length/dPeds.length*100):0;
         return `<tr>
-          <td style="font-weight:700">${d.nombre}</td>
-          <td class="mono" style="font-size:12px">${d.tel||'—'}</td>
-          <td style="color:var(--text2);font-size:12px">${d.zona||'Lima'}</td>
-          <td class="mono">${dPeds.length} <span style="color:var(--text3);font-size:11px">(${dEnt.length} ent / ${dDev.length} dev)</span></td>
-          <td>
+          <td data-label="Nombre" style="font-weight:700">${d.nombre}</td>
+          <td data-label="Teléfono" class="mono" style="font-size:12px">${d.tel||'—'}</td>
+          <td data-label="Zona" style="color:var(--text2);font-size:12px">${d.zona||'Lima'}</td>
+          <td data-label="Pedidos" class="mono">${dPeds.length} <span style="color:var(--text3);font-size:11px">(${dEnt.length} ent / ${dDev.length} dev)</span></td>
+          <td data-label="% Efectividad">
             <div style="display:flex;align-items:center;gap:8px">
               <div style="background:var(--surface3);border-radius:4px;height:12px;width:70px;overflow:hidden">
                 <div style="width:${ef}%;background:${ef>=75?'var(--green)':ef>=50?'var(--amber)':'var(--red)'};height:100%;border-radius:4px"></div>
@@ -7123,7 +7129,7 @@ function renderComisiones(){
               <span style="font-weight:700;color:${ef>=75?'var(--green)':ef>=50?'var(--amber)':'var(--red)'}">${ef}%</span>
             </div>
           </td>
-          <td><div style="display:flex;gap:4px">
+          <td data-label="Acciones"><div style="display:flex;gap:4px">
             <button class="btn btn-ghost btn-xs" onclick="openModalDelivery(${d.id})">${ic('pencil',14)}</button>
             <button class="btn btn-danger btn-xs" onclick="eliminarDelivery(${d.id})">${ic('trash',14)}</button>
           </div></td>
@@ -7727,7 +7733,7 @@ function renderFlujoContent(){
         </div>
       </div>
     </div>
-    ${activos.length?`<div class="tw"><table>
+    ${activos.length?`<div class="tw tw-cards"><table>
       <thead><tr>
         <th>Fecha</th>
         <th>Días</th>
@@ -7749,19 +7755,19 @@ function renderFlujoContent(){
         const alertColor=diasTransit>=7?'var(--red)':diasTransit>=3?'var(--amber)':'var(--text3)';
         const rowBg=diasTransit>=7?'background:rgba(239,68,68,.04)':diasTransit>=3?'background:rgba(245,158,11,.04)':'';
         return`<tr style="${rowBg}">
-          <td style="font-size:11px;color:var(--text2);white-space:nowrap">${fechaP.slice(5)||'—'}</td>
-          <td style="text-align:center">
+          <td data-label="Fecha" style="font-size:11px;color:var(--text2);white-space:nowrap">${fechaP.slice(5)||'—'}</td>
+          <td data-label="Días" style="text-align:center">
             <span style="font-size:11px;font-weight:700;color:${alertColor}">${diasTransit}d</span>
           </td>
-          <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
-          <td style="font-weight:600;font-size:12px;white-space:nowrap">${p.nombre}</td>
-          <td style="font-size:11px;color:var(--text3)">${p.celular||'—'}</td>
-          <td style="font-size:11px">${p.producto}${p.cantidad>1?` <span style="color:var(--text3)">×${p.cantidad}</span>`:''}</td>
-          <td class="mono" style="text-align:right;font-size:11px;color:var(--text2)">${fmt(p.precio||0)}</td>
-          <td class="mono" style="text-align:right;font-size:11px;color:var(--blue)">${(p.adelanto||0)>0?fmt(p.adelanto):'—'}</td>
-          <td class="mono" style="text-align:right;font-weight:700;font-size:12px;color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${fmt(pendiente)}</td>
-          <td>${badge(p.estado)}</td>
-          <td style="font-size:11px;color:${p.zona==='lima'?'var(--blue)':'var(--purple)'};font-weight:600">${p.zona==='lima'?'Lima':'Prov.'}</td>
+          <td data-label="#" class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+          <td data-label="Cliente" style="font-weight:600;font-size:12px;white-space:nowrap">${p.nombre}</td>
+          <td data-label="Celular" style="font-size:11px;color:var(--text3)">${p.celular||'—'}</td>
+          <td data-label="Producto" style="font-size:11px">${p.producto}${p.cantidad>1?` <span style="color:var(--text3)">×${p.cantidad}</span>`:''}</td>
+          <td data-label="Precio" class="mono" style="text-align:right;font-size:11px;color:var(--text2)">${fmt(p.precio||0)}</td>
+          <td data-label="Adelanto" class="mono" style="text-align:right;font-size:11px;color:var(--blue)">${(p.adelanto||0)>0?fmt(p.adelanto):'—'}</td>
+          <td data-label="Por cobrar" class="mono" style="text-align:right;font-weight:700;font-size:12px;color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}">${fmt(pendiente)}</td>
+          <td data-label="Estado">${badge(p.estado)}</td>
+          <td data-label="Zona" style="font-size:11px;color:${p.zona==='lima'?'var(--blue)':'var(--purple)'};font-weight:600">${p.zona==='lima'?'Lima':'Prov.'}</td>
         </tr>`;
       }).join('')}
       </tbody>
@@ -7968,7 +7974,7 @@ function renderLiquidacion(){
           </div>
         </div>
         <!-- TABLA PEDIDOS DEL COURIER -->
-        <div class="tw"><table>
+        <div class="tw tw-cards"><table>
           <thead><tr><th>Fecha</th><th>Días</th><th>#</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th><th style="text-align:right">Envío</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
           <tbody>${pedOrd.map(p=>{
             const dias=Math.floor((new Date()-new Date((p.fecha||hoyStr)+'T12:00:00'))/(1000*60*60*24));
@@ -7976,15 +7982,15 @@ function renderLiquidacion(){
             const rowBg=dias>=3?'background:rgba(239,68,68,.04)':dias>=1?'background:rgba(245,158,11,.04)':'';
             const cenvP=cenvOf(p);
             return`<tr style="${rowBg}">
-              <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(p.fecha||'').slice(5)||'—'}</td>
-              <td style="text-align:center"><span style="font-size:11px;font-weight:700;color:${dColor}">${dias}d</span></td>
-              <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
-              <td style="font-weight:600;font-size:12px">${p.nombre}</td>
-              <td style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
-              <td class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
-              <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
-              <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
-              <td><button class="act act-liq" onclick="toggleLiquidadoPedido(${p.id})" title="Marcar como liquidado">${ic('banknote',14)} Liq.</button></td>
+              <td data-label="Fecha" style="font-size:11px;color:var(--text2);white-space:nowrap">${(p.fecha||'').slice(5)||'—'}</td>
+              <td data-label="Días" style="text-align:center"><span style="font-size:11px;font-weight:700;color:${dColor}">${dias}d</span></td>
+              <td data-label="#" class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+              <td data-label="Cliente" style="font-weight:600;font-size:12px">${p.nombre}</td>
+              <td data-label="Producto" style="font-size:11px;color:var(--text3)">${p.producto}${p.cantidad>1?` ×${p.cantidad}`:''}</td>
+              <td data-label="Monto" class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
+              <td data-label="Envío" class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
+              <td data-label="Neto" class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
+              <td data-label="Acción"><button class="act act-liq" onclick="toggleLiquidadoPedido(${p.id})" title="Marcar como liquidado">${ic('banknote',14)} Liq.</button></td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr style="background:var(--surface3)">
@@ -8020,19 +8026,19 @@ function renderLiquidacion(){
             <span style="color:var(--text3);font-size:11px">▼</span>
           </div>
         </div>
-        <div class="tw">
+        <div class="tw tw-cards">
           <table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Courier</th><th style="text-align:right">Precio</th><th style="text-align:right">Envío</th><th style="text-align:right">Neto</th><th>Acción</th></tr></thead>
           <tbody>${[...data.pedidos].sort((a,b)=>(a.courier||'').localeCompare(b.courier||'')).map(p=>{
             const cenvP=cenvOf(p);
             return `<tr>
-            <td class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
-            <td style="font-size:12px;font-weight:600">${p.nombre}</td>
-            <td style="font-size:11px;color:var(--text3)">${p.producto}</td>
-            <td style="font-size:11px;color:var(--text2)">${p.courier||'—'}</td>
-            <td class="mono" style="text-align:right;color:var(--text2)">${fmt(p.precio||0)}</td>
-            <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
-            <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
-            <td><button class="btn btn-ghost btn-xs" onclick="revertirLiquidacion(${p.id})" title="Revertir">↩️</button></td>
+            <td data-label="#" class="mono" style="color:var(--text3);font-size:11px">#${p.id}</td>
+            <td data-label="Cliente" style="font-size:12px;font-weight:600">${p.nombre}</td>
+            <td data-label="Producto" style="font-size:11px;color:var(--text3)">${p.producto}</td>
+            <td data-label="Courier" style="font-size:11px;color:var(--text2)">${p.courier||'—'}</td>
+            <td data-label="Precio" class="mono" style="text-align:right;color:var(--text2)">${fmt(p.precio||0)}</td>
+            <td data-label="Envío" class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
+            <td data-label="Neto" class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
+            <td data-label="Acción"><button class="btn btn-ghost btn-xs" onclick="revertirLiquidacion(${p.id})" title="Revertir">${ic('undo',14)}</button></td>
           </tr>`;}).join('')}</tbody></table>
         </div>
       </div>`;

@@ -178,6 +178,14 @@ input,select,textarea,button{font-family:var(--font)}
 .icon-btn:hover{background:var(--surface3);color:var(--text)}
 .notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--surface)}
 .content{padding:22px 24px;flex:1}
+/* ── ENTRANCE ANIMATIONS ────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.content .section-header{animation:fadeIn .28s ease both}
+.content .card,.content .tw,.content .metrics-grid,.content .kanban{animation:fadeUp .32s cubic-bezier(.4,0,.2,1) both}
+.content .card:nth-child(2){animation-delay:.04s}
+.content .card:nth-child(3){animation-delay:.08s}
+@media(prefers-reduced-motion:reduce){.content .section-header,.content .card,.content .tw,.content .metrics-grid,.content .kanban{animation:none}}
 
 /* ── NOTIFICATIONS ──────────────────────────── */
 .notif-panel{position:fixed;top:var(--nav-h);right:0;width:352px;height:calc(100vh - var(--nav-h));background:var(--surface);border-left:1px solid var(--border);z-index:200;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.3)}
@@ -262,9 +270,9 @@ input[type=date]{color-scheme:dark}
 .ped-date-sep>td{background:var(--surface2);padding:7px 13px;border-top:2px solid var(--border2)!important}
 .ped-date-sep:first-child>td{border-top:none!important}
 table{width:100%;border-collapse:collapse;background:var(--card-bg)}
-th{background:var(--surface2);padding:9px 13px;text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border)}
-td{padding:10px 13px;border-top:1px solid var(--border);vertical-align:middle;font-size:12.5px;color:var(--text)}
-tr:hover td{background:var(--surface2)}
+th{background:var(--surface2);padding:9px 13px;text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);box-shadow:0 1px 0 var(--border)}
+td{padding:10px 13px;border-top:1px solid var(--border);vertical-align:middle;font-size:12.5px;color:var(--text);transition:background .12s}
+tbody tr:hover td{background:var(--accentL2)}
 .td-mono{font-family:var(--mono);font-size:12px}
 .td-sm{font-size:11.5px;color:var(--text2)}
 

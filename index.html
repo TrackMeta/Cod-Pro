@@ -174,6 +174,9 @@ input,select,textarea,button{font-family:var(--font)}
 .topbar{height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:100}
 .topbar-title{font-size:15px;font-weight:700;flex:1;letter-spacing:-.3px}
 .topbar-right{display:flex;align-items:center;gap:8px}
+.dash-per-select{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 30px 6px 12px;font-size:12.5px;font-weight:600;color:var(--text);font-family:var(--font);outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;transition:border-color .12s}
+.dash-per-select:hover{border-color:var(--border3)}
+.dash-per-select:focus{border-color:var(--accent)}
 .icon-btn{width:34px;height:34px;border-radius:var(--r);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;font-size:15px;transition:all .12s;color:var(--text2)}
 .icon-btn:hover{background:var(--surface3);color:var(--text)}
 .notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--surface)}
@@ -699,8 +702,9 @@ td{padding:11px 14px;font-size:13px}
   .topbar-right>#rt-indicator,.topbar-right>.btn,.topbar-right>.icon-btn{flex-shrink:0}
 
   /* Dashboard period */
-  #dash-periodo{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch;padding-bottom:3px;min-width:0;flex:1 1 auto}
-  #dash-periodo>div{flex-wrap:nowrap;gap:4px}
+  #dash-periodo{min-width:0;flex:1 1 auto;justify-content:flex-end}
+  .dash-per-select{flex:0 1 auto;min-width:96px;min-height:36px}
+  #dash-periodo input[type=date]{flex-shrink:0}
   .tbtn{padding:7px 11px;font-size:12px;white-space:nowrap;min-height:36px}
 
   /* Notif panel */
@@ -981,14 +985,14 @@ td{padding:11px 14px;font-size:13px}
         <div class="topbar-title" id="topbar-title">Dashboard</div>
         <div class="topbar-right">
           <div id="dash-periodo" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
-            <div style="display:flex;gap:4px">
-              <button class="tbtn active" id="dp-hoy"     onclick="setDashPeriodo('hoy')">Hoy</button>
-              <button class="tbtn"        id="dp-semana"  onclick="setDashPeriodo('semana')">7d</button>
-              <button class="tbtn"        id="dp-mes"     onclick="setDashPeriodo('mes')">30d</button>
-              <button class="tbtn"        id="dp-todo"    onclick="setDashPeriodo('todo')">Todo</button>
-              <button class="tbtn"        id="dp-dia"     onclick="setDashPeriodo('dia')" style="display:inline-flex;align-items:center;gap:4px"><span data-ic="calendar" data-ic-size="13"></span> Día</button>
-              <button class="tbtn"        id="dp-custom"  onclick="setDashPeriodo('custom')" style="display:inline-flex;align-items:center;gap:4px"><span data-ic="arrows-h" data-ic-size="13"></span> Rango</button>
-            </div>
+            <select id="dash-per-sel" class="dash-per-select" onchange="setDashPeriodo(this.value)">
+              <option value="hoy">Hoy</option>
+              <option value="semana" selected>Últimos 7 días</option>
+              <option value="mes">Últimos 30 días</option>
+              <option value="todo">Todo el historial</option>
+              <option value="dia">Día específico</option>
+              <option value="custom">Rango personalizado</option>
+            </select>
             <div id="dash-dia-range" style="display:none;align-items:center;gap:4px">
               <input type="date" id="dash-dia-val" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
             </div>
@@ -3729,10 +3733,8 @@ function initFbar(){
 let dashPeriodo='semana';
 function setDashPeriodo(p){
   dashPeriodo=p;
-  ['hoy','semana','mes','todo','dia','custom'].forEach(k=>{
-    const btn=document.getElementById('dp-'+k);
-    if(btn)btn.classList.toggle('active',k===p);
-  });
+  const sel=document.getElementById('dash-per-sel');
+  if(sel&&sel.value!==p)sel.value=p;
   const cr=document.getElementById('dash-custom-range');
   if(cr)cr.style.display=p==='custom'?'flex':'none';
   const dr=document.getElementById('dash-dia-range');
@@ -3894,11 +3896,9 @@ function showPage(id, navEl){
 // DASHBOARD
 // =====================================================================
 function renderDashboard(){
-  // Sync period toggle buttons in topbar
-  ['hoy','semana','mes','todo','dia','custom'].forEach(k=>{
-    const btn=document.getElementById('dp-'+k);
-    if(btn)btn.classList.toggle('active',k===dashPeriodo);
-  });
+  // Sync period selector in topbar
+  const _ps=document.getElementById('dash-per-sel');
+  if(_ps&&_ps.value!==dashPeriodo)_ps.value=dashPeriodo;
   const filtro=getDashFiltro();
   const p=filtrarPeriodo(DB.pedidos,filtro);
   const ent=p.filter(x=>x.estado==='entregado');

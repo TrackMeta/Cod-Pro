@@ -719,6 +719,8 @@ td{padding:11px 14px;font-size:13px}
   .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Producto"],
   .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Estado"],
   .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Acciones"],
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Delivery"],
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="C. Envío"],
   .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Tracking"]{grid-column:1/-1}
 }
 
@@ -4278,18 +4280,18 @@ function renderPedidosContent(){
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
     const sepRow=`<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">${ic('calendar',13)} ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b></div></div></td></tr>`;
     const rows=its.map(p=>`<tr id="ped-row-${p.id}">
-    <td style="padding:6px 8px;text-align:center"><input type="checkbox" class="ped-chk" data-id="${p.id}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onchange="actualizarSelPed()"></td>
-    <td class="mono" style="color:var(--text3)">#${p.id}</td>
-    <td><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('alert-triangle',10)+' DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
-    <td>${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
-    <td>${bdgMod(p.modalidad||'stock')}</td>
-    <td style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b style="display:inline-flex;align-items:center;gap:4px">${p.zona==='lima'?ic('building',13)+' Lima':ic('package',13)+' Prov.'}</b></td>
-    <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
-    <td class="mono" style="color:var(--accent)">${p.zona==='provincia'?fmt(p.adelanto||0):'-'}</td>
-    <td class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
-    <td>${badge(p.estado)}</td>
-    <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
-    <td><div class="act-grp">
+    <td data-label="" style="padding:6px 8px;text-align:center"><input type="checkbox" class="ped-chk" data-id="${p.id}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onchange="actualizarSelPed()"></td>
+    <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}</td>
+    <td data-label="Cliente"><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('alert-triangle',10)+' DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
+    <td data-label="Producto">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
+    <td data-label="Modalidad">${bdgMod(p.modalidad||'stock')}</td>
+    <td data-label="Zona" style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b style="display:inline-flex;align-items:center;gap:4px">${p.zona==='lima'?ic('building',13)+' Lima':ic('package',13)+' Prov.'}</b></td>
+    <td data-label="Precio" class="mono" style="font-weight:700">${fmt(p.precio)}</td>
+    <td data-label="Adelanto" class="mono" style="color:var(--accent)">${p.zona==='provincia'?fmt(p.adelanto||0):'-'}</td>
+    <td data-label="Pendiente" class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
+    <td data-label="Estado">${badge(p.estado)}</td>
+    <td data-label="Upsell">${p.upsellRes==='aceptado'?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
+    <td data-label="Acciones"><div class="act-grp">
       <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
       <button class="act" onclick="editarPedido(${p.id})" title="Editar">${ic('pencil',15)}</button>
       <button class="act" onclick="renderHistorial(${p.id})" title="Historial">${ic('clock',15)}</button>
@@ -4298,7 +4300,7 @@ function renderPedidosContent(){
   </tr>`).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
-  view.innerHTML=selBar+`<div class="tw ts"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Acciones</th></tr></thead>
+  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Acciones</th></tr></thead>
   <tbody>${tableBody}</tbody></table></div>`;
 }
 
@@ -5358,16 +5360,16 @@ function renderLimaContent(){
         const felWeight=p.fechaEntregaLima?'600':'400';
         const motivo=p.motivoDevolucion?'<div style="font-size:10px;color:var(--red);margin-top:2px">'+p.motivoDevolucion+'</div>':'';
         limaHtml+='<tr>'
-          +'<td class="mono" style="color:var(--text3)">#'+p.id+'</td>'
-          +'<td style="font-size:11px;white-space:nowrap">'+fmtReg(p.fechaCreado)+'</td>'
-          +'<td><div style="font-weight:600;font-size:12.5px">'+p.nombre+'</div><div style="font-size:10.5px;color:var(--text3)">'+p.celular+'</div></td>'
-          +'<td style="font-size:12px">'+p.producto+' <span style="color:var(--text3)">\xD7'+p.cantidad+'</span></td>'
-          +'<td style="color:var(--text2);font-size:12px">'+(p.dist||'-')+'</td>'
-          +'<td style="font-size:11.5px;color:'+felColor+';font-weight:'+felWeight+'">'+(p.fechaEntregaLima||'—')+'</td>'
-          +'<td class="mono" style="font-weight:700">'+fmt(p.precio)+'</td>'
-          +'<td>'+courierHtml+'</td>'
-          +'<td style="min-width:95px">'+cenvHtml+'</td>'
-          +'<td style="min-width:145px"><select onchange="cambiarEstadoRapido('+p.id+',this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">'
+          +'<td data-label="#" class="mono" style="color:var(--text3)">#'+p.id+'</td>'
+          +'<td data-label="F. Registro" style="font-size:11px;white-space:nowrap">'+fmtReg(p.fechaCreado)+'</td>'
+          +'<td data-label="Cliente"><div style="font-weight:600;font-size:12.5px">'+p.nombre+'</div><div style="font-size:10.5px;color:var(--text3)">'+p.celular+'</div></td>'
+          +'<td data-label="Producto" style="font-size:12px">'+p.producto+' <span style="color:var(--text3)">\xD7'+p.cantidad+'</span></td>'
+          +'<td data-label="Distrito" style="color:var(--text2);font-size:12px">'+(p.dist||'-')+'</td>'
+          +'<td data-label="F. Entrega" style="font-size:11.5px;color:'+felColor+';font-weight:'+felWeight+'">'+(p.fechaEntregaLima||'—')+'</td>'
+          +'<td data-label="Precio" class="mono" style="font-weight:700">'+fmt(p.precio)+'</td>'
+          +'<td data-label="Delivery">'+courierHtml+'</td>'
+          +'<td data-label="C. Envío" style="min-width:95px">'+cenvHtml+'</td>'
+          +'<td data-label="Estado" style="min-width:145px"><select onchange="cambiarEstadoRapido('+p.id+',this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">'
           +'<option value="confirmado" '+(p.estado==='confirmado'?'selected':'')+'>&#9989; Confirmado</option>'
           +'<option value="enviado" '+(p.estado==='enviado'?'selected':'')+'>&#128666; Enviado</option>'
           +'<option value="entregado" '+(p.estado==='entregado'?'selected':'')+'>&#128230; Entregado</option>'
@@ -5384,7 +5386,7 @@ function renderLimaContent(){
             liqBtn='<button class="act act-liq" onclick="toggleLiquidadoPedido('+p.id+')" title="Marcar como liquidado por courier">'+ic('banknote',14)+' Liquidar</button>';
           }
         }
-        limaHtml+='<td><div class="act-grp">'
+        limaHtml+='<td data-label="Acciones"><div class="act-grp">'
           +liqBtn
           +'<button class="act act-wa" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp">'+ic('send',15)+'</button>'
           +'<button class="act act-money" onclick="verResumenPedido('+p.id+')" title="Resumen financiero">'+ic('dollar-circle',15)+'</button>'
@@ -5395,7 +5397,7 @@ function renderLimaContent(){
       });
     });
   }
-  v.innerHTML='<div class="tw ts"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado (editable)</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
+  v.innerHTML='<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado (editable)</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
 }
 
 function openCourier(id){

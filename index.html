@@ -2406,21 +2406,22 @@ function recomputarStock(){
 // stock mostrado IGUAL que ahora, pero correcto hacia adelante.
 async function migrarStockBaseSiHaceFalta(){
   if(!isAdmin())return;
-  if(DB._stockBaseMigrado)return;
-  let cambios=false;
+  if(DB._stockBaseMigradoV2)return;
+  // El stock mostrado actual es el inventario BASE (las entregas no se
+  // descontaban por el bug). stockBase = stock actual. Disponible se calcula
+  // luego como base − entregados. Fuerza re-ejecución (flag V2) para corregir
+  // una migración previa que sumaba de más.
   (DB.productos||[]).forEach(prod=>{
     if(prod.modalidad!=='stock')return;
     if(prod.variantes&&prod.variantes.length){
-      prod.variantes.forEach(v=>{
-        if(v.stockBase==null){v.stockBase=(v.stock||0)+entregadosDeVariante(prod.id,v.nombre);cambios=true;}
-      });
+      prod.variantes.forEach(v=>{v.stockBase=(v.stock||0);});
     } else {
-      if(prod.stockBase==null){prod.stockBase=(prod.stock||0)+entregadosDeProducto(prod.id);cambios=true;}
+      prod.stockBase=(prod.stock||0);
     }
   });
-  DB._stockBaseMigrado=true;
+  DB._stockBaseMigradoV2=true;
   recomputarStock();
-  if(cambios){try{await save();}catch(_){}}
+  try{await save();}catch(_){}
 }
 // Helpers legacy (ahora no-op — el stock se calcula con recomputarStock)
 function descontarStockPedido(p){/* no-op: stock dinámico */}

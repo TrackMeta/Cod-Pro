@@ -177,6 +177,7 @@ input,select,textarea,button{font-family:var(--font)}
 .dash-per-select{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 30px 6px 12px;font-size:12.5px;font-weight:600;color:var(--text);font-family:var(--font);outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;transition:border-color .12s}
 .dash-per-select:hover{border-color:var(--border3)}
 .dash-per-select:focus{border-color:var(--accent)}
+#dash-subbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;flex-shrink:0;position:sticky;top:var(--nav-h);z-index:99}
 .icon-btn{width:34px;height:34px;border-radius:var(--r);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;font-size:15px;transition:all .12s;color:var(--text2)}
 .icon-btn:hover{background:var(--surface3);color:var(--text)}
 .notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--surface)}
@@ -707,10 +708,10 @@ td{padding:11px 14px;font-size:13px}
   .topbar-right{min-width:0;flex:1;justify-content:flex-end}
   .topbar-right>#rt-indicator,.topbar-right>.btn,.topbar-right>.icon-btn{flex-shrink:0}
 
-  /* Dashboard period */
-  #dash-periodo{min-width:0;flex:1 1 auto;justify-content:flex-end}
-  .dash-per-select{flex:0 1 auto;min-width:96px;min-height:36px}
-  #dash-periodo input[type=date]{flex-shrink:0}
+  /* Dashboard period (sub-barra) */
+  #dash-subbar{padding:9px 14px}
+  #dash-periodo{justify-content:flex-start}
+  .dash-per-select{min-height:38px;font-size:13px}
   .tbtn{padding:7px 11px;font-size:12px;white-space:nowrap;min-height:36px}
 
   /* Notif panel */
@@ -990,27 +991,32 @@ td{padding:11px 14px;font-size:13px}
         <div class="mob-menu-btn" onclick="toggleSidebar()" title="Menú"><span data-ic="menu" data-ic-size="20"></span></div>
         <div class="topbar-title" id="topbar-title">Dashboard</div>
         <div class="topbar-right">
-          <div id="dash-periodo" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
-            <select id="dash-per-sel" class="dash-per-select" onchange="setDashPeriodo(this.value)">
-              <option value="hoy">Hoy</option>
-              <option value="semana" selected>Últimos 7 días</option>
-              <option value="mes">Últimos 30 días</option>
-              <option value="todo">Todo el historial</option>
-              <option value="dia">Día específico</option>
-              <option value="custom">Rango personalizado</option>
-            </select>
-            <div id="dash-dia-range" style="display:none;align-items:center;gap:4px">
-              <input type="date" id="dash-dia-val" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-            </div>
-            <div id="dash-custom-range" style="display:none;align-items:center;gap:4px">
-              <input type="date" id="dash-desde" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-              <span style="color:var(--text3);font-size:12px">→</span>
-              <input type="date" id="dash-hasta" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
-            </div>
-          </div>
           <span id="rt-indicator" class="rt-off" title="Tiempo real desconectado"><span id="rt-dot"></span>RT</span>
           <div class="icon-btn" onclick="toggleNotifPanel()" id="notif-bell"><span data-ic="bell" data-ic-size="16"></span><div class="notif-dot" id="notif-dot" style="display:none"></div></div>
           <button class="btn btn-primary btn-sm" onclick="showPage('pedidos');setTimeout(openNuevoPedido,100)">+ Pedido</button>
+        </div>
+      </div>
+
+      <!-- SUB-BARRA (filtro de período del Dashboard) -->
+      <div id="dash-subbar" style="display:none">
+        <div id="dash-periodo" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Período</span>
+          <select id="dash-per-sel" class="dash-per-select" onchange="setDashPeriodo(this.value)">
+            <option value="hoy">Hoy</option>
+            <option value="semana" selected>Últimos 7 días</option>
+            <option value="mes">Últimos 30 días</option>
+            <option value="todo">Todo el historial</option>
+            <option value="dia">Día específico</option>
+            <option value="custom">Rango personalizado</option>
+          </select>
+          <div id="dash-dia-range" style="display:none;align-items:center;gap:4px">
+            <input type="date" id="dash-dia-val" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+          </div>
+          <div id="dash-custom-range" style="display:none;align-items:center;gap:4px">
+            <input type="date" id="dash-desde" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+            <span style="color:var(--text3);font-size:12px">→</span>
+            <input type="date" id="dash-hasta" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+          </div>
         </div>
       </div>
 
@@ -3171,7 +3177,6 @@ async function onSignedIn(user){
   applyRolePermissions();
   updateSidebarLogo();
   loadAccentColor();
-  document.getElementById('dash-periodo').style.display=isAdmin()?'flex':'none';
   renderNotifications();
   if(isAdmin())syncWorkerChanges();
   initRealtime();
@@ -3350,7 +3355,6 @@ function bootSaWorkspace(w,saInfo){
   applyRolePermissions();
   updateSidebarLogo();
   loadAccentColor();
-  document.getElementById('dash-periodo').style.display='flex';
   renderNotifications();
   showPage('dashboard',document.querySelector(".nav-item[onclick*=\"'dashboard'\"]"));
 }
@@ -3888,8 +3892,8 @@ function showPage(id, navEl){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(navEl)navEl.classList.add('active');
   else document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'"))n.classList.add('active');});
-  const periodoSel=document.getElementById('dash-periodo');
-  if(periodoSel)periodoSel.style.display=id==='dashboard'?'flex':'none';
+  const subbar=document.getElementById('dash-subbar');
+  if(subbar)subbar.style.display=(id==='dashboard'&&isAdmin())?'block':'none';
   // Close sidebar on mobile when navigating
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();

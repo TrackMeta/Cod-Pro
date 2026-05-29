@@ -349,7 +349,8 @@ tbody tr:hover td{background:var(--accentL2)}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r3);padding:26px 28px;width:100%;max-width:700px;margin:auto;box-shadow:var(--shadow2)}
 .modal.sm{max-width:480px}
 .modal-h{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;gap:12px}
-.modal-title{font-size:17px;font-weight:800;letter-spacing:-.4px}
+.modal-title{font-size:17px;font-weight:800;letter-spacing:-.4px;display:inline-flex;align-items:center;gap:8px}
+.modal-title .ic{color:var(--accent)}
 .modal-sub{font-size:12px;color:var(--text2);margin-top:3px}
 .mc{background:var(--surface3);border:1px solid var(--border2);border-radius:6px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:16px;flex-shrink:0;transition:all .12s;line-height:1}
 .mc:hover{color:var(--text);background:var(--surface4)}
@@ -2141,7 +2142,7 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL TRACKING SHALOM (Completo) -->
 <div class="overlay" id="modal-tracking">
 <div class="modal" style="max-width:560px">
-  <div class="modal-h"><div class="modal-title">📦 Tracking del Envío</div><div class="mc" onclick="closeModal('modal-tracking')">×</div></div>
+  <div class="modal-h"><div class="modal-title"><span data-ic="package" data-ic-size="18"></span> Tracking del Envío</div><div class="mc" onclick="closeModal('modal-tracking')">×</div></div>
   <input type="hidden" id="tr-id">
   <div id="tr-header" style="background:var(--surface3);border-radius:10px;padding:12px 14px;margin-bottom:14px"></div>
 
@@ -2184,7 +2185,7 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL COURIER LIMA -->
 <div class="overlay" id="modal-courier">
 <div class="modal sm">
-  <div class="modal-h"><div class="modal-title">🛵 Asignar Courier / Delivery</div><div class="mc" onclick="closeModal('modal-courier')">×</div></div>
+  <div class="modal-h"><div class="modal-title"><span data-ic="bike" data-ic-size="18"></span> Asignar Courier / Delivery</div><div class="mc" onclick="closeModal('modal-courier')">×</div></div>
   <input type="hidden" id="co-id">
   <div class="fg" style="margin-bottom:10px"><label>Seleccionar delivery registrado</label>
     <select id="co-courier-sel" onchange="document.getElementById('co-courier').value=this.options[this.selectedIndex].text==='— Seleccionar —'?'':this.options[this.selectedIndex].text">
@@ -2250,7 +2251,7 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL UPSELL -->
 <div class="overlay" id="modal-upsell">
 <div class="modal sm">
-  <div class="modal-h"><div><div class="modal-title">⬆️ Upsell / Order Bump</div><div class="modal-sub">Producto extra que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
+  <div class="modal-h"><div><div class="modal-title"><span data-ic="arrow-up-circle" data-ic-size="18"></span> Upsell / Order Bump</div><div class="modal-sub">Producto extra que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
   <input type="hidden" id="up-id">
   <div class="form-grid">
     <div class="fg" style="grid-column:1/-1"><label>Nombre del upsell *</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF" autofocus></div>
@@ -2759,7 +2760,7 @@ function verBackupsLocales(){
   const mod=document.createElement('div');
   mod.className='overlay open';mod.id='modal-backups';
   if(!backups.length){
-    mod.innerHTML=`<div class="modal sm"><div class="modal-h"><div class="modal-title">📦 Backups automáticos</div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div><div style="padding:20px;text-align:center;color:var(--text3)"><div style="font-size:32px;margin-bottom:12px">🔍</div><div style="font-weight:600;margin-bottom:6px">Sin backups aún</div><div style="font-size:12px">Los backups se crean automáticamente cada vez que guardas datos.<br>Aparecerán aquí a partir de mañana.</div><div style="margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="exportarDatos()">💾 Descargar backup manual ahora</button></div></div></div>`;
+    mod.innerHTML=`<div class="modal sm"><div class="modal-h"><div class="modal-title">${ic('archive',18)} Backups automáticos</div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div><div style="padding:20px;text-align:center;color:var(--text3)"><div style="font-size:32px;margin-bottom:12px">🔍</div><div style="font-weight:600;margin-bottom:6px">Sin backups aún</div><div style="font-size:12px">Los backups se crean automáticamente cada vez que guardas datos.<br>Aparecerán aquí a partir de mañana.</div><div style="margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="exportarDatos()">💾 Descargar backup manual ahora</button></div></div></div>`;
     document.body.appendChild(mod);mod.addEventListener('click',e=>{if(e.target===mod)mod.remove();});return;
   }
   const rows=backups.map((b,i)=>{
@@ -2776,7 +2777,7 @@ function verBackupsLocales(){
       <button class="btn btn-blue btn-xs" onclick="restaurarBackup(${i})">🔄 Restaurar</button>
     </div>`;
   }).join('');
-  mod.innerHTML=`<div class="modal"><div class="modal-h"><div><div class="modal-title">📦 Backups automáticos</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Solo en este navegador</div></div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
+  mod.innerHTML=`<div class="modal"><div class="modal-h"><div><div class="modal-title">${ic('archive',18)} Backups automáticos</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Solo en este navegador</div></div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
   <div style="padding:0 2px">${rows}</div>
   <div style="margin-top:14px;padding:10px;background:var(--surface3);border-radius:8px;font-size:11px;color:var(--text3)">
     ⚠️ <strong>Restaurar</strong> reemplaza todos los datos actuales con el backup seleccionado. Se guarda automáticamente en Supabase.
@@ -3772,7 +3773,12 @@ const ICONS={
   'repeat':'<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
   'calendar':'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
   'trophy':'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
-  'bike':'<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>'
+  'bike':'<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+  'archive':'<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+  'user':'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'note':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  'upload':'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  'edit':'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>'
 };
 function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){
@@ -4703,7 +4709,7 @@ function marcarDevuelto(id){
   const motivos=['No tenía dinero','No era lo esperado','No fue a recoger','Dirección incorrecta','Producto dañado','Cliente rechazó','Otro'];
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-devolucion';
   mod.innerHTML=`<div class="modal sm">
-    <div class="modal-h"><div class="modal-title">↩️ Motivo de devolución — #${id}</div><div class="mc" onclick="document.getElementById('modal-devolucion').remove()">×</div></div>
+    <div class="modal-h"><div class="modal-title">${ic('undo',18)} Motivo de devolución — #${id}</div><div class="mc" onclick="document.getElementById('modal-devolucion').remove()">×</div></div>
     <div class="abox abox-red"><span class="abox-icon">⚠️</span><div class="abox-text">Selecciona el motivo para poder analizar y reducir devoluciones.</div></div>
     <div class="fg" style="margin-bottom:14px"><label>Motivo</label>
       <select id="dev-motivo" style="font-size:14px;padding:10px 12px">${motivos.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
@@ -4795,7 +4801,7 @@ function abrirModalExportEva(){
   mod.style.cssText+='align-items:flex-start;padding:20px;overflow-y:auto;';
   mod.innerHTML=`<div class="modal" style="max-width:960px;width:100%;margin:auto">
     <div class="modal-h">
-      <div><div class="modal-title">📦 Exportar a Eva Courier</div><div class="modal-sub">Selecciona los pedidos Lima que deseas exportar</div></div>
+      <div><div class="modal-title">${ic('package',18)} Exportar a Eva Courier</div><div class="modal-sub">Selecciona los pedidos Lima que deseas exportar</div></div>
       <div class="mc" onclick="document.getElementById('modal-eva').remove()">×</div>
     </div>
     <div class="form-grid" style="margin-bottom:12px">
@@ -4949,7 +4955,7 @@ function abrirModalExportShalom(){
   mod.style.cssText+='align-items:flex-start;padding:20px;overflow-y:auto;';
   mod.innerHTML=`<div class="modal" style="max-width:980px;width:100%;margin:auto">
     <div class="modal-h">
-      <div><div class="modal-title">🚚 Exportar a Shalom</div><div class="modal-sub">Selecciona los pedidos Provincia que deseas exportar</div></div>
+      <div><div class="modal-title">${ic('truck',18)} Exportar a Shalom</div><div class="modal-sub">Selecciona los pedidos Provincia que deseas exportar</div></div>
       <div class="mc" onclick="document.getElementById('modal-shalom').remove()">×</div>
     </div>
     <div class="form-grid" style="margin-bottom:12px">
@@ -5800,7 +5806,7 @@ function guardarTracking(){
     // Pedir confirmación
     const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-conf-track';
     mod.innerHTML=`<div class="modal sm">
-      <div class="modal-h"><div class="modal-title">📤 Marcar como Enviado</div><div class="mc" onclick="document.getElementById('modal-conf-track').remove()">×</div></div>
+      <div class="modal-h"><div class="modal-title">${ic('truck',18)} Marcar como Enviado</div><div class="mc" onclick="document.getElementById('modal-conf-track').remove()">×</div></div>
       <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Se cambiará el estado del pedido a <b>"Enviado"</b> y se registrará <b>HOY</b> (${hoy()}) como fecha de "En camino".</div></div>
       <div style="display:flex;gap:10px;flex-direction:column">
         <button class="btn btn-primary" onclick="aplicarTracking(true)">✅ Confirmar y marcar como enviado</button>
@@ -5843,7 +5849,7 @@ function abrirMensajeWA(id){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-mensaje-wa';
   mod.innerHTML=`<div class="modal" style="max-width:580px">
     <div class="modal-h">
-      <div class="modal-title">📲 Mensaje a ${p.nombre}</div>
+      <div class="modal-title">${ic('send',18)} Mensaje a ${p.nombre}</div>
       <div class="mc" onclick="document.getElementById('modal-mensaje-wa').remove()">×</div>
     </div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Selecciona una plantilla y copia / abre WhatsApp. <a href="#" onclick="document.getElementById('modal-mensaje-wa').remove();showPage('whatsapp',document.querySelector('.nav-item[onclick*=whatsapp]'));return false" style="color:var(--accent)">✏️ Editar plantillas</a></div>
@@ -5965,7 +5971,7 @@ Margen: ${margen.toFixed(1)}%`;
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-resumen-ped';
   mod.innerHTML=`<div class="modal" style="max-width:520px">
     <div class="modal-h">
-      <div class="modal-title">💰 Resumen financiero — Pedido #${p.id}</div>
+      <div class="modal-title">${ic('dollar-circle',18)} Resumen financiero — Pedido #${p.id}</div>
       <div class="mc" onclick="document.getElementById('modal-resumen-ped').remove()">×</div>
     </div>
 
@@ -6252,7 +6258,7 @@ function ajustarStockInput(id){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-stock-adj';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
-      <div><div class="modal-title">📦 Ajustar stock — ${p.nombre}</div><div class="modal-sub">Stock actual: <b>${p.stock}</b> unidades</div></div>
+      <div><div class="modal-title">${ic('package',18)} Ajustar stock — ${p.nombre}</div><div class="modal-sub">Stock actual: <b>${p.stock}</b> unidades</div></div>
       <div class="mc" onclick="document.getElementById('modal-stock-adj').remove()">×</div>
     </div>
     <div class="fg" style="margin-bottom:20px">
@@ -8018,7 +8024,7 @@ function toggleLiquidadoPedido(id){
     }
     const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-rev-liq';
     mod.innerHTML=`<div class="modal sm">
-      <div class="modal-h"><div class="modal-title">↩️ Revertir liquidación</div><div class="mc" onclick="document.getElementById('modal-rev-liq').remove()">×</div></div>
+      <div class="modal-h"><div class="modal-title">${ic('undo',18)} Revertir liquidación</div><div class="mc" onclick="document.getElementById('modal-rev-liq').remove()">×</div></div>
       <div class="abox abox-amber" style="margin-bottom:14px"><span class="abox-icon">⚠️</span><div class="abox-text">Este pedido volverá a aparecer como <b>pendiente de cobro</b> en la sección Liquidación Courier.</div></div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;background:var(--surface3);padding:12px;border-radius:8px">
         <div style="font-weight:700;font-size:14px;margin-bottom:4px">Pedido #${p.id} · ${p.nombre}</div>
@@ -8040,7 +8046,7 @@ function toggleLiquidadoPedido(id){
     const neto=(p.precio||0)-cenvActual;
     const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-liq';
     mod.innerHTML=`<div class="modal sm">
-      <div class="modal-h"><div class="modal-title">💵 Liquidar pedido #${p.id}</div><div class="mc" onclick="document.getElementById('modal-liq').remove()">×</div></div>
+      <div class="modal-h"><div class="modal-title">${ic('banknote',18)} Liquidar pedido #${p.id}</div><div class="mc" onclick="document.getElementById('modal-liq').remove()">×</div></div>
       <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:14px">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px">${p.nombre} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
         <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">📦 ${p.producto||''}</div>
@@ -8143,7 +8149,7 @@ function renderHistorial(pedidoId){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-hist';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
-      <div><div class="modal-title">📋 Historial #${p.id}</div><div class="modal-sub">${p.nombre} · ${p.producto}</div></div>
+      <div><div class="modal-title">${ic('clock',18)} Historial #${p.id}</div><div class="modal-sub">${p.nombre} · ${p.producto}</div></div>
       <div class="mc" onclick="document.getElementById('modal-hist').remove()">×</div>
     </div>
     ${hist.length?hist.map((h,i)=>`
@@ -8365,7 +8371,7 @@ function openModalWA(id){
   const varsList=['{nombre}','{celular}','{producto}','{cantidad}','{precio}','{fecha}','{distrito}','{fechaEntregaLima}','{sede}','{clave}','{numOrden}','{codigoEnvio}','{fechaDespacho}','{fechaAgencia}','{diasDespacho}','{diasAgencia}','{adelanto}','{pendiente}','{mi_numero}'];
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-wa-tmp';
   mod.innerHTML=`<div class="modal" style="max-width:540px">
-    <div class="modal-h"><div class="modal-title">${t?'✏️ Editar plantilla':'💬 Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
+    <div class="modal-h"><div class="modal-title">${t?ic('pencil',18)+' Editar plantilla':ic('message-circle',18)+' Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
     <div class="form-grid">
       <div class="fg" style="grid-column:1/-1"><label>Nombre de la plantilla</label><input type="text" id="wa-n" value="${t?t.nombre.replace(/"/g,'&quot;'):''}" placeholder="Ej: Confirmación Lima"></div>
       <div class="fg" style="grid-column:1/-1">
@@ -8907,7 +8913,7 @@ function abrirModalTrabajador(editUserId, editName){
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
       <div>
-        <div class="modal-title">${editUserId?'✏️ Editar trabajador':'👤 Nuevo trabajador'}</div>
+        <div class="modal-title">${editUserId?ic('pencil',18)+' Editar trabajador':ic('user',18)+' Nuevo trabajador'}</div>
         <div class="modal-sub">${editUserId?'Cambia el nombre del trabajador':'Crea acceso para un nuevo miembro del equipo'}</div>
       </div>
       <div class="mc" onclick="document.getElementById('modal-trabajador').remove()">×</div>
@@ -9111,7 +9117,7 @@ function abrirNotaRapida(id){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-nota-rapida';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
-      <div><div class="modal-title">📝 Nota rápida — #${id}</div><div style="font-size:12px;color:var(--text2);margin-top:4px">${p.nombre} · ${p.producto}</div></div>
+      <div><div class="modal-title">${ic('note',18)} Nota rápida — #${id}</div><div style="font-size:12px;color:var(--text2);margin-top:4px">${p.nombre} · ${p.producto}</div></div>
       <div class="mc" onclick="document.getElementById('modal-nota-rapida').remove()">×</div>
     </div>
     <div class="fg" style="margin-bottom:14px">
@@ -9565,7 +9571,7 @@ function saVerBackupsGlobales(){
   mod.style.cssText='z-index:9999';
 
   if(!backups.length){
-    mod.innerHTML=`<div class="modal sm"><div class="modal-h"><div class="modal-title">🗄️ Backups SA Globales</div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
+    mod.innerHTML=`<div class="modal sm"><div class="modal-h"><div class="modal-title">${ic('archive',18)} Backups SA Globales</div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
     <div style="padding:20px;text-align:center;color:var(--text3)">
       <div style="font-size:32px;margin-bottom:12px">📭</div>
       <div style="font-weight:600;margin-bottom:6px">Sin backups globales aún</div>
@@ -9604,7 +9610,7 @@ function saVerBackupsGlobales(){
   }).join('');
 
   mod.innerHTML=`<div class="modal" style="max-width:560px"><div class="modal-h">
-    <div><div class="modal-title">🗄️ Backups SA Globales</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Guardados en este navegador</div></div>
+    <div><div class="modal-title">${ic('archive',18)} Backups SA Globales</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Guardados en este navegador</div></div>
     <div class="mc" onclick="this.closest('.overlay').remove()">×</div>
   </div>
   <div>${rows}</div>

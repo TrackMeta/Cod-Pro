@@ -2405,9 +2405,11 @@ let _pedidosSnapshot={};  // {numero(string): JSON.stringify(pedido)}
 
 // Convierte una row de la tabla pedidos a un objeto pedido JS.
 // p.id SIEMPRE = row.numero (el código existente usa p.id en todos lados).
+// p._rowId = id bigserial (llave primaria) — usado para identificar en DELETE
+// realtime, donde solo viene la PK (no el numero).
 function _rowToPedido(row){
   if(!row)return null;
-  return {...(row.data||{}),id:row.numero};
+  return {...(row.data||{}),id:row.numero,_rowId:row.id};
 }
 
 function _takePedidosSnapshot(){
@@ -2494,7 +2496,7 @@ function initRealtime(){
     // (debug: log de suscripción del canal pedidos)
     .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`workspace_id=eq.${wsId}`},
       payload=>{
-        console.log('[RT-pedidos]',payload.eventType,'numero:',payload.new?.numero??payload.old?.numero);
+        console.log('[RT-pedidos]',payload.eventType,'numero:',payload.new?.numero??payload.old?.numero,'rowId:',payload.new?.id??payload.old?.id);
         if(!DB.pedidos)DB.pedidos=[];
         if(payload.eventType==='INSERT'){
           const nuevo=_rowToPedido(payload.new);
@@ -2516,14 +2518,17 @@ function initRealtime(){
             DB.pedidos.push(actualizado);
           }
         } else if(payload.eventType==='DELETE'){
-          const numBorrado=payload.old?.numero;
-          if(numBorrado!=null){
-            const idx=DB.pedidos.findIndex(x=>x.id===numBorrado);
-            if(idx>=0){
-              const elim=DB.pedidos[idx];
-              if(elim.estado==='entregado')restaurarStockPedido(elim);
-              DB.pedidos.splice(idx,1);
-            }
+          // En DELETE, Supabase manda la PK (id bigserial). El numero solo
+          // viene con REPLICA IDENTITY FULL. Matcheamos por _rowId (PK) primero.
+          const oldRowId=payload.old?.id;
+          const oldNumero=payload.old?.numero;
+          let idx=-1;
+          if(oldRowId!=null)idx=DB.pedidos.findIndex(x=>x._rowId===oldRowId);
+          if(idx<0&&oldNumero!=null)idx=DB.pedidos.findIndex(x=>x.id===oldNumero);
+          if(idx>=0){
+            const elim=DB.pedidos[idx];
+            if(elim.estado==='entregado')restaurarStockPedido(elim);
+            DB.pedidos.splice(idx,1);
           }
         }
         localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
@@ -2816,7 +2821,7 @@ async function load(){
   // 2. Cargar PEDIDOS desde la tabla (FUENTE DE VERDAD ÚNICA — Fase 3)
   try{
     const{data:rows,error}=await _supabase.from('pedidos')
-      .select('numero,data')
+      .select('id,numero,data')
       .eq('workspace_id',SESSION.workspace_id)
       .order('numero',{ascending:true});
     if(!error&&Array.isArray(rows)){
@@ -3014,7 +3019,7 @@ async function onSignedIn(user){
   // Reemplaza los pedidos del JSON (db_data) — estos quedan solo como respaldo.
   try{
     const{data:rows,error}=await _supabase.from('pedidos')
-      .select('numero,data').eq('workspace_id',SESSION.workspace_id)
+      .select('id,numero,data').eq('workspace_id',SESSION.workspace_id)
       .order('numero',{ascending:true});
     if(!error&&Array.isArray(rows)){
       DB.pedidos=rows.map(_rowToPedido);
@@ -4493,18 +4498,18 @@ async function guardarPedido(){
   } else {
     // NUEVO: INSERT a la tabla con numero asignado por el trigger SQL.
     // Retry anti-colisión: si 2 workers crean a la vez y chocan, reintenta.
-    const dataObj={...p};delete dataObj.id;
-    let numero=null;
+    const dataObj={...p};delete dataObj.id;delete dataObj._rowId;
+    let numero=null,rowId=null;
     for(let intento=0;intento<6;intento++){
       const{data:ins,error}=await _supabase.from('pedidos')
         .insert({workspace_id:SESSION.workspace_id,numero:null,data:dataObj})
-        .select('numero').single();
-      if(!error&&ins){numero=ins.numero;break;}
+        .select('id,numero').single();
+      if(!error&&ins){numero=ins.numero;rowId=ins.id;break;}
       if(error&&error.code==='23505')continue; // colisión → reintentar
       if(error){console.warn('[pedidos] INSERT error:',error.message);alert('Error al crear pedido: '+error.message);return;}
     }
     if(numero==null){alert('No se pudo crear el pedido. Reintenta.');return;}
-    p.id=numero;
+    p.id=numero;p._rowId=rowId;
     if(!DB.pedidos.find(x=>x.id===numero))DB.pedidos.push(p);
   }
   save(); // persiste stock en productos (+ dual-write del pedido editado/creado)

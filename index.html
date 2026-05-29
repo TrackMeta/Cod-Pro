@@ -359,7 +359,8 @@ tbody tr:hover td{background:var(--accentL2)}
 /* ── SUMMARY ROW ─────────────────────────────── */
 .fr{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .fr:last-child{border-bottom:none}
-.fr-label{color:var(--text2);font-size:12.5px}
+.fr-label{color:var(--text2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.fr-label .ic{color:var(--text3)}
 .fr-val{font-weight:700;font-family:var(--mono);font-size:13px}
 .fv-pos{color:var(--green)}.fv-neg{color:var(--red)}.fv-orange{color:var(--accent)}.fv-blue{color:var(--blue)}
 
@@ -3779,7 +3780,11 @@ const ICONS={
   'note':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
   'upload':'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
   'edit':'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
-  'hourglass':'<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>'
+  'hourglass':'<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>',
+  'search':'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  'phone':'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  'palette':'<circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
+  'sparkle':'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/>'
 };
 function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){
@@ -3997,15 +4002,15 @@ function renderDashboard(){
   </div>
 
   <div class="card" style="margin-bottom:14px">
-    <div class="card-title">📊 Desglose de costos (${perLabel})</div>
-    <div class="fr"><span class="fr-label">💰 Ingresos brutos</span><span class="fr-val fv-pos">${fmt(ing)}</span></div>
-    <div class="fr"><span class="fr-label">📦 Costo productos</span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
-    <div class="fr"><span class="fr-label">🚚 Envíos + Embalaje</span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
-    <div class="fr"><span class="fr-label">📢 Publicidad</span><span class="fr-val fv-neg">−${fmt(pub)}</span></div>
-    <div class="fr" title="Suma de comisiones de cada asesor por sus entregas en el período. Detalle exacto en Equipo & Usuarios."><span class="fr-label">👥 Com. por entregas <span style="font-size:10px;color:var(--text3);font-weight:400">(${ent.filter(p=>comisionDePedido(p)>0).length}/${ent.length} con vendedor)</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
-    ${cgastos>0?`<div class="fr"><span class="fr-label">💸 Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>`:''}
-    ${cDev>0?`<div class="fr"><span class="fr-label">↩️ Costo devoluciones</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
-    ${sueldosTotal>0?`<div class="fr" style="opacity:.6"><span class="fr-label">💼 Sueldos fijos (info)</span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
+    <div class="card-title">${ic('dashboard',13)} Desglose de costos (${perLabel})</div>
+    <div class="fr"><span class="fr-label">${ic('wallet',13)} Ingresos brutos</span><span class="fr-val fv-pos">${fmt(ing)}</span></div>
+    <div class="fr"><span class="fr-label">${ic('package',13)} Costo productos</span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
+    <div class="fr"><span class="fr-label">${ic('truck',13)} Envíos + Embalaje</span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
+    <div class="fr"><span class="fr-label">${ic('megaphone',13)} Publicidad</span><span class="fr-val fv-neg">−${fmt(pub)}</span></div>
+    <div class="fr" title="Suma de comisiones de cada asesor por sus entregas en el período. Detalle exacto en Equipo & Usuarios."><span class="fr-label">${ic('users',13)} Com. por entregas <span style="font-size:10px;color:var(--text3);font-weight:400">(${ent.filter(p=>comisionDePedido(p)>0).length}/${ent.length} con vendedor)</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
+    ${cgastos>0?`<div class="fr"><span class="fr-label">${ic('banknote',13)} Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>`:''}
+    ${cDev>0?`<div class="fr"><span class="fr-label">${ic('undo',13)} Costo devoluciones</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
+    ${sueldosTotal>0?`<div class="fr" style="opacity:.6"><span class="fr-label">${ic('users',13)} Sueldos fijos (info)</span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
     <div style="margin-top:8px;padding:10px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:7px">
       <div class="fr" style="border:none;padding:0"><span style="font-weight:700">UTILIDAD NETA</span><span class="mono" style="font-weight:700;font-size:16px;color:${util>=0?'var(--green)':'var(--red)'}">${fmtN(util)}</span></div>
     </div>
@@ -6523,10 +6528,10 @@ function renderUpsells(){
         </div>
         ${costoU>0?`<div style="margin-top:7px;font-size:10.5px;color:var(--text3)">${u.ofertas.map(o=>`${o.cantidad}× → gan. ${fmt(o.precio-costoU*o.cantidad)}`).join(' · ')}</div>`:''}
       </div>`:`
-      <div class="fr" style="padding:5px 0"><span class="fr-label">💰 Precio base</span><span class="fr-val" style="color:var(--green)">${fmt(u.precio)}</span></div>`}
+      <div class="fr" style="padding:5px 0"><span class="fr-label">${ic('wallet',13)} Precio base</span><span class="fr-val" style="color:var(--green)">${fmt(u.precio)}</span></div>`}
       ${costoU>0?`
-      <div class="fr" style="padding:5px 0"><span class="fr-label">📦 Costo</span><span class="fr-val" style="color:var(--red)">${fmt(costoU)}</span></div>
-      <div class="fr" style="padding:5px 0"><span class="fr-label">✨ Ganancia / u.</span><span class="fr-val" style="color:var(--accent)">${fmt(gananciaU)} <span style="font-size:10.5px;opacity:.7">(${margenU.toFixed(0)}%)</span></span></div>`:''}
+      <div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Costo</span><span class="fr-val" style="color:var(--red)">${fmt(costoU)}</span></div>
+      <div class="fr" style="padding:5px 0"><span class="fr-label">${ic('sparkle',13)} Ganancia / u.</span><span class="fr-val" style="color:var(--accent)">${fmt(gananciaU)} <span style="font-size:10.5px;opacity:.7">(${margenU.toFixed(0)}%)</span></span></div>`:''}
 
       <div style="height:1px;background:var(--border);margin:10px 0"></div>
 
@@ -6866,17 +6871,17 @@ function renderFinanzas(){
   <!-- P&L + ROI POR PRODUCTO -->
   <div class="g2" style="margin-top:0">
     <div class="card">
-      <div class="card-title">📋 P&L — Estado de resultados</div>
-      <div class="fr"><span class="fr-label">💰 Ingresos brutos</span><span class="fr-val fv-pos">${fmt(ing)}</span></div>
-      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">📦 Costo productos <span style="font-size:10px">${ing>0?((cprod/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
-      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">🚚 Envíos + Embalaje <span style="font-size:10px">${ing>0?(((cenv+cemb)/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
+      <div class="card-title">${ic('clipboard-list',13)} P&L — Estado de resultados</div>
+      <div class="fr"><span class="fr-label">${ic('wallet',13)} Ingresos brutos</span><span class="fr-val fv-pos">${fmt(ing)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('package',13)} Costo productos <span style="font-size:10px">${ing>0?((cprod/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cprod)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('truck',13)} Envíos + Embalaje <span style="font-size:10px">${ing>0?(((cenv+cemb)/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cenv+cemb)}</span></div>
       <div class="fr" style="border-top:1px dashed var(--border2);margin-top:4px;padding-top:4px"><span class="fr-label" style="font-style:italic">= Margen bruto</span><span class="fr-val" style="color:${(ing-cprod-cenv-cemb)>=0?'var(--blue)':'var(--red)'}">${fmt(ing-cprod-cenv-cemb)} <span style="font-size:10px">(${margenBruto.toFixed(1)}%)</span></span></div>
-      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">📢 Publicidad <span style="font-size:10px">${ing>0?((cpub/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cpub)}</span></div>
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('megaphone',13)} Publicidad <span style="font-size:10px">${ing>0?((cpub/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cpub)}</span></div>
       <div class="fr" style="border-top:1px dashed var(--border2);margin-top:4px;padding-top:4px"><span class="fr-label" style="font-style:italic">= Margen post-pub</span><span class="fr-val" style="color:${(ing-cprod-cenv-cemb-cpub)>=0?'var(--blue)':'var(--red)'}">${fmt(ing-cprod-cenv-cemb-cpub)} <span style="font-size:10px">(${margenPostPub.toFixed(1)}%)</span></span></div>
-      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">👥 Comisiones entregas <span style="font-size:10px">${ing>0?((ccomEntregas/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
-      ${cDev>0?`<div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--red)">↩️ Devoluciones (${dev.length}) <span style="font-size:10px">costo sin ingreso</span></span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
-      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">📋 Gastos extras <span style="font-size:10px">${ing>0?((cgastos/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>
-      ${sueldosTotal>0?`<div class="fr" style="padding-left:16px;opacity:.6"><span class="fr-label" style="color:var(--text3)">💼 Sueldos asesores <span style="font-size:10px">(no filtrado por período)</span></span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('users',13)} Comisiones entregas <span style="font-size:10px">${ing>0?((ccomEntregas/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
+      ${cDev>0?`<div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--red)">${ic('undo',13)} Devoluciones (${dev.length}) <span style="font-size:10px">costo sin ingreso</span></span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
+      <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('note',13)} Gastos extras <span style="font-size:10px">${ing>0?((cgastos/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>
+      ${sueldosTotal>0?`<div class="fr" style="padding-left:16px;opacity:.6"><span class="fr-label" style="color:var(--text3)">${ic('users',13)} Sueldos asesores <span style="font-size:10px">(no filtrado por período)</span></span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
       <div style="margin-top:10px;padding:14px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:8px;border:1px solid ${util>=0?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)'}">
         <div class="fr" style="border:none;padding:0">
           <div>
@@ -6891,13 +6896,13 @@ function renderFinanzas(){
       </div>
       ${ingLima>0||ingProv>0?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Ingresos por zona</div>
-        <div class="fr"><span class="fr-label">🏙️ Lima</span><span class="fr-val" style="color:var(--blue)">${fmt(ingLima)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingLima/ing)*100).toFixed(0):0}%</span></span></div>
-        <div class="fr"><span class="fr-label">📦 Provincia</span><span class="fr-val" style="color:var(--accent)">${fmt(ingProv)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingProv/ing)*100).toFixed(0):0}%</span></span></div>
-        ${upsellRev>0?`<div class="fr"><span class="fr-label">⬆️ Upsells</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
+        <div class="fr"><span class="fr-label">${ic('building',13)} Lima</span><span class="fr-val" style="color:var(--blue)">${fmt(ingLima)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingLima/ing)*100).toFixed(0):0}%</span></span></div>
+        <div class="fr"><span class="fr-label">${ic('package',13)} Provincia</span><span class="fr-val" style="color:var(--accent)">${fmt(ingProv)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingProv/ing)*100).toFixed(0):0}%</span></span></div>
+        ${upsellRev>0?`<div class="fr"><span class="fr-label">${ic('arrow-up-circle',13)} Upsells</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
       </div>`:''}
     </div>
     <div class="card">
-      <div class="card-title">🏆 ROI por producto</div>
+      <div class="card-title">${ic('trophy',13)} ROI por producto</div>
       <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px">Pedidos entregados del período · ordenados por ingreso</div>
       ${roiPorProducto(filtro)}
     </div>
@@ -7718,7 +7723,7 @@ function renderFlujoContent(){
   <!-- GASTOS DEL PERÍODO -->
   ${(gastosLista.length||pubLista.length)?`<div class="g2" style="margin-top:0">
     ${pubLista.length?`<div class="card">
-      <div class="card-title">📢 Publicidad del período <span class="mono" style="font-size:12px;color:var(--red)">−${fmt(pubTotal)}</span></div>
+      <div class="card-title">${ic('megaphone',13)} Publicidad del período <span class="mono" style="font-size:12px;color:var(--red)">−${fmt(pubTotal)}</span></div>
       <div class="tw" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Fecha</th><th>Campaña</th><th style="text-align:right">Monto</th></tr></thead><tbody>
         ${pubLista.map(p=>`<tr>
           <td style="font-size:11px;color:var(--text3)">${p.fecha?.slice(5)||'—'}</td>
@@ -7728,7 +7733,7 @@ function renderFlujoContent(){
       </tbody></table></div>
     </div>`:''}
     ${gastosLista.length?`<div class="card">
-      <div class="card-title">🧾 Gastos extras del período <span class="mono" style="font-size:12px;color:var(--amber)">−${fmt(gastosTotal)}</span></div>
+      <div class="card-title">${ic('note',13)} Gastos extras del período <span class="mono" style="font-size:12px;color:var(--amber)">−${fmt(gastosTotal)}</span></div>
       <div class="tw" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Fecha</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead><tbody>
         ${gastosLista.map(g=>`<tr>
           <td style="font-size:11px;color:var(--text3)">${g.fecha?.slice(5)||'—'}</td>
@@ -7741,7 +7746,7 @@ function renderFlujoContent(){
 
   <!-- PROYECCIÓN -->
   ${promDiario>0?`<div class="card" style="margin-top:0">
-    <div class="card-title">🔮 Proyección próximos 7 días</div>
+    <div class="card-title">${ic('trending-up',13)} Proyección próximos 7 días</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Basado en promedio de ${diasConActividad.length} días activos del período seleccionado. Los fines de semana tienen menor actividad típica.</div>
     <div class="g2">
       <div>
@@ -8231,7 +8236,7 @@ function renderWhatsapp(){
     <div style="display:flex;flex-direction:column;gap:12px">
       <!-- Buscar pedido -->
       <div class="card">
-        <div class="card-title">🔍 Buscar pedido</div>
+        <div class="card-title">${ic('search',13)} Buscar pedido</div>
         <input type="text" id="wa-search" placeholder="Busca por nombre, celular o #ID..." oninput="filterWAPedidos()"
           style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;font-family:var(--font)">
         <div id="wa-ped-list" style="margin-top:8px;max-height:180px;overflow-y:auto;display:none"></div>
@@ -8239,7 +8244,7 @@ function renderWhatsapp(){
       </div>
       <!-- Número propio editable -->
       <div class="card">
-        <div class="card-title">📱 Tu número (para plantillas)</div>
+        <div class="card-title">${ic('phone',13)} Tu número (para plantillas)</div>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="text" id="wa-mi-numero" placeholder="Ej: 999888777"
             value="${localStorage.getItem('wa_mi_numero')||''}"
@@ -8253,7 +8258,7 @@ function renderWhatsapp(){
     </div>
     <!-- Panel lateral variables -->
     <div class="card" style="height:fit-content;position:sticky;top:16px">
-      <div class="card-title">📌 Variables disponibles</div>
+      <div class="card-title">${ic('tag',13)} Variables disponibles</div>
       <div style="font-size:10px;color:var(--text3);margin-bottom:10px">Clic en una variable para copiarla al portapapeles</div>
       ${[
         {group:'👤 Cliente',vars:[['nombre','Nombre del cliente'],['celular','Celular del cliente']]},
@@ -8416,7 +8421,7 @@ function renderImportar(){
   </div>
   <div class="g2">
     <div class="card">
-      <div class="card-title">📁 Subir archivo CSV</div>
+      <div class="card-title">${ic('upload',13)} Subir archivo CSV</div>
       <div class="import-drop" id="import-drop" onclick="document.getElementById('import-file').click()" style="cursor:pointer">
         <div style="font-size:36px;margin-bottom:10px">📄</div>
         <div style="font-weight:700;font-size:14px;margin-bottom:5px">Haz clic o arrastra tu CSV aquí</div>
@@ -8427,7 +8432,7 @@ function renderImportar(){
       <div id="import-preview" style="margin-top:16px"></div>
     </div>
     <div class="card">
-      <div class="card-title">📋 Guía de columnas</div>
+      <div class="card-title">${ic('clipboard-list',13)} Guía de columnas</div>
       <div class="abox abox-blue" style="margin-bottom:12px"><span class="abox-icon">🤖</span><div class="abox-text">El sistema detecta columnas automáticamente. Revisa el mapeo antes de importar y corrígelo si algo no cuadra.</div></div>
       <div id="import-mapeo"></div>
       <div style="margin-top:16px">
@@ -8636,7 +8641,7 @@ function renderConfig(){
 
     <!-- CARD 1: Valores por defecto -->
     <div class="card">
-      <div class="card-title">💰 Costos & Comisiones por defecto</div>
+      <div class="card-title">${ic('wallet',13)} Costos & Comisiones por defecto</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Se usan al crear pedidos y calcular rentabilidad</div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Costos de envío (lo que se queda el courier)</div>
@@ -8658,7 +8663,7 @@ function renderConfig(){
 
     <!-- CARD 2: Metas & Alertas -->
     <div class="card">
-      <div class="card-title">🎯 Metas & Alertas</div>
+      <div class="card-title">${ic('target',13)} Metas & Alertas</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Umbrales para notificaciones y semáforos visuales</div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Rendimiento</div>
@@ -8727,7 +8732,7 @@ function renderConfig(){
 
     <!-- CARD 3: Personalización -->
     <div class="card">
-      <div class="card-title">🎨 Personalización</div>
+      <div class="card-title">${ic('palette',13)} Personalización</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
         <div style="width:64px;height:64px;border-radius:12px;background:var(--surface3);border:2px dashed var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0" id="logo-preview-big">
           ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:24px;color:var(--text3)">🖼️</span>'}
@@ -8764,7 +8769,7 @@ function renderConfig(){
 
     <!-- CARD 4: Datos & Backup -->
     <div class="card">
-      <div class="card-title">💾 Datos & Backup</div>
+      <div class="card-title">${ic('archive',13)} Datos & Backup</div>
 
       <!-- Estado del backup -->
       ${ultimo

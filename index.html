@@ -692,8 +692,14 @@ td{padding:11px 14px;font-size:13px}
   .nav-item{padding:13px 16px;font-size:14.5px;border-radius:10px;margin-bottom:3px;min-height:48px}
   .sidebar-brand{padding:env(safe-area-inset-top,16px) 14px 12px}
 
+  /* Topbar — evitar desborde horizontal en móvil */
+  .topbar{overflow:hidden}
+  .topbar-title{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-right{min-width:0;flex:1;justify-content:flex-end}
+  .topbar-right>#rt-indicator,.topbar-right>.btn,.topbar-right>.icon-btn{flex-shrink:0}
+
   /* Dashboard period */
-  #dash-periodo{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch;padding-bottom:3px;margin-bottom:8px}
+  #dash-periodo{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch;padding-bottom:3px;min-width:0;flex:1 1 auto}
   #dash-periodo>div{flex-wrap:nowrap;gap:4px}
   .tbtn{padding:7px 11px;font-size:12px;white-space:nowrap;min-height:36px}
 

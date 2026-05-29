@@ -235,6 +235,25 @@ input,select,textarea,button{font-family:var(--font)}
 .mcard-sub{font-size:10.5px;color:var(--text3);margin-top:5px}
 .mcard-trend{font-size:11px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:3px}
 
+/* ── KPI HERO (Dashboard) ───────────────────── */
+.kpi-hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.kpi-hero{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:16px 18px 0;position:relative;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.kpi-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.kpi-hero-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.kpi-hero-val{font-size:30px;font-weight:800;font-family:var(--mono);letter-spacing:-1px;line-height:1.1;margin-top:6px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.kpi-hero-sub{font-size:11.5px;color:var(--text3);margin-top:4px}
+.kpi-hero-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-hero-spark{margin:12px -18px 0;height:42px;line-height:0}
+.kpi-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+@media(max-width:768px){
+  .kpi-hero-grid{gap:10px;margin-bottom:10px}
+  .kpi-hero{padding:13px 14px 0;border-radius:14px}
+  .kpi-hero-val{font-size:24px}
+  .kpi-hero-ico{width:34px;height:34px}
+  .kpi-hero-spark{margin:10px -14px 0;height:36px}
+  .kpi-mini-grid{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+}
+
 /* ── STAT ROW (KPI bars) ────────────────────── */
 .stat-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);padding:13px 16px;display:flex;align-items:center;gap:14px;transition:all .12s}
 .stat-row:hover{border-color:var(--border3)}
@@ -3887,6 +3906,22 @@ function toggleSidebar(){
 function setMobNav(){} // no-op, bottom nav removed
 function updateMobBadges(){} // no-op
 
+// Mini-gráfico de tendencia (sparkline SVG, sin dependencias)
+function sparkline(values,color,h){
+  h=h||42;
+  const w=200;
+  if(!values||values.length<2)return '';
+  const max=Math.max(...values),min=Math.min(...values,0),range=(max-min)||1,n=values.length;
+  const pts=values.map((v,i)=>{const x=(i/(n-1))*w;const y=(h-3)-((v-min)/range)*(h-6);return x.toFixed(1)+','+y.toFixed(1);});
+  const line=pts.join(' ');
+  const id='sg'+Math.random().toString(36).slice(2,8);
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">`
+    +`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".28"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`
+    +`<polygon points="0,${h} ${line} ${w},${h}" fill="url(#${id})"/>`
+    +`<polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`
+    +`</svg>`;
+}
+
 function showPage(id, navEl){
   document.getElementById('topbar-title').textContent=PAGE_TITLES[id]||id;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -4014,12 +4049,35 @@ function renderDashboard(){
     ${prevFiltro?`<span class="pill-tag" style="color:var(--text3);font-size:9.5px">vs período anterior</span>`:''}
   </div>
 
-  <div class="metrics-grid">
-    <div class="mcard mc-green"><div class="mcard-label">Ingresos brutos</div><div class="mcard-val mv-green" style="font-size:19px"><span class="counter-val" data-val="${ing}" data-money="1">${fmt(ing)}</span>${dlt(ing,pIng)}</div><div class="mcard-sub">${ent.length} entregas${dlt(ent.length,pEnt)}</div></div>
-    <div class="mcard mc-${util>=0?'green':'red'}"><div class="mcard-label">Utilidad neta</div><div class="mcard-val mv-${util>=0?'green':'red'}" style="font-size:19px"><span class="counter-val" data-val="${util}" data-money="1">${fmtN(util)}</span>${dlt(util,pUtil)}</div><div class="mcard-sub">${ing>0?(util/ing*100).toFixed(1):0}% margen</div></div>
+  <div class="kpi-hero-grid">
+    <div class="kpi-hero">
+      <div class="kpi-hero-top">
+        <div>
+          <div class="kpi-hero-label">Ingresos brutos</div>
+          <div class="kpi-hero-val mv-green"><span class="counter-val" data-val="${ing}" data-money="1">${fmt(ing)}</span>${dlt(ing,pIng)}</div>
+          <div class="kpi-hero-sub">${ent.length} entregas${dlt(ent.length,pEnt)}</div>
+        </div>
+        <div class="kpi-hero-ico" style="background:var(--greenL);color:var(--green)">${ic('wallet',20)}</div>
+      </div>
+      <div class="kpi-hero-spark">${sparkline(trendData.map(d=>d.ing),'var(--green)')}</div>
+    </div>
+    <div class="kpi-hero">
+      <div class="kpi-hero-top">
+        <div>
+          <div class="kpi-hero-label">Utilidad neta</div>
+          <div class="kpi-hero-val mv-${util>=0?'green':'red'}"><span class="counter-val" data-val="${util}" data-money="1">${fmtN(util)}</span>${dlt(util,pUtil)}</div>
+          <div class="kpi-hero-sub">${ing>0?(util/ing*100).toFixed(1):0}% margen · ${ent.length} entregas</div>
+        </div>
+        <div class="kpi-hero-ico" style="background:${util>=0?'var(--greenL)':'var(--redL)'};color:${util>=0?'var(--green)':'var(--red)'}">${ic('trending-up',20)}</div>
+      </div>
+      <div class="kpi-hero-spark">${sparkline(trendData.map(d=>d.ent),util>=0?'var(--green)':'var(--red)')}</div>
+    </div>
+  </div>
+
+  <div class="kpi-mini-grid">
     <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}"><span class="counter-val" data-val="${ef}" data-suffix="%">${ef}%</span>${dlt(ef,pEf)}</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devoluciones</div><div class="mcard-val mv-red"><span class="counter-val" data-val="${devPct}" data-suffix="%">${devPct}%</span>${dlt(devPct,pDev,true)}</div><div class="mcard-sub">${dev.length} pedidos</div></div>
     <div class="mcard mc-blue"><div class="mcard-label">% Confirmación</div><div class="mcard-val mv-blue"><span class="counter-val" data-val="${pctConf}" data-suffix="%">${pctConf}%</span></div><div class="mcard-sub">${conf.length} confirmados</div></div>
+    <div class="mcard mc-red"><div class="mcard-label">Devoluciones</div><div class="mcard-val mv-red"><span class="counter-val" data-val="${devPct}" data-suffix="%">${devPct}%</span>${dlt(devPct,pDev,true)}</div><div class="mcard-sub">${dev.length} pedidos</div></div>
     <div class="mcard mc-amber"><div class="mcard-label">Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px"><span class="counter-val" data-val="${porCobrar}" data-money="1">${fmt(porCobrar)}</span></div><div class="mcard-sub">en tránsito prov.</div></div>
   </div>
 

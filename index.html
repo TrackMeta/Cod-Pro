@@ -306,6 +306,9 @@ tbody tr:hover td{background:var(--accentL2)}
 [data-theme="light"] .bdg-warn{background:rgba(220,130,0,.14);color:var(--amberD);border-color:rgba(220,130,0,.45)}
 [data-theme="light"] .bdg-crit{background:rgba(220,48,66,.14);color:var(--redD);border-color:rgba(220,48,66,.45)}
 
+/* ── ÍCONOS SVG ──────────────────────────────── */
+.ic{vertical-align:-0.15em;flex-shrink:0}
+
 /* ── ACTION ICON BUTTONS (unificados) ────────── */
 .act{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border2);background:var(--surface3);color:var(--text2);cursor:pointer;font-size:13px;line-height:1;transition:transform .12s,box-shadow .12s,background .12s,color .12s;flex-shrink:0}
 .act:hover{transform:translateY(-1px);box-shadow:0 3px 9px rgba(0,0,0,.18);color:var(--text)}
@@ -890,26 +893,26 @@ td{padding:11px 14px;font-size:13px}
       <nav class="sidebar-nav" id="sidebar-nav">
         <!-- OPERACIONES (todos) -->
         <div class="nav-section">Operaciones</div>
-        <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico">📋</span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
-        <div class="nav-item" onclick="showPage('lima',this)"><span class="ico">🏙️</span>Lima</div>
-        <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico">📦</span>Provincia</div>
-        <div class="nav-item" onclick="showPage('rotulos',this)"><span class="ico">🏷️</span>Rótulos de Envío</div>
-        <div class="nav-item" onclick="showPage('whatsapp',this)"><span class="ico">💬</span>Plantillas WA</div>
-        <div class="nav-item" onclick="showPage('importar',this)"><span class="ico">📥</span>Importar CSV</div>
+        <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico" data-ic="clipboard-list"></span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
+        <div class="nav-item" onclick="showPage('lima',this)"><span class="ico" data-ic="building"></span>Lima</div>
+        <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico" data-ic="package"></span>Provincia</div>
+        <div class="nav-item" onclick="showPage('rotulos',this)"><span class="ico" data-ic="tag"></span>Rótulos de Envío</div>
+        <div class="nav-item" onclick="showPage('whatsapp',this)"><span class="ico" data-ic="message-circle"></span>Plantillas WA</div>
+        <div class="nav-item" onclick="showPage('importar',this)"><span class="ico" data-ic="download"></span>Importar CSV</div>
         <!-- ANÁLISIS & FINANZAS (admin) -->
         <div class="nav-section admin-only">Análisis & Finanzas</div>
-        <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico">📊</span>Dashboard</div>
-        <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico">💰</span>Finanzas</div>
-        <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico">💸</span>Flujo de Caja</div>
-        <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico">💵</span>Liquidación</div>
+        <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico" data-ic="dashboard"></span>Dashboard</div>
+        <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico" data-ic="wallet"></span>Finanzas</div>
+        <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico" data-ic="trending-up"></span>Flujo de Caja</div>
+        <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico" data-ic="banknote"></span>Liquidación</div>
         <!-- GESTIÓN (admin) -->
         <div class="nav-section admin-only">Gestión</div>
-        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico">🏪</span>Catálogo & Stock</div>
-        <div class="nav-item admin-only" onclick="showPage('upsells',this)"><span class="ico">⬆️</span>Upsells / Bumps</div>
-        <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico">👥</span>Equipo & Usuarios</div>
+        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Catálogo & Stock</div>
+        <div class="nav-item admin-only" onclick="showPage('upsells',this)"><span class="ico" data-ic="arrow-up-circle"></span>Upsells / Bumps</div>
+        <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico" data-ic="users"></span>Equipo & Usuarios</div>
         <!-- SISTEMA (admin) -->
         <div class="nav-section admin-only">Sistema</div>
-        <div class="nav-item admin-only" onclick="showPage('config',this)"><span class="ico">⚙️</span>Configuración</div>
+        <div class="nav-item admin-only" onclick="showPage('config',this)"><span class="ico" data-ic="settings"></span>Configuración</div>
       </nav>
       <div class="sidebar-bottom">
         <div class="theme-toggle" onclick="toggleTheme()">
@@ -3731,21 +3734,53 @@ function filtrarPeriodo(arr,per){
   if(per==='mes'){const d=new Date();d.setDate(d.getDate()-30);const s=d.toISOString().split('T')[0];return arr.filter(p=>p.fecha>=s);}
   return arr;
 }
+/* ── SISTEMA DE ÍCONOS SVG (Lucide, en línea, sin dependencias) ── */
+const ICONS={
+  'clipboard-list':'<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+  'building':'<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+  'package':'<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
+  'store':'<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/>',
+  'tag':'<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  'message-circle':'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  'download':'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  'dashboard':'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  'wallet':'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  'trending-up':'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  'banknote':'<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  'arrow-up-circle':'<circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4"/><path d="M12 16V8"/>',
+  'users':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'settings':'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  'pencil':'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
+  'clock':'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  'trash':'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  'dollar-circle':'<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>',
+  'send':'<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  'circle-dot':'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>',
+  'check-circle':'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'phone-off':'<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2A19 19 0 0 1 3.05 6.18 2 2 0 0 1 5 4h3a2 2 0 0 1 2 1.72"/><line x1="22" x2="2" y1="2" y2="22"/>',
+  'truck':'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 18.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  'package-check':'<path d="m16 16 2 2 4-4"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
+  'undo':'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  'x-circle':'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+  'calendar-clock':'<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><path d="M22 16a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"/>',
+  'link':'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+};
+function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){
   const cfg={
-    nuevo:        {cls:'bdg-nuevo',       e:'🔵', lbl:'Nuevo'},
-    confirmado:   {cls:'bdg-confirmado',  e:'✅',  lbl:'Confirmado'},
-    'no-contesta':{cls:'bdg-no-contesta', e:'📵', lbl:'No contesta'},
-    rechazado:    {cls:'bdg-rechazado',   e:'❌',  lbl:'Rechazado'},
-    enviado:      {cls:'bdg-enviado',     e:'🚚', lbl:'Enviado'},
-    entregado:    {cls:'bdg-entregado',   e:'📦', lbl:'Entregado'},
-    devuelto:     {cls:'bdg-devuelto',    e:'↩️', lbl:'Devuelto'},
-    reprogramado: {cls:'bdg-reprogramado',e:'📅', lbl:'Reprogramado'}
+    nuevo:        {cls:'bdg-nuevo',       ic:'circle-dot',    lbl:'Nuevo'},
+    confirmado:   {cls:'bdg-confirmado',  ic:'check-circle',  lbl:'Confirmado'},
+    'no-contesta':{cls:'bdg-no-contesta', ic:'phone-off',     lbl:'No contesta'},
+    rechazado:    {cls:'bdg-rechazado',   ic:'x-circle',      lbl:'Rechazado'},
+    enviado:      {cls:'bdg-enviado',     ic:'truck',         lbl:'Enviado'},
+    entregado:    {cls:'bdg-entregado',   ic:'package-check', lbl:'Entregado'},
+    devuelto:     {cls:'bdg-devuelto',    ic:'undo',          lbl:'Devuelto'},
+    reprogramado: {cls:'bdg-reprogramado',ic:'calendar-clock',lbl:'Reprogramado'}
   };
-  const d=cfg[est]||{cls:'bdg-nuevo',e:'•',lbl:est.replace(/-/g,' ')};
-  return `<span class="bdg ${d.cls}">${d.e} ${d.lbl}</span>`;
+  const d=cfg[est]||{cls:'bdg-nuevo',ic:'circle-dot',lbl:est.replace(/-/g,' ')};
+  return `<span class="bdg ${d.cls}">${ic(d.ic,13)} ${d.lbl}</span>`;
 }
-function bdgMod(m){return m==='aliclick'?'<span class="bdg bdg-aliclick">🔗 Aliclick</span>':'<span class="bdg bdg-stock">📦 Stock</span>';}
+function bdgMod(m){return m==='aliclick'?'<span class="bdg bdg-aliclick">'+ic('link',13)+' Aliclick</span>':'<span class="bdg bdg-stock">'+ic('package',13)+' Stock</span>';}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // =====================================================================
@@ -3975,8 +4010,8 @@ function renderDashboard(){
       <td class="td-mono" style="font-weight:700">${fmt(x.precio)}</td>
       <td>${badge(x.estado)}</td>
       <td><div class="act-grp">
-        <button class="act" onclick="editarPedido(${x.id})" title="Editar">✏️</button>
-        <button class="act" onclick="renderHistorial(${x.id})" title="Historial">🕐</button>
+        <button class="act" onclick="editarPedido(${x.id})" title="Editar">${ic('pencil',15)}</button>
+        <button class="act" onclick="renderHistorial(${x.id})" title="Historial">${ic('clock',15)}</button>
       </div></td>
     </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pedidos</td></tr>'}
     </tbody></table></div>
@@ -4186,10 +4221,10 @@ function renderPedidosContent(){
     <td>${badge(p.estado)}</td>
     <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px">❌ Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
     <td><div class="act-grp">
-      <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">💰</button>
-      <button class="act" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
-      <button class="act" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
-      <button class="act act-del" onclick="eliminarPedido(${p.id})" title="Eliminar">🗑️</button>
+      <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
+      <button class="act" onclick="editarPedido(${p.id})" title="Editar">${ic('pencil',15)}</button>
+      <button class="act" onclick="renderHistorial(${p.id})" title="Historial">${ic('clock',15)}</button>
+      <button class="act act-del" onclick="eliminarPedido(${p.id})" title="Eliminar">${ic('trash',15)}</button>
     </div></td>
   </tr>`).join('');
     return sepRow+rows;
@@ -5274,17 +5309,17 @@ function renderLimaContent(){
         if(p.estado==='entregado'){
           if(p.liquidado){
             const fLiq=fechaCorta(p.fechaLiq||'')||'';
-            liqBtn='<button class="act act-liqok" onclick="toggleLiquidadoPedido('+p.id+')" title="Liquidado'+(fLiq?' el '+fLiq:'')+'. Click para revertir.">&#9989; Liq.'+(fLiq?' '+fLiq:'')+'</button>';
+            liqBtn='<button class="act act-liqok" onclick="toggleLiquidadoPedido('+p.id+')" title="Liquidado'+(fLiq?' el '+fLiq:'')+'. Click para revertir.">'+ic('check-circle',14)+' Liq.'+(fLiq?' '+fLiq:'')+'</button>';
           } else {
-            liqBtn='<button class="act act-liq" onclick="toggleLiquidadoPedido('+p.id+')" title="Marcar como liquidado por courier">&#128181; Liquidar</button>';
+            liqBtn='<button class="act act-liq" onclick="toggleLiquidadoPedido('+p.id+')" title="Marcar como liquidado por courier">'+ic('banknote',14)+' Liquidar</button>';
           }
         }
         limaHtml+='<td><div class="act-grp">'
           +liqBtn
-          +'<button class="act act-wa" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp">&#128242;</button>'
-          +'<button class="act act-money" onclick="verResumenPedido('+p.id+')" title="Resumen financiero">&#128176;</button>'
-          +'<button class="act" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
-          +'<button class="act" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'
+          +'<button class="act act-wa" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp">'+ic('send',15)+'</button>'
+          +'<button class="act act-money" onclick="verResumenPedido('+p.id+')" title="Resumen financiero">'+ic('dollar-circle',15)+'</button>'
+          +'<button class="act" onclick="editarPedido('+p.id+')" title="Editar">'+ic('pencil',15)+'</button>'
+          +'<button class="act" onclick="renderHistorial('+p.id+')" title="Historial">'+ic('clock',15)+'</button>'
           +'</div></td>'
           +'</tr>';
       });
@@ -5502,10 +5537,10 @@ function renderProvinciaContent(){
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
     <td><div class="act-grp">
-      <button class="act act-wa" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp">📲</button>
-      <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">💰</button>
-      <button class="act" onclick="editarPedido(${p.id})" title="Editar pedido">✏️</button>
-      <button class="act" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
+      <button class="act act-wa" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp">${ic('send',15)}</button>
+      <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
+      <button class="act" onclick="editarPedido(${p.id})" title="Editar pedido">${ic('pencil',15)}</button>
+      <button class="act" onclick="renderHistorial(${p.id})" title="Historial">${ic('clock',15)}</button>
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
@@ -7870,7 +7905,7 @@ function renderLiquidacion(){
               <td class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
               <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
               <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
-              <td><button class="act act-liq" onclick="toggleLiquidadoPedido(${p.id})" title="Marcar como liquidado">💵 Liq.</button></td>
+              <td><button class="act act-liq" onclick="toggleLiquidadoPedido(${p.id})" title="Marcar como liquidado">${ic('banknote',14)} Liq.</button></td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr style="background:var(--surface3)">
@@ -9732,6 +9767,9 @@ function saExitWs(){
   if(document.fonts){document.fonts.ready.then(hide);}
   setTimeout(hide,1200);
 })();
+
+// Rellenar íconos SVG estáticos (sidebar, etc.)
+document.querySelectorAll('[data-ic]').forEach(el=>{el.innerHTML=ic(el.getAttribute('data-ic'),parseInt(el.getAttribute('data-ic-size'))||18);});
 
 loadTheme();
 tryAutoLogin();

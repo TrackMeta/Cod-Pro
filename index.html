@@ -5714,7 +5714,7 @@ function trackingTimelineHTML(p){
     return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0">
       <button type="button" onclick="toggleFechaTracking(${p.id},'${campo}')" style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'var(--text3)'};border:${isDone?'none':'2px solid var(--border2)'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;padding:0;font-weight:800;transition:all .15s" title="${titleHelp}" onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform=''">${isDone?'✓':''}</button>
       <div style="flex:1;font-size:12.5px">
-        <div style="font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'}">${icon} ${label}</div>
+        <div style="font-weight:${isDone?'700':'500'};color:${isDone?'var(--text)':'var(--text3)'};display:flex;align-items:center;gap:6px">${icon} ${label}</div>
         <div style="font-size:11px;color:${fecha&&!fechaOk?'var(--red)':'var(--text3)'};font-weight:500">${subText}</div>
       </div>
       <input type="date" value="${valForInput}" onchange="actualizarFechaTracking(${p.id},'${campo}',this.value,this)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);font-family:var(--mono)" title="Editar fecha manualmente (no afecta otros pasos)">
@@ -5722,9 +5722,9 @@ function trackingTimelineHTML(p){
   };
   return `
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Línea de tiempo</div>
-    ${step('fechaDespacho','🚚','En camino',p.fechaDespacho)}
-    ${step('fechaAgencia','📦','En agencia',p.fechaAgencia)}
-    ${step('fechaEntregado','✅','Entregado',p.fechaEntregado)}`;
+    ${step('fechaDespacho',ic('truck',14),'En camino',p.fechaDespacho)}
+    ${step('fechaAgencia',ic('package',14),'En agencia',p.fechaAgencia)}
+    ${step('fechaEntregado',ic('check-circle',14),'Entregado',p.fechaEntregado)}`;
 }
 
 // Marca o desmarca un paso del timeline (con cascade)
@@ -5943,16 +5943,16 @@ function verResumenPedido(id){
   let cobroEstado='';
   if(esLima){
     if(esEntregado){
-      if(p.liquidado)cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(16,212,106,.12);border-radius:6px;font-size:12px;color:var(--green);font-weight:700">✅ Liquidado por courier${p.fechaLiq?' el '+fechaCorta(p.fechaLiq):''}</div>`;
-      else cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(240,165,32,.12);border-radius:6px;font-size:12px;color:var(--amber);font-weight:700">💵 Pendiente: courier debe entregar S/${(precioTotal-cenvEfectivo).toFixed(2)}</div>`;
-    } else if(p.estado==='enviado')cobroEstado=`<div style="font-size:12px;color:var(--text3);padding:6px 10px">🚚 En camino con courier — sin cobro aún</div>`;
-    else if(p.estado==='confirmado')cobroEstado=`<div style="font-size:12px;color:var(--text3);padding:6px 10px">✅ Confirmado — pendiente envío</div>`;
+      if(p.liquidado)cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(16,212,106,.12);border-radius:6px;font-size:12px;color:var(--green);font-weight:700">${ic('check-circle',13)} Liquidado por courier${p.fechaLiq?' el '+fechaCorta(p.fechaLiq):''}</div>`;
+      else cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(240,165,32,.12);border-radius:6px;font-size:12px;color:var(--amber);font-weight:700">${ic('banknote',13)} Pendiente: courier debe entregar S/${(precioTotal-cenvEfectivo).toFixed(2)}</div>`;
+    } else if(p.estado==='enviado')cobroEstado=`<div style="font-size:12px;color:var(--text3);padding:6px 10px;display:flex;align-items:center;gap:6px">${ic('truck',13)} En camino con courier — sin cobro aún</div>`;
+    else if(p.estado==='confirmado')cobroEstado=`<div style="font-size:12px;color:var(--text3);padding:6px 10px;display:flex;align-items:center;gap:6px">${ic('check-circle',13)} Confirmado — pendiente envío</div>`;
   } else {
     // Provincia
     const adel=parseFloat(p.adelanto)||0;
     const pend=parseFloat(p.pendiente)||0;
     if(esEntregado){
-      cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(16,212,106,.12);border-radius:6px;font-size:12px;color:var(--green);font-weight:700">✅ Entregado — cobro total recibido</div>`;
+      cobroEstado=`<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:rgba(16,212,106,.12);border-radius:6px;font-size:12px;color:var(--green);font-weight:700">${ic('check-circle',13)} Entregado — cobro total recibido</div>`;
     } else {
       cobroEstado=`<div style="background:var(--surface3);border-radius:6px;padding:8px 10px;font-size:12px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--text2)">Adelanto cobrado:</span><span class="mono" style="color:var(--green);font-weight:700">${fmt(adel)}</span></div>
@@ -5978,7 +5978,7 @@ function verResumenPedido(id){
       <div style="display:flex;justify-content:space-between;font-size:11.5px;color:${itGan>=0?'var(--green)':'var(--red)'};font-weight:700;margin-top:2px"><span>Ganancia bruta:</span><span class="mono">${fmt(itGan)}</span></div>
     </div>`;
   }).join('');
-  const cprodWarn=cprodTotal===0&&precioTotal>0?'<div style="font-size:10.5px;color:var(--amber);padding:6px 10px;background:rgba(240,165,32,.10);border-radius:5px;margin-top:6px">⚠️ Costo de producto en 0 — ganancia mostrada puede ser irreal. Edita el costo en el catálogo o en el pedido.</div>':'';
+  const cprodWarn=cprodTotal===0&&precioTotal>0?'<div style="font-size:10.5px;color:var(--amber);padding:6px 10px;background:rgba(240,165,32,.10);border-radius:5px;margin-top:6px;display:flex;align-items:center;gap:5px">'+ic('alert-triangle',13)+' Costo de producto en 0 — ganancia mostrada puede ser irreal. Edita el costo en el catálogo o en el pedido.</div>':'';
   // Texto plano para copiar
   const txtPlano=`RESUMEN PEDIDO #${p.id}
 Cliente: ${p.nombre||''}
@@ -6003,33 +6003,33 @@ Margen: ${margen.toFixed(1)}%`;
 
     <!-- Header del cliente -->
     <div style="background:var(--surface3);border-radius:10px;padding:12px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px">👤 ${p.nombre||'(sin nombre)'} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
-      <div style="font-size:11.5px;color:var(--text3)">📅 ${p.fecha||'sin fecha'} · 📍 ${esLima?(p.dist||'Lima'):(p.prov||'Provincia')+(p.sede?' / '+p.sede:'')} · ${badge?badge(p.estado):p.estado}</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;display:inline-flex;align-items:center;gap:6px">${ic('user',14)} ${p.nombre||'(sin nombre)'} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
+      <div style="font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:5px;flex-wrap:wrap">${ic('calendar',12)} ${p.fecha||'sin fecha'} · ${ic('map-pin',12)} ${esLima?(p.dist||'Lima'):(p.prov||'Provincia')+(p.sede?' / '+p.sede:'')} · ${badge?badge(p.estado):p.estado}</div>
     </div>
 
     <!-- Productos -->
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📦 Productos</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:inline-flex;align-items:center;gap:5px">${ic('package',13)} Productos</div>
     <div style="margin-bottom:12px">${itemsHtml}</div>
     ${cprodWarn}
 
     <!-- Costos logísticos + comisión -->
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">🛵 Costos logísticos + Comisión</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px;display:inline-flex;align-items:center;gap:5px">${ic('bike',13)} Costos logísticos + Comisión</div>
     <div style="background:var(--surface3);border-radius:8px;padding:10px 12px;font-size:12.5px;display:flex;flex-direction:column;gap:5px">
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Envío ${esLima?'(Lima)':'(Shalom)'}:</span><span class="mono" style="color:var(--red)">−${fmt(cenvEfectivo)}${p.cenvCobrado===false?' <span style=\"color:var(--text3);font-size:10px\">(no cobrado)</span>':''}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Embalaje (${fmt(embUnit)} × ${cantTotal} u):</span><span class="mono" style="color:var(--red)">−${fmt(embTotal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Comisión vendedor:</span><span class="mono" style="color:var(--red)">−${fmt(comision)}</span></div>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${asesor?'👤 '+asesorNombre+' · '+(esLima?'S/'+(parseFloat(asesor.comLima)||0)+' por entrega Lima':'S/'+(parseFloat(asesor.comProv)||0)+' por entrega Provincia'):'⚪ '+asesorNombre+(p.vendedor?'':' — sin comisión')}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:2px;display:inline-flex;align-items:center;gap:5px">${asesor?ic('user',12)+' '+asesorNombre+' · '+(esLima?'S/'+(parseFloat(asesor.comLima)||0)+' por entrega Lima':'S/'+(parseFloat(asesor.comProv)||0)+' por entrega Provincia'):ic('circle',12)+' '+asesorNombre+(p.vendedor?'':' — sin comisión')}</div>
     </div>
 
     <!-- Cierre financiero -->
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">💰 Cierre financiero</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px;display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Cierre financiero</div>
     <div style="background:${gananciaNeta>=0?'linear-gradient(135deg,rgba(16,212,106,.12),rgba(16,212,106,.04))':'linear-gradient(135deg,rgba(240,68,85,.12),rgba(240,68,85,.04))'};border:1px solid ${gananciaNeta>=0?'rgba(16,212,106,.3)':'rgba(240,68,85,.3)'};border-radius:10px;padding:12px 14px;font-size:13px;display:flex;flex-direction:column;gap:5px">
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Precio cobrado:</span><span class="mono" style="font-weight:700">${fmt(precioTotal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">− Costo productos:</span><span class="mono" style="color:var(--red)">${fmt(cprodTotal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">− Envío + embalaje:</span><span class="mono" style="color:var(--red)">${fmt(cenvEfectivo+embTotal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">− Comisión vendedor:</span><span class="mono" style="color:var(--red)">${fmt(comision)}</span></div>
       <div style="border-top:1px solid ${gananciaNeta>=0?'rgba(16,212,106,.3)':'rgba(240,68,85,.3)'};margin-top:4px;padding-top:7px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-weight:800;font-size:14px">${gananciaNeta>=0?'🟢 GANANCIA NETA':'🔴 PÉRDIDA NETA'}:</span>
+        <span style="font-weight:800;font-size:14px;display:inline-flex;align-items:center;gap:5px">${gananciaNeta>=0?ic('trending-up',15)+' GANANCIA NETA':ic('trending-down',15)+' PÉRDIDA NETA'}:</span>
         <div style="text-align:right">
           <div class="mono" style="font-weight:800;font-size:18px;color:${gananciaNeta>=0?'var(--green)':'var(--red)'}">${fmt(gananciaNeta)}</div>
           <div style="font-size:10.5px;color:var(--text3)">Margen ${margen.toFixed(1)}%</div>
@@ -6037,10 +6037,10 @@ Margen: ${margen.toFixed(1)}%`;
       </div>
     </div>
 
-    ${esDevuelto?'<div style="margin-top:12px;padding:8px 10px;background:rgba(240,68,85,.10);border-left:3px solid var(--red);border-radius:5px;font-size:11.5px"><b style="color:var(--red)">↩️ Pedido devuelto/rechazado</b><br><span style="color:var(--text3)">'+(p.motivoDevolucion||'(sin motivo)')+'</span></div>':''}
+    ${esDevuelto?'<div style="margin-top:12px;padding:8px 10px;background:rgba(240,68,85,.10);border-left:3px solid var(--red);border-radius:5px;font-size:11.5px"><b style="color:var(--red);display:inline-flex;align-items:center;gap:5px">'+ic('undo',13)+' Pedido devuelto/rechazado</b><br><span style="color:var(--text3)">'+(p.motivoDevolucion||'(sin motivo)')+'</span></div>':''}
 
     <!-- Estado de cobro -->
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">📊 Estado de cobro</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px;display:inline-flex;align-items:center;gap:5px">${ic('dashboard',13)} Estado de cobro</div>
     ${cobroEstado}
 
     <div style="display:flex;gap:10px;margin-top:18px">
@@ -6075,7 +6075,7 @@ function renderProductos(){
     <div class="mcard mc-blue"><div class="mcard-label">Total productos</div><div class="mcard-val mv-blue">${DB.productos.length}</div><div class="mcard-sub">${cats.length} categoría(s)</div></div>
     <div class="mcard mc-${agotados>0?'red':'green'}"><div class="mcard-label">Agotados</div><div class="mcard-val mv-${agotados>0?'red':'green'}">${agotados}</div><div class="mcard-sub">stock = 0</div></div>
     <div class="mcard mc-${criticos>0?'amber':'green'}"><div class="mcard-label">Stock crítico</div><div class="mcard-val mv-${criticos>0?'amber':'green'}">${criticos}</div><div class="mcard-sub">bajo mínimo</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">💰 Ganancia potencial</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(ganPot)}</div><div class="mcard-sub">si vendes todo el stock</div></div>
+    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ganancia potencial</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(ganPot)}</div><div class="mcard-sub">si vendes todo el stock</div></div>
     <div class="mcard mc-blue"><div class="mcard-label">Valor costo stock</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(valCosto)}</div><div class="mcard-sub">capital invertido</div></div>
     <div class="mcard mc-accent"><div class="mcard-label">Valor venta stock</div><div class="mcard-val mv-accent" style="font-size:18px">${fmt(valVenta)}</div><div class="mcard-sub">a precio de venta</div></div>
   </div>
@@ -6211,8 +6211,8 @@ function renderProdCards(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0"><div class="prod-name">${p.nombre}</div><div class="prod-sku">${p.sku||'Sin SKU'}</div></div>
         <div style="display:flex;gap:4px;flex-shrink:0;margin-left:6px">
-          ${isTop?'<span style="font-size:11px;font-weight:700;color:var(--purple);padding:2px 6px;background:var(--purpleL);border-radius:5px">🏆</span>':''}
-          ${agotado?'<span style="font-size:11px;font-weight:700;color:var(--red);padding:2px 6px;background:var(--redL);border-radius:5px">⛔</span>':''}
+          ${isTop?'<span style="font-weight:700;color:var(--purple);padding:3px 6px;background:var(--purpleL);border-radius:5px;display:inline-flex;align-items:center">'+ic('trophy',12)+'</span>':''}
+          ${agotado?'<span style="font-weight:700;color:var(--red);padding:3px 6px;background:var(--redL);border-radius:5px;display:inline-flex;align-items:center">'+ic('x-circle',12)+'</span>':''}
           <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">${ic('pencil',14)}</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">${ic('trash',14)}</button>
         </div>
@@ -6253,7 +6253,7 @@ function renderProdTabla(){
     const stockColor=agotado?'var(--red)':isLow?'var(--amber)':'var(--green)';
     const diasHtml=diasRestantes!==null?`<span style="font-size:11px;color:${diasRestantes<=7?'var(--red)':diasRestantes<=14?'var(--amber)':'var(--text3)'}">~${diasRestantes}d</span>`:'—';
     return`<tr style="${agotado?'background:rgba(239,68,68,.05)':isLow?'background:rgba(245,158,11,.04)':''}">
-      <td style="font-weight:600">${rank===0&&vendidos>0?'🏆 ':agotado?'⛔ ':isLow?'⚠️ ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></td>
+      <td style="font-weight:600">${rank===0&&vendidos>0?ic('trophy',13)+' ':agotado?ic('x-circle',13)+' ':isLow?ic('alert-triangle',13)+' ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></td>
       <td><span class="bdg" style="background:var(--tealL);color:var(--teal);font-size:10px">${p.categoria||'General'}</span></td>
       <td class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</td>
       <td class="mono" style="color:var(--red)">${fmt(p.costo)}</td>
@@ -6459,7 +6459,7 @@ function renderUpsells(){
 
   const html=`
   <div class="section-header">
-    <div><div class="section-title">⬆️ Upsells / Order Bumps</div><div class="section-sub">Aumenta el ticket promedio ofreciendo productos adicionales al confirmar</div></div>
+    <div><div class="section-title">${ic('arrow-up-circle',20)} Upsells / Order Bumps</div><div class="section-sub">Aumenta el ticket promedio ofreciendo productos adicionales al confirmar</div></div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px">
       <select onchange="upsellPer=this.value;toggleUpsellFechas(this.value);renderUpsells()" style="${fbarStyle}">
         <option value="todo" ${upsellPer==='todo'?'selected':''}>Todo el historial</option>
@@ -6477,12 +6477,12 @@ function renderUpsells(){
   </div>
 
   <div class="metrics-grid" style="margin-bottom:14px">
-    <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos extra</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(upsellRev)}</div><div class="mcard-sub">precio cobrado × aceptados</div></div>
-    ${tieneCostos?`<div class="mcard mc-accent"><div class="mcard-label">✨ Ganancia real</div><div class="mcard-val mv-accent" style="font-size:19px">${fmt(upsellGan)}</div><div class="mcard-sub">precio − costo × aceptados</div></div>`:`<div class="mcard mc-blue"><div class="mcard-label">🎟️ Ticket con upsell</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(ticketConUp)}</div><div class="mcard-sub">${ticketSinUp>0?`vs ${fmt(ticketSinUp)} sin upsell`:'pedidos entregados'}</div></div>`}
+    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ingresos extra</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(upsellRev)}</div><div class="mcard-sub">precio cobrado × aceptados</div></div>
+    ${tieneCostos?`<div class="mcard mc-accent"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('sparkle',13)} Ganancia real</div><div class="mcard-val mv-accent" style="font-size:19px">${fmt(upsellGan)}</div><div class="mcard-sub">precio − costo × aceptados</div></div>`:`<div class="mcard mc-blue"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('ticket',13)} Ticket con upsell</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(ticketConUp)}</div><div class="mcard-sub">${ticketSinUp>0?`vs ${fmt(ticketSinUp)} sin upsell`:'pedidos entregados'}</div></div>`}
     <div class="mcard mc-${convRate>=30?'green':convRate>=15?'amber':'red'}"><div class="mcard-label">% Conversión</div><div class="mcard-val mv-${convRate>=30?'green':convRate>=15?'amber':'red'}">${convRate}%</div><div class="mcard-sub">${aceptados.length} de ${todosOfrecidos.length} ofrecidos</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">✅ Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">upsells cobrados</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">❌ Rechazados</div><div class="mcard-val mv-red">${rechazados.length}</div><div class="mcard-sub">${todosOfrecidos.length>0?Math.round(rechazados.length/todosOfrecidos.length*100):0}% de ofrecidos</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label">⬆️ Upsells activos</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
+    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">upsells cobrados</div></div>
+    <div class="mcard mc-red"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('x-circle',13)} Rechazados</div><div class="mcard-val mv-red">${rechazados.length}</div><div class="mcard-sub">${todosOfrecidos.length>0?Math.round(rechazados.length/todosOfrecidos.length*100):0}% de ofrecidos</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('arrow-up-circle',13)} Upsells activos</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
   </div>
 
   ${ticketConUp>0&&ticketSinUp>0?`
@@ -6527,7 +6527,7 @@ function renderUpsells(){
       <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div style="flex:1;min-width:0">
-          <span class="upsell-badge">⬆️ ${u.tipo||'Order Bump'}</span>
+          <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${u.tipo||'Order Bump'}</span>
           <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
@@ -6539,7 +6539,7 @@ function renderUpsells(){
       <!-- Precio / Costo / Ganancia -->
       ${u.ofertas&&u.ofertas.length?`
       <div style="margin-bottom:10px;padding:9px 11px;background:rgba(240,165,32,.08);border:1px solid rgba(240,165,32,.22);border-radius:9px">
-        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🏷️ Ofertas por cantidad</div>
+        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Ofertas por cantidad</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${u.ofertas.map(o=>`<span style="background:var(--surface3);border:1.5px solid rgba(240,165,32,.35);border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;color:var(--text);text-align:center;line-height:1.4">${o.cantidad}×<div style="font-size:11px;color:var(--amber)">${fmt(o.precio)}</div></span>`).join('')}
         </div>
@@ -6562,7 +6562,7 @@ function renderUpsells(){
           <div style="width:${convU}%;background:${convColor};border-radius:6px;height:100%;transition:width .4s"></div>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:5px">
-          <span>✅ ${accPer.length} aceptados · ❌ ${rejPer.length} rechazados</span>
+          <span style="display:inline-flex;align-items:center;gap:4px">${ic('check-circle',12)} ${accPer.length} aceptados · ${ic('x-circle',12)} ${rejPer.length} rechazados</span>
           <div style="text-align:right">
             <div class="mono" style="color:var(--green);font-weight:700">${fmt(revU)}</div>
             ${costoU>0&&accPer.length>0?`<div class="mono" style="color:var(--accent);font-size:10px">${fmt(ganTotalU)} gan.</div>`:''}
@@ -6588,7 +6588,7 @@ function renderUpsells(){
   `<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Sin upsells que coincidan con los filtros.</div>`}
   </div>`
   :`<div class="card" style="text-align:center;padding:40px 24px">
-    <div style="font-size:40px;margin-bottom:12px">⬆️</div>
+    <div style="margin-bottom:12px;color:var(--text3)">${ic('arrow-up-circle',40)}</div>
     <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes upsells</div>
     <div style="font-size:13px;color:var(--text3);max-width:440px;margin:0 auto 20px;line-height:1.6">
       Un <b>upsell / order bump</b> es un producto extra que ofreces al cliente justo al confirmar su pedido.<br><br>
@@ -6670,7 +6670,7 @@ function fillUpsellOfertas(upId,savedPrecio){
   if(!u||!u.ofertas||!u.ofertas.length){box.innerHTML='';if(hidden)hidden.value='';return;}
   if(hidden)hidden.value='';
   box.innerHTML=`<div style="margin-top:8px;padding:9px 11px;background:rgba(240,165,32,.07);border:1px solid rgba(240,165,32,.22);border-radius:8px">
-    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🏷️ Seleccionar oferta</div>
+    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Seleccionar oferta</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">
       ${u.ofertas.map(of=>`<button type="button" id="uofr-${of.cantidad}" onclick="seleccionarOfertaUp(${of.cantidad},${of.precio})" style="background:var(--surface3);border:2px solid var(--border2);border-radius:9px;padding:7px 16px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;transition:all .15s;line-height:1.4;text-align:center">${of.cantidad}×<br><span style="font-size:11px;opacity:.85">S/${of.precio}</span></button>`).join('')}
     </div>
@@ -6796,7 +6796,7 @@ function renderFinanzas(){
     }).join('');
     return`<div class="card" style="margin-bottom:0">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div class="card-title" style="margin:0">📊 Distribución de cada S/ ingresado</div>
+        <div class="card-title" style="margin:0">${ic('dashboard',13)} Distribución de cada S/ ingresado</div>
         <div style="font-size:11px;color:var(--text3)">Total: ${fmt(ing)}</div>
       </div>
       <div style="height:28px;border-radius:8px;overflow:hidden;display:flex;gap:1px;margin-bottom:6px">${bars}</div>
@@ -6814,7 +6814,7 @@ function renderFinanzas(){
   </div>
   <div class="section-actions">
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">${ic('megaphone',14)} + Pub.</button>
-    <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()">💸 + Gasto</button>
+    <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()">${ic('banknote',14)} + Gasto</button>
   </div></div>
   <div class="fbar">
     <div class="fg-filter">
@@ -6841,22 +6841,22 @@ function renderFinanzas(){
   <!-- MÉTRICAS PRINCIPALES CON COMPARACIÓN -->
   <div class="metrics-grid">
     <div class="mcard mc-green">
-      <div class="mcard-label">💰 Ingresos</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ingresos</div>
       <div class="mcard-val mv-green" style="font-size:20px">${fmt(ing)}</div>
       <div class="mcard-sub" style="display:flex;align-items:center;gap:6px">${ent.length} entregas ${delta(ing,pIng)}</div>
     </div>
     <div class="mcard mc-${util>=0?'green':'red'}">
-      <div class="mcard-label">✅ Utilidad neta</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Utilidad neta</div>
       <div class="mcard-val mv-${util>=0?'green':'red'}" style="font-size:20px">${fmtN(util)}</div>
       <div class="mcard-sub" style="display:flex;align-items:center;gap:6px">Margen ${margenNeto.toFixed(1)}% ${delta(util,pUtil)}</div>
     </div>
     <div class="mcard mc-blue">
-      <div class="mcard-label">📦 Entregas · Ticket</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('package',13)} Entregas · Ticket</div>
       <div class="mcard-val mv-blue">${ent.length} <span style="font-size:13px;font-weight:400">ped.</span></div>
       <div class="mcard-sub" style="display:flex;align-items:center;gap:6px">Ticket: ${fmt(ticket)} ${delta(ticket,pTicket)}</div>
     </div>
     <div class="mcard mc-${ef>=CFG.metaEf?'green':ef>=50?'amber':'red'}">
-      <div class="mcard-label">🎯 Efectividad</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('target',13)} Efectividad</div>
       <div class="mcard-val mv-${ef>=CFG.metaEf?'green':ef>=50?'amber':'red'}">${ef}%</div>
       <div class="mcard-sub" style="display:flex;align-items:center;gap:6px">Meta: ${CFG.metaEf}% ${delta(ef,pEf)}</div>
     </div>
@@ -6868,7 +6868,7 @@ function renderFinanzas(){
   <!-- STATS: FINANCIEROS + MARKETING -->
   <div class="g2" style="margin-top:0">
     <div class="card">
-      <div class="card-title" style="margin-bottom:10px">📈 Métricas financieras</div>
+      <div class="card-title" style="margin-bottom:10px">${ic('trending-up',13)} Métricas financieras</div>
       <div class="stat-row"><div class="stat-ico" style="background:var(--greenL)">💹</div><div class="stat-txt"><div class="stat-label">ROI sobre costos</div><div class="stat-val mv-${roi>=0?'green':'red'}">${roi.toFixed(1)}%</div></div></div>
       <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">📊</div><div class="stat-txt"><div class="stat-label">Margen bruto <span style="font-size:10px;color:var(--text3)">(sin pub/gastos)</span></div><div class="stat-val mv-${margenBruto>=40?'green':margenBruto>=25?'amber':'red'}">${margenBruto.toFixed(1)}%</div></div></div>
       <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">🎯</div><div class="stat-txt"><div class="stat-label">Margen post-publicidad</div><div class="stat-val mv-${margenPostPub>=20?'blue':margenPostPub>=10?'amber':'red'}">${margenPostPub.toFixed(1)}%</div></div></div>

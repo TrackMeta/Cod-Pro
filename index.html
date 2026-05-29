@@ -2429,16 +2429,16 @@ let notifTab='active';
 let CURRENT_PAGE='';
 
 const DEFAULT_WA=[
-  {id:1,nombre:'✅ Confirmación Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\nTu delivery llegará al distrito de *{distrito}*. Te avisamos cuando esté en camino.\n\n¡Gracias por tu compra! 🙌'},
-  {id:2,nombre:'💰 Solicitud de adelanto (Provincia)',body:'Hola {nombre} 👋, tu pedido de *{producto}* está listo para enviar.\n\nPara despachar necesitamos un adelanto de *S/{adelanto}* vía Yape/Plin al número: *{mi_numero}* 📲\n\nEn cuanto confirmemos el pago, enviamos tu paquete. ¡Gracias!'},
-  {id:3,nombre:'📦 Llegada a agencia (Provincia)',body:'Hola {nombre} ✅, tu pedido *{producto}* ya llegó a la agencia *{sede}*.\n\n🔑 Tu clave de recojo: *{clave}*\n\nRecuerda llevar tu DNI y el pago restante de *S/{pendiente}*. ¡Que lo disfrutes!'},
-  {id:7,nombre:'📦 Aviso llegada a agencia',body:'Hola {nombre} 📦, te avisamos que tu pedido de *{producto}* ya llegó a la sede *{sede}* de Shalom.\n\n🔑 Clave de recojo: *{clave}*\n💵 Pago pendiente: *S/{pendiente}*\n\nRecuerda llevar tu DNI para retirarlo. ¡Que lo disfrutes!'},
-  {id:8,nombre:'💵 Cobrar pago pendiente',body:'Hola {nombre} 💰, te recordamos que tu pedido de *{producto}* tiene un pago pendiente de *S/{pendiente}*.\n\nPuedes pagarlo en la sede *{sede}* al recoger tu paquete, o por Yape/Plin al *{mi_numero}* para acelerar la entrega.\n\n¡Gracias!'},
-  {id:9,nombre:'⏰ Recordatorio de recojo y pago pendiente',body:'Hola {nombre} ⏰, tu pedido *{producto}* sigue esperándote en la sede *{sede}*.\n\n🔑 Clave: *{clave}*\n💵 Pago pendiente: *S/{pendiente}*\n\nTe recomendamos recogerlo pronto para evitar problemas. Lleva tu DNI. ¡Gracias!'},
-  {id:10,nombre:'🚨 Recordatorio de recojo y pago #2 (Urgencia)',body:'Hola {nombre} 🚨 — *URGENTE*\n\nTu pedido *{producto}* lleva *{diasAgencia} días* en la sede *{sede}* sin recoger.\n\n🔑 Clave: *{clave}*\n💵 Pago: *S/{pendiente}*\n\nShalom guarda hasta 30 días, después devuelve el paquete. Por favor recógelo lo antes posible o avísanos si hay algún problema. ¡Gracias!'},
-  {id:4,nombre:'🏙️ Confirmación + Fecha Lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\n📅 Fecha estimada de entrega: *{fechaEntregaLima}* en *{distrito}*.\n\nCualquier consulta, escríbenos. ¡Gracias!'},
-  {id:5,nombre:'📵 Seguimiento sin respuesta',body:'Hola {nombre}, intentamos contactarte para coordinar tu pedido de *{producto}*.\n\nSi aún tienes interés, escríbenos pronto — ¡pocas unidades disponibles! 🙌'},
-  {id:6,nombre:'⭐ Post-entrega',body:'Hola {nombre} 😊, esperamos que estés disfrutando tu *{producto}*.\n\nSi te gustó, cuéntanos o recomiéndanos. Ante cualquier consulta, aquí estamos. ¡Gracias por tu confianza! 🌟'},
+  {id:1,nombre:'✅ Confirmación Lima',zona:'lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\nTu delivery llegará al distrito de *{distrito}*. Te avisamos cuando esté en camino.\n\n¡Gracias por tu compra! 🙌'},
+  {id:2,nombre:'💰 Solicitud de adelanto (Provincia)',zona:'provincia',body:'Hola {nombre} 👋, tu pedido de *{producto}* está listo para enviar.\n\nPara despachar necesitamos un adelanto de *S/{adelanto}* vía Yape/Plin al número: *{mi_numero}* 📲\n\nEn cuanto confirmemos el pago, enviamos tu paquete. ¡Gracias!'},
+  {id:3,nombre:'📦 Llegada a agencia (Provincia)',zona:'provincia',body:'Hola {nombre} ✅, tu pedido *{producto}* ya llegó a la agencia *{sede}*.\n\n🔑 Tu clave de recojo: *{clave}*\n\nRecuerda llevar tu DNI y el pago restante de *S/{pendiente}*. ¡Que lo disfrutes!'},
+  {id:7,nombre:'📦 Aviso llegada a agencia',zona:'provincia',body:'Hola {nombre} 📦, te avisamos que tu pedido de *{producto}* ya llegó a la sede *{sede}* de Shalom.\n\n🔑 Clave de recojo: *{clave}*\n💵 Pago pendiente: *S/{pendiente}*\n\nRecuerda llevar tu DNI para retirarlo. ¡Que lo disfrutes!'},
+  {id:8,nombre:'💵 Cobrar pago pendiente',zona:'provincia',body:'Hola {nombre} 💰, te recordamos que tu pedido de *{producto}* tiene un pago pendiente de *S/{pendiente}*.\n\nPuedes pagarlo en la sede *{sede}* al recoger tu paquete, o por Yape/Plin al *{mi_numero}* para acelerar la entrega.\n\n¡Gracias!'},
+  {id:9,nombre:'⏰ Recordatorio de recojo y pago pendiente',zona:'provincia',body:'Hola {nombre} ⏰, tu pedido *{producto}* sigue esperándote en la sede *{sede}*.\n\n🔑 Clave: *{clave}*\n💵 Pago pendiente: *S/{pendiente}*\n\nTe recomendamos recogerlo pronto para evitar problemas. Lleva tu DNI. ¡Gracias!'},
+  {id:10,nombre:'🚨 Recordatorio de recojo y pago #2 (Urgencia)',zona:'provincia',body:'Hola {nombre} 🚨 — *URGENTE*\n\nTu pedido *{producto}* lleva *{diasAgencia} días* en la sede *{sede}* sin recoger.\n\n🔑 Clave: *{clave}*\n💵 Pago: *S/{pendiente}*\n\nShalom guarda hasta 30 días, después devuelve el paquete. Por favor recógelo lo antes posible o avísanos si hay algún problema. ¡Gracias!'},
+  {id:4,nombre:'🏙️ Confirmación + Fecha Lima',zona:'lima',body:'Hola {nombre} 👋, confirmamos tu pedido de *{producto}* por *S/{precio}*.\n\n📅 Fecha estimada de entrega: *{fechaEntregaLima}* en *{distrito}*.\n\nCualquier consulta, escríbenos. ¡Gracias!'},
+  {id:5,nombre:'📵 Seguimiento sin respuesta',zona:'ambos',body:'Hola {nombre}, intentamos contactarte para coordinar tu pedido de *{producto}*.\n\nSi aún tienes interés, escríbenos pronto — ¡pocas unidades disponibles! 🙌'},
+  {id:6,nombre:'⭐ Post-entrega',zona:'ambos',body:'Hola {nombre} 😊, esperamos que estés disfrutando tu *{producto}*.\n\nSi te gustó, cuéntanos o recomiéndanos. Ante cualquier consulta, aquí estamos. ¡Gracias por tu confianza! 🌟'},
 ];
 
 function isAdmin(){return SESSION?.role==='admin';}
@@ -5648,7 +5648,7 @@ function renderProvinciaContent(){
       cnt.entregado?`<span style="color:var(--blue);${sbP}">${ic('package-check',12)} ${cnt.entregado}</span>`:'',
       (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);${sbP}">${ic('undo',12)} ${cnt.devuelto+cnt.rechazado}</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">${ic('calendar',13)} ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
+    const sepRow=`<tr class="ped-date-sep"><td colspan="13"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">${ic('calendar',13)} ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
     const rows=its.map(p=>{
       const entregado=p.estado==='entregado';
       const hD=new Date(hoy()+'T12:00:00');
@@ -5666,6 +5666,7 @@ function renderProvinciaContent(){
         : `<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="font-size:11px;color:var(--text3)">+ Agregar tracking</button>`;
       return `<tr style="${rowBg}">
     <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
+    <td data-label="F. Registro" style="font-size:11px;white-space:nowrap">${fmtReg(p.fechaCreado)}</td>
     <td data-label="Cliente"><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
     <td data-label="Producto" style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
     <td data-label="Provincia" style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
@@ -5699,8 +5700,8 @@ function renderProvinciaContent(){
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
-  }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316"><span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Tracking</span></th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)"><span style="display:inline-flex;align-items:center;gap:4px">${ic('key',12)} Clave</span></th><th>Estado</th><th>Acciones</th></tr></thead>
+  }).join(''):`<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
+  v.innerHTML=`<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316"><span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Tracking</span></th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)"><span style="display:inline-flex;align-items:center;gap:4px">${ic('key',12)} Clave</span></th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 
@@ -5984,6 +5985,84 @@ function aplicarTracking(cambiarAEnviado){
 // =====================================================================
 // MENSAJE WHATSAPP — Modal accesible desde Acciones de cada pedido
 // =====================================================================
+// ── Helpers de plantillas WhatsApp (texto + imagen) ──
+function waFillVars(body,p){
+  const miNum=localStorage.getItem('wa_mi_numero')||'999888777';
+  const vars={
+    nombre:p.nombre||'',celular:p.celular||'',producto:p.producto||'',
+    cantidad:String(p.cantidad||1),precio:String(p.precio||0),
+    adelanto:String(p.adelanto||0),pendiente:String(p.pendiente||0),
+    fecha:p.fecha||'',distrito:p.dist||'',sede:p.sede||'',
+    clave:p.clave||'',numOrden:p.numOrden||'',codigoEnvio:p.codigoEnvio||'',
+    fechaDespacho:p.fechaDespacho||'',fechaAgencia:p.fechaAgencia||'',
+    diasDespacho:p.fechaDespacho?String(diasDesde(p.fechaDespacho)):'',
+    diasAgencia:p.fechaAgencia?String(diasDesde(p.fechaAgencia)):'',
+    fechaEntregaLima:p.fechaEntregaLima||'',mi_numero:miNum
+  };
+  return body.replace(/\{(\w+)\}/g,(m,k)=>vars[k]!==undefined&&vars[k]!==''?vars[k]:m);
+}
+function _dataURLtoFile(dataurl,filename){
+  const arr=dataurl.split(',');const mime=(arr[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
+  const bstr=atob(arr[1]);let n=bstr.length;const u8=new Uint8Array(n);while(n--)u8[n]=bstr.charCodeAt(n);
+  return new File([u8],filename,{type:mime});
+}
+function waUrlDe(p,text){
+  const phone=p.celular?p.celular.replace(/\D/g,''):'';
+  return phone?`https://wa.me/${phone.startsWith('51')?phone:'51'+phone}?text=${encodeURIComponent(text)}`:`https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+// Enviar plantilla (con imagen → API nativa de compartir; fallback: descarga img + abre texto)
+function enviarWATmpl(tmplId,pedidoId){
+  const t=(DB.waTmpls||[]).find(x=>x.id===tmplId);const p=DB.pedidos.find(x=>x.id===pedidoId);
+  if(!t||!p)return;
+  const text=waFillVars(t.body,p);
+  const waUrl=waUrlDe(p,text);
+  if(t.imagen){
+    try{
+      const file=_dataURLtoFile(t.imagen,'imagen.jpg');
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        navigator.share({files:[file],text}).catch(()=>{});
+        return;
+      }
+    }catch(e){}
+    // Fallback (PC u OS sin soporte): descargar imagen y abrir WhatsApp con el texto
+    try{const a=document.createElement('a');a.href=t.imagen;a.download='imagen.jpg';document.body.appendChild(a);a.click();a.remove();}catch(e){}
+    alert('Tu dispositivo no permite enviar imagen + texto directo.\nDescargué la imagen — adjúntala manualmente en WhatsApp (el texto se abrirá a continuación).');
+    window.open(waUrl,'_blank');
+    return;
+  }
+  window.open(waUrl,'_blank');
+}
+// Comprimir/redimensionar imagen a dataURL (evita inflar la base de datos)
+function _comprimirImagen(file,maxDim,quality){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>{const img=new Image();img.onload=()=>{
+      let w=img.width,h=img.height;
+      if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}
+      else if(h>=w&&h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg',quality));
+    };img.onerror=rej;img.src=e.target.result;};
+    r.onerror=rej;r.readAsDataURL(file);
+  });
+}
+async function cargarImagenWA(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  if(!/^image\//.test(f.type)){alert('Selecciona una imagen.');return;}
+  if(f.size>10*1024*1024){alert('Imagen muy grande (máx 10MB).');return;}
+  try{window.waEditImg=await _comprimirImagen(f,700,0.62);renderWaImgPreview();}
+  catch(e){alert('No se pudo procesar la imagen.');}
+}
+function quitarImagenWA(){window.waEditImg=null;renderWaImgPreview();}
+function renderWaImgPreview(){
+  const el=document.getElementById('wa-img-preview');if(!el)return;
+  if(window.waEditImg){
+    el.innerHTML=`<div style="position:relative;display:inline-block"><img src="${window.waEditImg}" style="max-width:170px;max-height:130px;border-radius:8px;border:1px solid var(--border2);display:block"><button type="button" class="act act-del" onclick="quitarImagenWA()" style="position:absolute;top:-8px;right:-8px;width:26px;height:26px">${ic('trash',13)}</button></div>`;
+  }else{
+    el.innerHTML=`<label style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:1px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:12px;color:var(--text2)">${ic('upload',14)} Subir imagen<input type="file" accept="image/*" onchange="cargarImagenWA(this)" style="display:none"></label>`;
+  }
+}
 function abrirMensajeWA(id){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-mensaje-wa';
@@ -6001,33 +6080,27 @@ function abrirMensajeWA(id){
 }
 
 function renderMensajeWALista(p){
-  const miNum=localStorage.getItem('wa_mi_numero')||'999888777';
-  const vars={
-    nombre:p.nombre||'',celular:p.celular||'',producto:p.producto||'',
-    cantidad:String(p.cantidad||1),precio:String(p.precio||0),
-    adelanto:String(p.adelanto||0),pendiente:String(p.pendiente||0),
-    fecha:p.fecha||'',distrito:p.dist||'',sede:p.sede||'',
-    clave:p.clave||'',numOrden:p.numOrden||'',codigoEnvio:p.codigoEnvio||'',
-    fechaDespacho:p.fechaDespacho||'',fechaAgencia:p.fechaAgencia||'',
-    diasDespacho:p.fechaDespacho?String(diasDesde(p.fechaDespacho)):'',
-    diasAgencia:p.fechaAgencia?String(diasDesde(p.fechaAgencia)):'',
-    mi_numero:miNum
-  };
   const list=document.getElementById('msgwa-list');if(!list)return;
-  list.innerHTML=(DB.waTmpls||[]).map(t=>{
-    const filled=t.body.replace(/\{(\w+)\}/g,(m,k)=>vars[k]!==undefined&&vars[k]!==''?vars[k]:m);
+  const tmpls=(DB.waTmpls||[]).filter(t=>!t.zona||t.zona==='ambos'||t.zona===p.zona);
+  list.innerHTML=tmpls.map(t=>{
+    const filled=waFillVars(t.body,p);
     const phone=p.celular?p.celular.replace(/\D/g,''):'';
-    const waUrl=phone?`https://wa.me/${phone.startsWith('51')?phone:'51'+phone}?text=${encodeURIComponent(filled)}`:`https://wa.me/?text=${encodeURIComponent(filled)}`;
+    const waUrl=waUrlDe(p,filled);
     const b64=btoa(unescape(encodeURIComponent(filled)));
+    const imgHtml=t.imagen?`<img src="${t.imagen}" style="max-width:100%;max-height:170px;border-radius:8px;border:1px solid var(--border2);margin:8px 0;display:block">`:'';
+    const sendBtn=t.imagen
+      ? `<button class="btn btn-xs" style="background:#25D366;color:#fff" onclick="enviarWATmpl(${t.id},${p.id})">${ic('send',13)} Enviar imagen + texto</button>`
+      : `<a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+p.celular+')':''}</a>`;
     return `<div class="wa-tmpl" style="margin-bottom:10px">
       <div class="wa-tmpl-title" style="margin-bottom:6px;display:inline-flex;align-items:center;gap:5px">${ic('message-circle',13)} ${t.nombre}</div>
+      ${imgHtml}
       <div class="wa-tmpl-body" style="color:var(--text);font-size:13px;line-height:1.55">${filled.replace(/\n/g,'<br>')}</div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-xs" onclick="copiarWA('${b64}',this)">📋 Copiar</button>
-        <a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+p.celular+')':''}</a>
+        ${sendBtn}
       </div>
     </div>`;
-  }).join('')||`<div class="empty" style="padding:30px">Sin plantillas. Crea desde la página "Plantillas WA".</div>`;
+  }).join('')||`<div class="empty" style="padding:30px">Sin plantillas para esta zona (${p.zona==='lima'?'Lima':'Provincia'}). Crea o edita en "Plantillas WA".</div>`;
 }
 
 // =====================================================================
@@ -8477,18 +8550,25 @@ function renderWATmpls(){
     const phone=ped?.celular?ped.celular.replace(/\D/g,''):'';
     const waUrl=phone?`https://wa.me/${phone.startsWith('51')?phone:'51'+phone}?text=${encodeURIComponent(filled)}`:`https://wa.me/?text=${encodeURIComponent(filled)}`;
     const b64=btoa(unescape(encodeURIComponent(filled)));
+    const zb={lima:['🏙️ Lima','var(--blueL)','var(--blue)'],provincia:['📦 Provincia','var(--accentL)','var(--accent)'],ambos:['🔁 Ambos','var(--surface3)','var(--text2)']}[t.zona||'ambos'];
+    const zonaBadge=`<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:${zb[1]};color:${zb[2]};white-space:nowrap">${zb[0]}</span>`;
+    const imgHtml=t.imagen?`<img src="${t.imagen}" style="max-width:130px;max-height:100px;border-radius:8px;border:1px solid var(--border2);margin:6px 0;display:block">`:'';
+    const sendBtn=t.imagen
+      ?(ped?`<button class="btn btn-xs" style="background:#25D366;color:#fff" onclick="enviarWATmpl(${t.id},${ped.id})">${ic('send',13)} Enviar imagen + texto</button>`:`<span style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:4px">${ic('send',12)} Incluye imagen (selecciona un pedido para enviar)</span>`)
+      :`<a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+ped.celular+')':''}</a>`;
     return `<div class="wa-tmpl">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div class="wa-tmpl-title" style="display:inline-flex;align-items:center;gap:5px">${ic('message-circle',13)} ${t.nombre}</div>
-        <div style="display:flex;gap:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+        <div class="wa-tmpl-title" style="display:inline-flex;align-items:center;gap:6px">${ic('message-circle',13)} ${t.nombre} ${zonaBadge}</div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
           <button class="btn btn-ghost btn-xs" onclick="openModalWA(${t.id})">${ic('pencil',14)}</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarWA(${t.id})">${ic('trash',14)}</button>
         </div>
       </div>
+      ${imgHtml}
       <div class="wa-tmpl-body" style="color:var(--text);font-size:13px;line-height:1.6">${filled.replace(/\n/g,'<br>')}</div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-xs" onclick="copiarWA('${b64}',this)">📋 Copiar texto</button>
-        <a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+ped.celular+')':''}</a>
+        ${sendBtn}
       </div>
     </div>`;
   }).join('')||`<div class="card"><div class="empty" style="padding:30px">Sin plantillas. Crea una arriba.</div></div>`;
@@ -8508,15 +8588,29 @@ let waEditId=null;
 function openModalWA(id){
   waEditId=id||null;
   const t=id?DB.waTmpls.find(x=>x.id===id):null;
+  window.waEditImg=t&&t.imagen?t.imagen:null;
+  const zona=t&&t.zona?t.zona:'ambos';
   const varsList=['{nombre}','{celular}','{producto}','{cantidad}','{precio}','{fecha}','{distrito}','{fechaEntregaLima}','{sede}','{clave}','{numOrden}','{codigoEnvio}','{fechaDespacho}','{fechaAgencia}','{diasDespacho}','{diasAgencia}','{adelanto}','{pendiente}','{mi_numero}'];
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-wa-tmp';
   mod.innerHTML=`<div class="modal" style="max-width:540px">
     <div class="modal-h"><div class="modal-title">${t?ic('pencil',18)+' Editar plantilla':ic('message-circle',18)+' Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
     <div class="form-grid">
-      <div class="fg" style="grid-column:1/-1"><label>Nombre de la plantilla</label><input type="text" id="wa-n" value="${t?t.nombre.replace(/"/g,'&quot;'):''}" placeholder="Ej: Confirmación Lima"></div>
+      <div class="fg"><label>Nombre de la plantilla</label><input type="text" id="wa-n" value="${t?t.nombre.replace(/"/g,'&quot;'):''}" placeholder="Ej: Confirmación Lima"></div>
+      <div class="fg"><label>¿Para qué zona?</label>
+        <select id="wa-zona">
+          <option value="ambos" ${zona==='ambos'?'selected':''}>🔁 Ambos (Lima y Provincia)</option>
+          <option value="lima" ${zona==='lima'?'selected':''}>🏙️ Solo Lima</option>
+          <option value="provincia" ${zona==='provincia'?'selected':''}>📦 Solo Provincia</option>
+        </select>
+      </div>
       <div class="fg" style="grid-column:1/-1">
         <label>Mensaje <span style="font-size:10px;color:var(--text3);font-weight:400">(puedes usar *negrita*, _cursiva_ y variables)</span></label>
         <textarea id="wa-b" style="min-height:160px;font-family:var(--mono);font-size:13px">${t?t.body:''}</textarea>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Imagen <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional · se enviará junto al texto)</span></label>
+        <div id="wa-img-preview"></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:5px">En celular abre WhatsApp con imagen + texto. En PC descarga la imagen para adjuntarla.</div>
       </div>
       <div class="fg" style="grid-column:1/-1">
         <label style="margin-bottom:6px;display:block">Variables disponibles <span style="font-size:10px;color:var(--text3)">(clic para insertar)</span></label>
@@ -8531,13 +8625,17 @@ function openModalWA(id){
     </div>
   </div>`;
   document.body.appendChild(mod);
+  renderWaImgPreview();
 }
 function guardarWA(){
   const n=document.getElementById('wa-n').value.trim();
   const b=document.getElementById('wa-b').value.trim();
+  const zona=document.getElementById('wa-zona')?.value||'ambos';
+  const imagen=window.waEditImg||null;
   if(!n||!b)return alert('Completa nombre y mensaje.');
-  if(waEditId){const t=DB.waTmpls.find(x=>x.id===waEditId);if(t){t.nombre=n;t.body=b;}}
-  else{const maxId=DB.waTmpls.length?Math.max(...DB.waTmpls.map(t=>t.id)):0;DB.waTmpls.push({id:maxId+1,nombre:n,body:b});}
+  if(waEditId){const t=DB.waTmpls.find(x=>x.id===waEditId);if(t){t.nombre=n;t.body=b;t.zona=zona;t.imagen=imagen;}}
+  else{const maxId=DB.waTmpls.length?Math.max(...DB.waTmpls.map(t=>t.id)):0;DB.waTmpls.push({id:maxId+1,nombre:n,body:b,zona,imagen});}
+  window.waEditImg=null;
   save();document.getElementById('modal-wa-tmp').remove();renderWATmpls();
 }
 function eliminarWA(id){if(!confirm('¿Eliminar esta plantilla?'))return;DB.waTmpls=DB.waTmpls.filter(t=>t.id!==id);save();renderWATmpls();}

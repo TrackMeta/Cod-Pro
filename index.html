@@ -1035,7 +1035,7 @@ td{padding:11px 14px;font-size:13px}
     </div>
   </div>
   <div id="p-ali-c" style="display:none;margin-top:10px">
-    <div class="abox abox-blue"><span class="abox-icon">🔗</span><div class="abox-text"><b>Aliclick:</b> El almacén gestiona el envío. Solo ingresa precio de venta y costo Aliclick por ítem.</div></div>
+    <div class="abox abox-blue"><span class="abox-icon" data-ic="link" data-ic-size="18"></span><div class="abox-text"><b>Aliclick:</b> El almacén gestiona el envío. Solo ingresa precio de venta y costo Aliclick por ítem.</div></div>
   </div>
 
   <!-- UPSELL -->
@@ -2109,7 +2109,7 @@ td{padding:11px 14px;font-size:13px}
 
   <!-- PROVINCIA: adelanto -->
   <div id="p-prov-sec" style="display:none;margin-top:14px">
-    <div class="abox abox-orange"><span class="abox-icon">⚠️</span><div class="abox-text"><b>Provincia:</b> Solicitar adelanto de S/<span id="p-adv-default">20</span> por WhatsApp antes de enviar. N° Orden, Código guía y Clave se registran luego en Control de Envío.</div></div>
+    <div class="abox abox-orange"><span class="abox-icon" data-ic="alert-triangle" data-ic-size="18"></span><div class="abox-text"><b>Provincia:</b> Solicitar adelanto de S/<span id="p-adv-default">20</span> por WhatsApp antes de enviar. N° Orden, Código guía y Clave se registran luego en Control de Envío.</div></div>
     <div class="form-grid">
       <div class="fg"><label>Adelanto S/</label><input type="number" id="p-adelanto" placeholder="20" oninput="recalcPend()"></div>
       <div class="fg"><label>Pago pendiente S/</label><input type="number" id="p-pendiente" readonly></div>
@@ -2134,7 +2134,7 @@ td{padding:11px 14px;font-size:13px}
   </div>
   <div class="fg" style="margin-top:10px"><label>Comentario de llamada</label><textarea id="p-comentario" placeholder="Notas, próximo contacto, instrucciones especiales..."></textarea></div>
   <div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
-    <button class="btn btn-primary" onclick="guardarPedido()">💾 Guardar pedido</button>
+    <button class="btn btn-primary" onclick="guardarPedido()"><span data-ic="save" data-ic-size="15"></span> Guardar pedido</button>
     <button class="btn btn-ghost" onclick="closeModal('modal-pedido')">Cancelar</button>
   </div>
 </div>
@@ -2177,7 +2177,7 @@ td{padding:11px 14px;font-size:13px}
   <div style="font-size:10.5px;color:var(--text3);margin-top:6px;padding-left:4px">💡 Click en el círculo para marcar/desmarcar (cascade hacia atrás al marcar, hacia adelante al desmarcar) · Click en la fecha para editar manualmente</div>
 
   <div style="display:flex;gap:10px;margin-top:18px">
-    <button class="btn btn-primary" onclick="guardarTracking()">💾 Guardar</button>
+    <button class="btn btn-primary" onclick="guardarTracking()"><span data-ic="save" data-ic-size="15"></span> Guardar</button>
     <button class="btn btn-ghost" onclick="closeModal('modal-tracking')">Cancelar</button>
   </div>
 </div>
@@ -2775,7 +2775,7 @@ function verBackupsLocales(){
         <div style="font-size:11px;color:var(--text3)">${horaStr} · ${b.totalPedidos} pedidos</div>
       </div>
       <button class="btn btn-ghost btn-xs" onclick="descargarBackup(${i})">⬇️ Descargar</button>
-      <button class="btn btn-blue btn-xs" onclick="restaurarBackup(${i})">🔄 Restaurar</button>
+      <button class="btn btn-blue btn-xs" onclick="restaurarBackup(${i})">${ic('repeat',13)} Restaurar</button>
     </div>`;
   }).join('');
   mod.innerHTML=`<div class="modal"><div class="modal-h"><div><div class="modal-title">${ic('archive',18)} Backups automáticos</div><div style="font-size:12px;color:var(--text2);margin-top:3px">Últimos ${backups.length} días · Solo en este navegador</div></div><div class="mc" onclick="this.closest('.overlay').remove()">×</div></div>
@@ -2784,7 +2784,7 @@ function verBackupsLocales(){
     ⚠️ <strong>Restaurar</strong> reemplaza todos los datos actuales con el backup seleccionado. Se guarda automáticamente en Supabase.
   </div>
   <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
-    <button class="btn btn-ghost btn-sm" onclick="exportarDatos()">💾 Nuevo backup manual</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportarDatos()">${ic('save',14)} Nuevo backup manual</button>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-backups').remove()">Cerrar</button>
   </div></div>`;
   document.body.appendChild(mod);mod.addEventListener('click',e=>{if(e.target===mod)mod.remove();});
@@ -3597,7 +3597,7 @@ function renderNotifPanel(){
           <div class="notif-title" style="color:${tColMap[n.type]||tColMap.blue}">${n.title}</div>
           <div class="notif-sub">${n.sub}</div>
         </div>
-        <button class="notif-trash" onclick="moveNotifToTrash('${n.id}')" title="Mover a papelera">🗑️</button>
+        <button class="notif-trash" onclick="moveNotifToTrash('${n.id}')" title="Mover a papelera">${ic('trash',14)}</button>
       </div>`).join('');
   } else {
     // Trash tab
@@ -3605,7 +3605,7 @@ function renderNotifPanel(){
     list.innerHTML=`
       <div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:11px;color:var(--text3)">${trashNotes.length} alerta(s)</span>
-        <button class="btn btn-danger btn-xs" onclick="emptyNotifTrash()">🗑️ Vaciar todo</button>
+        <button class="btn btn-danger btn-xs" onclick="emptyNotifTrash()">${ic('trash',13)} Vaciar todo</button>
       </div>
       ${trashNotes.map(n=>`
       <div class="notif-item" style="opacity:.75">
@@ -3784,7 +3784,11 @@ const ICONS={
   'search':'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   'phone':'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
   'palette':'<circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
-  'sparkle':'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/>'
+  'sparkle':'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/>',
+  'alert-triangle':'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'copy':'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  'save':'<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  'circle':'<circle cx="12" cy="12" r="10"/>'
 };
 function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){
@@ -4209,7 +4213,7 @@ function renderPedidosContent(){
     <input type="checkbox" id="ped-chk-all" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" onchange="toggleTodosPed(this.checked,${JSON.stringify(arr.map(p=>p.id))})">
     <label for="ped-chk-all" style="font-size:12px;font-weight:600;color:var(--text2);cursor:pointer">Seleccionar todos</label>
     <span id="ped-sel-count" style="font-size:12px;color:var(--text3)"></span>
-    <button id="btn-del-sel" onclick="eliminarSeleccionados()" style="display:none;background:var(--red);border:none;border-radius:7px;color:#fff;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">🗑️ Eliminar seleccionados</button>
+    <button id="btn-del-sel" onclick="eliminarSeleccionados()" style="display:none;background:var(--red);border:none;border-radius:7px;color:#fff;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;align-items:center;gap:5px">${ic('trash',13)} Eliminar seleccionados</button>
   </div>`;
   // Agrupar por fecha
   const byDate={};
@@ -4267,7 +4271,7 @@ function actualizarSelPed(){
   const allChk=document.getElementById('ped-chk-all');
   const total=document.querySelectorAll('.ped-chk').length;
   if(contEl)contEl.textContent=count>0?`${count} seleccionado(s)`:'';
-  if(btnEl)btnEl.style.display=count>0?'block':'none';
+  if(btnEl)btnEl.style.display=count>0?'inline-flex':'none';
   if(allChk)allChk.indeterminate=count>0&&count<total;
 }
 function eliminarSeleccionados(){
@@ -4717,7 +4721,7 @@ function marcarDevuelto(id){
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-devolucion';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h"><div class="modal-title">${ic('undo',18)} Motivo de devolución — #${id}</div><div class="mc" onclick="document.getElementById('modal-devolucion').remove()">×</div></div>
-    <div class="abox abox-red"><span class="abox-icon">⚠️</span><div class="abox-text">Selecciona el motivo para poder analizar y reducir devoluciones.</div></div>
+    <div class="abox abox-red"><span class="abox-icon">${ic('alert-triangle',18)}</span><div class="abox-text">Selecciona el motivo para poder analizar y reducir devoluciones.</div></div>
     <div class="fg" style="margin-bottom:14px"><label>Motivo</label>
       <select id="dev-motivo" style="font-size:14px;padding:10px 12px">${motivos.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
     </div>
@@ -4837,7 +4841,7 @@ function abrirModalExportEva(){
       <div id="eva-sel-count" style="font-size:13px;color:var(--text2)">Selecciona pedidos arriba</div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" onclick="document.getElementById('modal-eva').remove()">Cancelar</button>
-        <button class="btn btn-primary" id="btn-eva-export" onclick="exportarExcelEva()" disabled>📥 Descargar Excel Eva</button>
+        <button class="btn btn-primary" id="btn-eva-export" onclick="exportarExcelEva()" disabled>${ic('download',14)} Descargar Excel Eva</button>
       </div>
     </div>
   </div>`;
@@ -5001,7 +5005,7 @@ function abrirModalExportShalom(){
       <div id="sha-sel-count" style="font-size:13px;color:var(--text2)">Selecciona pedidos arriba</div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost" onclick="document.getElementById('modal-shalom').remove()">Cancelar</button>
-        <button class="btn btn-primary" id="btn-sha-export" onclick="exportarExcelShalom()" disabled style="background:linear-gradient(135deg,#1a237e,#283593);border:none">📥 Descargar Excel Shalom</button>
+        <button class="btn btn-primary" id="btn-sha-export" onclick="exportarExcelShalom()" disabled style="background:linear-gradient(135deg,#1a237e,#283593);border:none">${ic('download',14)} Descargar Excel Shalom</button>
       </div>
     </div>
   </div>`;
@@ -5198,7 +5202,7 @@ function renderLima(){
     </button>
     <button class="btn btn-primary" onclick="openNuevoPedido('lima')">+ Pedido Lima</button>
   </div></div>
-  ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">🛵</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
+  ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">${ic('bike',18)}</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Lima</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
     <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
@@ -5413,7 +5417,7 @@ function renderProvincia(){
     </button>
     <button class="btn btn-primary" onclick="openNuevoPedido('provincia')">+ Pedido Provincia</button>
   </div></div>
-  ${(()=>{const activos=[...conf,...env];const hD=new Date(hoy()+'T12:00:00');const viejos=activos.filter(p=>{if(!p.fecha)return false;const dif=Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24));return dif>=7;});return viejos.length?`<div class="abox abox-amber"><span class="abox-icon">⚠️</span><div class="abox-text"><b>${viejos.length} pedido(s) con 7+ días</b> en tránsito sin entrega confirmada</div></div>`:'';})()}
+  ${(()=>{const activos=[...conf,...env];const hD=new Date(hoy()+'T12:00:00');const viejos=activos.filter(p=>{if(!p.fecha)return false;const dif=Math.floor((hD-new Date(p.fecha+'T12:00:00'))/(1000*60*60*24));return dif>=7;});return viejos.length?`<div class="abox abox-amber"><span class="abox-icon">${ic('alert-triangle',18)}</span><div class="abox-text"><b>${viejos.length} pedido(s) con 7+ días</b> en tránsito sin entrega confirmada</div></div>`:'';})()}
   ${(()=>{
     const activos=[...conf,...env];
     const tr=activos.map(p=>({p,t:estadoTrackingVisual(p)}));
@@ -5421,9 +5425,9 @@ function renderProvincia(){
     const enAgenciaAviso=tr.filter(x=>fechaValida(x.p.fechaAgencia)&&x.t.aging==='amber');
     const transitoCritico=tr.filter(x=>fechaValida(x.p.fechaDespacho)&&!fechaValida(x.p.fechaAgencia)&&x.t.aging==='red');
     const alerts=[];
-    if(enAgenciaCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🔴</span><div class="abox-text"><b>${enAgenciaCritico.length} pedido(s) +${CFG.trackAgenciaCritico||5} días en agencia sin recoger</b> — riesgo de devolución</div></div>`);
-    if(enAgenciaAviso.length)alerts.push(`<div class="abox abox-amber" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🟡</span><div class="abox-text"><b>${enAgenciaAviso.length} pedido(s) +${CFG.trackAgenciaAviso||3} días en agencia</b> — considera recordar al cliente</div></div>`);
-    if(transitoCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">🚚</span><div class="abox-text"><b>${transitoCritico.length} pedido(s) +${CFG.trackTransitoCritico||7} días despachados sin clave</b> — verifica con Shalom</div></div>`);
+    if(enAgenciaCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon" style="color:var(--red)">${ic('circle',16)}</span><div class="abox-text"><b>${enAgenciaCritico.length} pedido(s) +${CFG.trackAgenciaCritico||5} días en agencia sin recoger</b> — riesgo de devolución</div></div>`);
+    if(enAgenciaAviso.length)alerts.push(`<div class="abox abox-amber" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon" style="color:var(--amber)">${ic('circle',16)}</span><div class="abox-text"><b>${enAgenciaAviso.length} pedido(s) +${CFG.trackAgenciaAviso||3} días en agencia</b> — considera recordar al cliente</div></div>`);
+    if(transitoCritico.length)alerts.push(`<div class="abox abox-red" style="cursor:pointer" onclick="document.getElementById('prov-q').value='';document.getElementById('prov-f-est').value='enviado';renderProvinciaContent()"><span class="abox-icon">${ic('truck',18)}</span><div class="abox-text"><b>${transitoCritico.length} pedido(s) +${CFG.trackTransitoCritico||7} días despachados sin clave</b> — verifica con Shalom</div></div>`);
     return alerts.join('');
   })()}
   <div class="metrics-grid">
@@ -5545,7 +5549,7 @@ function renderProvinciaContent(){
     <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700">✅ Cobrado</span>':fmt(p.pendiente||0)}</td>
     <td style="background:${p.clave?'rgba(155,110,240,.08)':urgente?'rgba(239,68,68,.08)':'transparent'}">${p.clave
       ?`<div style="display:flex;align-items:center;gap:5px"><span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span><button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button><button onclick="openTracking(${p.id})" style="background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 6px">✏️</button></div>`
-      :`<div style="display:flex;flex-direction:column;gap:3px"><button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:${urgente?'var(--red)':'var(--text3)'}">${urgente?'⚠️ ':''}+ Agregar</button>${urgente?'<span style="font-size:9px;color:var(--red);font-weight:700">Urgente</span>':''}</div>`
+      :`<div style="display:flex;flex-direction:column;gap:3px"><button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:${urgente?'var(--red)':'var(--text3)'}">${urgente?ic('alert-triangle',12)+' ':''}+ Agregar</button>${urgente?'<span style="font-size:9px;color:var(--red);font-weight:700">Urgente</span>':''}</div>`
     }</td>
     <td style="min-width:145px">
       <select onchange="cambiarEstadoRapido(${p.id},this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
@@ -5818,7 +5822,7 @@ function guardarTracking(){
       <div class="modal-h"><div class="modal-title">${ic('truck',18)} Marcar como Enviado</div><div class="mc" onclick="document.getElementById('modal-conf-track').remove()">×</div></div>
       <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text">Se cambiará el estado del pedido a <b>"Enviado"</b> y se registrará <b>HOY</b> (${hoy()}) como fecha de "En camino".</div></div>
       <div style="display:flex;gap:10px;flex-direction:column">
-        <button class="btn btn-primary" onclick="aplicarTracking(true)">✅ Confirmar y marcar como enviado</button>
+        <button class="btn btn-primary" onclick="aplicarTracking(true)">${ic('check-circle',14)} Confirmar y marcar como enviado</button>
         <button class="btn btn-ghost" onclick="aplicarTracking(false)">Solo guardar tracking (sin cambiar estado)</button>
       </div>
     </div>`;
@@ -6196,14 +6200,14 @@ function renderProdCards(){
         <div style="display:flex;gap:4px;flex-shrink:0;margin-left:6px">
           ${isTop?'<span style="font-size:11px;font-weight:700;color:var(--purple);padding:2px 6px;background:var(--purpleL);border-radius:5px">🏆</span>':''}
           ${agotado?'<span style="font-size:11px;font-weight:700;color:var(--red);padding:2px 6px;background:var(--redL);border-radius:5px">⛔</span>':''}
-          <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">✏️</button>
-          <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">🗑️</button>
+          <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">${ic('pencil',14)}</button>
+          <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">${ic('trash',14)}</button>
         </div>
       </div>
       <div class="prod-meta">
         ${bdgMod(p.modalidad||'stock')}
         <span class="bdg" style="background:var(--tealL);color:var(--teal)">${p.categoria||'General'}</span>
-        ${agotado?`<span class="bdg bdg-crit">⛔ Agotado</span>`:isLow?`<span class="bdg bdg-crit">⚠️ Stock bajo</span>`:''}
+        ${agotado?`<span class="bdg bdg-crit">${ic('x-circle',12)} Agotado</span>`:isLow?`<span class="bdg bdg-crit">${ic('alert-triangle',12)} Stock bajo</span>`:''}
       </div>
       <div class="fr" style="padding:5px 0"><span style="font-size:12px;color:var(--text2)">Precio venta</span><span class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</span></div>
       <div class="fr" style="padding:5px 0"><span style="font-size:12px;color:var(--text2)">Costo</span><span class="mono" style="color:var(--red)">${fmt(p.costo)}</span></div>
@@ -6248,12 +6252,12 @@ function renderProdTabla(){
         ${p.modalidad==='stock'?`<div style="display:flex;gap:4px;align-items:center">
           <button class="btn btn-ghost btn-xs" onclick="ajustarStock(${p.id},-1)" title="−1">−</button>
           <button class="btn btn-success btn-xs" onclick="ajustarStock(${p.id},1)" title="+1">+</button>
-          <button class="btn btn-ghost btn-xs" onclick="ajustarStockInput(${p.id})" title="Ajustar">✏️</button>
+          <button class="btn btn-ghost btn-xs" onclick="ajustarStockInput(${p.id})" title="Ajustar">${ic('pencil',14)}</button>
         </div>`:''}
       </td>
       <td><div style="display:flex;gap:3px">
-        <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">✏️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">🗑️</button>
+        <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">${ic('pencil',14)}</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">${ic('trash',14)}</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -6275,7 +6279,7 @@ function ajustarStockInput(id){
       <input type="number" id="stock-adj-val" value="${p.stock}" min="0" step="1" style="font-size:20px;font-weight:700;text-align:center" autofocus>
     </div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-primary" onclick="confirmarAjusteStock(${id})">✅ Guardar</button>
+      <button class="btn btn-primary" onclick="confirmarAjusteStock(${id})">${ic('check-circle',14)} Guardar</button>
       <button class="btn btn-ghost" onclick="document.getElementById('modal-stock-adj').remove()">Cancelar</button>
     </div>
   </div>`;
@@ -6470,7 +6474,7 @@ function renderUpsells(){
 
   ${ticketConUp>0&&ticketSinUp>0?`
   <div class="abox abox-${ticketConUp>ticketSinUp?'green':'amber'}" style="margin-bottom:14px">
-    <span class="abox-icon">${ticketConUp>ticketSinUp?'📈':'📊'}</span>
+    <span class="abox-icon">${ticketConUp>ticketSinUp?ic('trending-up',18):ic('dashboard',18)}</span>
     <div class="abox-text">
       ${ticketConUp>ticketSinUp
         ?`<b>Los upsells aumentan el ticket en ${fmt(ticketConUp-ticketSinUp)} (+${((ticketConUp-ticketSinUp)/ticketSinUp*100).toFixed(0)}%)</b> — de ${fmt(ticketSinUp)} sin upsell a ${fmt(ticketConUp)} con upsell`
@@ -6514,8 +6518,8 @@ function renderUpsells(){
           <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
-          <button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})">✏️</button>
-          <button class="btn btn-danger btn-xs" onclick="eliminarUpsell(${u.id})">🗑️</button>
+          <button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})">${ic('pencil',14)}</button>
+          <button class="btn btn-danger btn-xs" onclick="eliminarUpsell(${u.id})">${ic('trash',14)}</button>
         </div>
       </div>
 
@@ -6796,7 +6800,7 @@ function renderFinanzas(){
     <div class="section-sub">${ent.length} entregas · ${allP.length} pedidos · Efectividad ${ef}%${prevFiltro?' · comparando con período anterior':''}</div>
   </div>
   <div class="section-actions">
-    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">📢 + Pub.</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-gasto').classList.add('open');document.getElementById('g-fecha').value=hoy()">${ic('megaphone',14)} + Pub.</button>
     <button class="btn btn-ghost btn-sm" onclick="abrirModalGastoExtra()">💸 + Gasto</button>
   </div></div>
   <div class="fbar">

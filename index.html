@@ -210,10 +210,12 @@ input,select,textarea,button{font-family:var(--font)}
 /* ── CARDS ──────────────────────────────────── */
 .card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px;transition:border-color .15s}
 .card+.card{margin-top:14px}
-.card-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+.card-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.card-title .ic{color:var(--text2)}
 .card-subtitle{font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:14px}
 .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
-.section-title{font-size:19px;font-weight:800;letter-spacing:-.5px}
+.section-title{font-size:19px;font-weight:800;letter-spacing:-.5px;display:inline-flex;align-items:center;gap:9px}
+.section-title .ic{color:var(--accent)}
 .section-sub{font-size:12px;color:var(--text2);margin-top:3px}
 .section-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
@@ -3763,7 +3765,14 @@ const ICONS={
   'undo':'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
   'x-circle':'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
   'calendar-clock':'<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><path d="M22 16a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"/>',
-  'link':'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+  'link':'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  'target':'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  'megaphone':'<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  'ticket':'<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>',
+  'repeat':'<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+  'calendar':'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  'trophy':'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  'bike':'<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>'
 };
 function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){
@@ -3923,7 +3932,7 @@ function renderDashboard(){
   const html=`
   ${alertsHtml}
   <div style="font-size:10.5px;color:var(--text3);margin-bottom:14px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    <span>📅 ${perLabel}</span>
+    <span style="display:inline-flex;align-items:center;gap:5px">${ic('calendar',12)} ${perLabel}</span>
     ${p.length?`<span class="pill-tag">${p.length} pedidos</span>`:''}
     ${prevFiltro?`<span class="pill-tag" style="color:var(--text3);font-size:9.5px">vs período anterior</span>`:''}
   </div>
@@ -3934,21 +3943,21 @@ function renderDashboard(){
     <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}"><span class="counter-val" data-val="${ef}" data-suffix="%">${ef}%</span>${dlt(ef,pEf)}</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
     <div class="mcard mc-red"><div class="mcard-label">Devoluciones</div><div class="mcard-val mv-red"><span class="counter-val" data-val="${devPct}" data-suffix="%">${devPct}%</span>${dlt(devPct,pDev,true)}</div><div class="mcard-sub">${dev.length} pedidos</div></div>
     <div class="mcard mc-blue"><div class="mcard-label">% Confirmación</div><div class="mcard-val mv-blue"><span class="counter-val" data-val="${pctConf}" data-suffix="%">${pctConf}%</span></div><div class="mcard-sub">${conf.length} confirmados</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label">Por cobrar 💰</div><div class="mcard-val mv-amber" style="font-size:19px"><span class="counter-val" data-val="${porCobrar}" data-money="1">${fmt(porCobrar)}</span></div><div class="mcard-sub">en tránsito prov.</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label">Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px"><span class="counter-val" data-val="${porCobrar}" data-money="1">${fmt(porCobrar)}</span></div><div class="mcard-sub">en tránsito prov.</div></div>
   </div>
 
   <div class="g3" style="margin-bottom:14px">
-    <div class="stat-row"><div class="stat-ico" style="background:var(--accentL)">📢</div><div class="stat-txt"><div class="stat-label">CPA real / entrega</div><div class="stat-val mv-accent">${fmt(cpaReal)}</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">📈</div><div class="stat-txt"><div class="stat-label">ROAS</div><div class="stat-val mv-blue">${roas.toFixed(2)}x</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL)">💸</div><div class="stat-txt"><div class="stat-label">Gasto publicidad</div><div class="stat-val mv-purple">${fmt(pub)}</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--greenL)">🎟️</div><div class="stat-txt"><div class="stat-label">Ticket promedio</div><div class="stat-val mv-green">${fmt(ticketProm)}</div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--cyanL)">🔄</div><div class="stat-txt"><div class="stat-label">Recompras (historial)</div><div class="stat-val mv-cyan">${recompra.pct}% <span style="font-size:12px;color:var(--text3)">(${recompra.count})</span></div></div></div>
-    <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">👥</div><div class="stat-txt"><div class="stat-label">Com. entregas + sueldos</div><div class="stat-val mv-amber">${fmt(ccomEntregas)} <span style="font-size:10.5px;color:var(--text3)">+${fmt(sueldosTotal)}</span></div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--accentL);color:var(--accent)">${ic('target',18)}</div><div class="stat-txt"><div class="stat-label">CPA real / entrega</div><div class="stat-val mv-accent">${fmt(cpaReal)}</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--blueL);color:var(--blue)">${ic('trending-up',18)}</div><div class="stat-txt"><div class="stat-label">ROAS</div><div class="stat-val mv-blue">${roas.toFixed(2)}x</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL);color:var(--purple)">${ic('megaphone',18)}</div><div class="stat-txt"><div class="stat-label">Gasto publicidad</div><div class="stat-val mv-purple">${fmt(pub)}</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--greenL);color:var(--green)">${ic('ticket',18)}</div><div class="stat-txt"><div class="stat-label">Ticket promedio</div><div class="stat-val mv-green">${fmt(ticketProm)}</div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--cyanL);color:var(--cyan)">${ic('repeat',18)}</div><div class="stat-txt"><div class="stat-label">Recompras (historial)</div><div class="stat-val mv-cyan">${recompra.pct}% <span style="font-size:12px;color:var(--text3)">(${recompra.count})</span></div></div></div>
+    <div class="stat-row"><div class="stat-ico" style="background:var(--amberL);color:var(--amber)">${ic('users',18)}</div><div class="stat-txt"><div class="stat-label">Com. entregas + sueldos</div><div class="stat-val mv-amber">${fmt(ccomEntregas)} <span style="font-size:10.5px;color:var(--text3)">+${fmt(sueldosTotal)}</span></div></div></div>
   </div>
 
   <div class="g2" style="margin-bottom:14px">
     <div class="card">
-      <div class="card-title">📅 Actividad últimos 14 días</div>
+      <div class="card-title">${ic('calendar',13)} Actividad últimos 14 días</div>
       ${trendHtml}
     </div>
     <div class="card">
@@ -3959,12 +3968,12 @@ function renderDashboard(){
 
   <div class="g2" style="margin-bottom:14px">
     <div class="card">
-      <div class="card-title">🛵 Efectividad por Delivery (Lima)</div>
+      <div class="card-title">${ic('bike',13)} Efectividad por Delivery (Lima)</div>
       ${courierStats.length?courierStats.map(([c,d])=>{
         const efC=d.total>0?Math.round(d.ent/d.total*100):0;
         return `<div style="margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-            <span style="color:var(--text2);font-weight:600">🛵 ${c}</span>
+            <span style="color:var(--text2);font-weight:600;display:inline-flex;align-items:center;gap:5px">${ic('bike',13)} ${c}</span>
             <span class="mono" style="font-weight:700;color:${efC>=70?'var(--green)':efC>=50?'var(--amber)':'var(--red)'}">${efC}%</span>
           </div>
           <div style="background:var(--surface3);border-radius:4px;height:16px;overflow:hidden">
@@ -3975,7 +3984,7 @@ function renderDashboard(){
       }).join(''):`<div class="empty" style="padding:20px;font-size:12px">Sin deliveries asignados aún</div>`}
     </div>
     <div class="card">
-      <div class="card-title">🏆 Más vendidos (${perLabel})</div>
+      <div class="card-title">${ic('trophy',13)} Más vendidos (${perLabel})</div>
       ${topProds.length?topProds.map(([name,cnt])=>`<div class="cbrow"><div class="cblabel">${name.length>16?name.substring(0,14)+'…':name}</div><div class="cbtrack"><div class="cbfill" style="width:${cnt/maxProd*100}%;background:var(--accent)">${cnt}</div></div><div class="cbnum">${cnt} u.</div></div>`).join(''):'<div class="empty" style="padding:20px">Sin ventas aún</div>'}
     </div>
   </div>
@@ -5169,7 +5178,7 @@ function renderLima(){
   const conf=arr.filter(p=>p.estado==='confirmado'),env=arr.filter(p=>p.estado==='enviado');
   const ef=arr.length>0?Math.round(ent.length/arr.length*100):0;
   const html=`
-  <div class="section-header"><div><div class="section-title">🏙️ Lima — Control de Envío</div><div class="section-sub">Pedidos confirmados de palabra · Contraentrega</div></div>
+  <div class="section-header"><div><div class="section-title">${ic('building',20)} Lima — Control de Envío</div><div class="section-sub">Pedidos confirmados de palabra · Contraentrega</div></div>
   <div class="section-actions">
     <button onclick="abrirMenuExport(this)" style="display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;border-radius:10px;padding:8px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(27,94,32,.4);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
       <span style="font-size:16px">📤</span><span>Exportar</span><span style="font-size:10px;opacity:.8">▾</span>
@@ -5383,7 +5392,7 @@ function renderProvincia(){
   const ef=arr.length>0?Math.round(ent.length/arr.length*100):0;
   const totalAdel=arr.reduce((s,p)=>s+(p.adelanto||0),0);
   const html=`
-  <div class="section-header"><div><div class="section-title">📦 Provincia — Control de Envío</div><div class="section-sub">Pedidos con adelanto pagado · Shalom / Olva</div></div>
+  <div class="section-header"><div><div class="section-title">${ic('package',20)} Provincia — Control de Envío</div><div class="section-sub">Pedidos con adelanto pagado · Shalom / Olva</div></div>
   <div class="section-actions">
     <button onclick="abrirMenuExportProv(this)" style="display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#1a237e,#283593);border:none;border-radius:10px;padding:8px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(26,35,126,.4);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
       <span style="font-size:16px">📤</span><span>Exportar</span><span style="font-size:10px;opacity:.8">▾</span>
@@ -5582,26 +5591,26 @@ function colorAviso(dias,avisoUmbral,criticoUmbral){
 function estadoTrackingVisual(p){
   if(p.estado==='entregado'){
     const fEnt=fechaValida(p.fechaEntregado)?p.fechaEntregado:(fechaValida(p.fecha)?p.fecha:'');
-    return {icon:'✅',text:`Entregado${fEnt?' el '+fechaCorta(fEnt):''}`,color:'green',dias:0,aging:'green'};
+    return {icon:ic('check-circle',13),text:`Entregado${fEnt?' el '+fechaCorta(fEnt):''}`,color:'green',dias:0,aging:'green'};
   }
   if(p.estado==='devuelto'){
     if(p.devueltoSinRecoger){
       const d=fechaValida(p.fechaAgencia)?diasDesde(p.fechaAgencia):0;
-      return {icon:'↩️',text:`Devuelto sin recoger${d?' ('+d+'d en agencia)':''}`,color:'red',dias:d,aging:'red'};
+      return {icon:ic('undo',13),text:`Devuelto sin recoger${d?' ('+d+'d en agencia)':''}`,color:'red',dias:d,aging:'red'};
     }
-    return {icon:'↩️',text:'Devuelto en tránsito',color:'red',dias:0,aging:'red'};
+    return {icon:ic('undo',13),text:'Devuelto en tránsito',color:'red',dias:0,aging:'red'};
   }
   if(fechaValida(p.fechaAgencia)){
     const d=diasDesde(p.fechaAgencia);
     const aging=colorAviso(d,CFG.trackAgenciaAviso||3,CFG.trackAgenciaCritico||5);
     const urg=aging==='red'?' ⚠️':'';
-    return {icon:'📦',text:`En agencia hace ${d}d${urg}`,color:'orange',dias:d,aging};
+    return {icon:ic('package',13),text:`En agencia hace ${d}d${urg}`,color:'orange',dias:d,aging};
   }
   if(fechaValida(p.fechaDespacho)){
     const d=diasDesde(p.fechaDespacho);
     const aging=colorAviso(d,CFG.trackTransitoAviso||3,CFG.trackTransitoCritico||7);
     const urg=aging==='red'?' ⚠️':'';
-    return {icon:'🚚',text:`En camino hace ${d}d${urg}`,color:'yellow',dias:d,aging};
+    return {icon:ic('truck',13),text:`En camino hace ${d}d${urg}`,color:'yellow',dias:d,aging};
   }
   return {icon:'',text:'',color:'',dias:0,aging:''};
 }
@@ -6768,7 +6777,7 @@ function renderFinanzas(){
 
   const html=`
   <div class="section-header"><div>
-    <div class="section-title">💰 Finanzas & ROI</div>
+    <div class="section-title">${ic('wallet',20)} Finanzas & ROI</div>
     <div class="section-sub">${ent.length} entregas · ${allP.length} pedidos · Efectividad ${ef}%${prevFiltro?' · comparando con período anterior':''}</div>
   </div>
   <div class="section-actions">
@@ -7113,7 +7122,7 @@ function renderComisiones(){
   const html=`
   <div class="section-header">
     <div>
-      <div class="section-title">👥 Equipo & Comisiones</div>
+      <div class="section-title">${ic('users',20)} Equipo & Comisiones</div>
       <div class="section-sub">${DB.asesores.length} vendedor(es) · ${DB.deliveries.length} delivery(s) · período: ${comPer==='mes'?'30 días':comPer==='semana'?'7 días':comPer==='hoy'?'hoy':comPer==='custom'?`${comDesde||'?'} → ${comHasta||hoy()}`:'todo'}</div>
     </div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
@@ -7408,7 +7417,7 @@ const CIUDADES_QUICK=['Lima','Trujillo','Arequipa','Chiclayo','Piura','Cusco','I
 function renderFlujo(){
   const html=`
   <div class="section-header">
-    <div><div class="section-title">💵 Flujo de Caja</div><div class="section-sub">Capital en movimiento y proyecciones</div></div>
+    <div><div class="section-title">${ic('trending-up',20)} Flujo de Caja</div><div class="section-sub">Capital en movimiento y proyecciones</div></div>
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -7818,7 +7827,7 @@ function renderLiquidacion(){
 
   const html=`
   <div class="section-header">
-    <div><div class="section-title">💵 Liquidación Courier</div>
+    <div><div class="section-title">${ic('banknote',20)} Liquidación Courier</div>
     <div class="section-sub">Control del efectivo que los motorizados Lima deben entregarte</div></div>
   </div>
 
@@ -8393,7 +8402,7 @@ function eliminarWA(id){if(!confirm('¿Eliminar esta plantilla?'))return;DB.waTm
 function renderImportar(){
   const html=`
   <div class="section-header">
-    <div><div class="section-title">📥 Importar CSV</div><div class="section-sub">Importa pedidos desde Shopify, ReleasIt, EasySell o CSV manual</div></div>
+    <div><div class="section-title">${ic('download',20)} Importar CSV</div><div class="section-sub">Importa pedidos desde Shopify, ReleasIt, EasySell o CSV manual</div></div>
   </div>
   <div class="g2">
     <div class="card">
@@ -8607,7 +8616,7 @@ function renderConfig(){
   const html=`
   <div class="section-header">
     <div>
-      <div class="section-title">⚙️ Configuración</div>
+      <div class="section-title">${ic('settings',20)} Configuración</div>
       <div class="section-sub">${wsName||'Mi negocio'} · Los cambios se guardan automáticamente al modificar cualquier campo</div>
     </div>
   </div>
@@ -9181,7 +9190,7 @@ let rotFormato='ticketera';
 
 function renderRotulos(){
   const html=`
-  <div class="section-header"><div><div class="section-title">🏷️ Rótulos de Envío</div><div class="section-sub">Genera e imprime rótulos para pegar en tus paquetes</div></div>
+  <div class="section-header"><div><div class="section-title">${ic('tag',20)} Rótulos de Envío</div><div class="section-sub">Genera e imprime rótulos para pegar en tus paquetes</div></div>
   <div class="section-actions">
     <button class="btn btn-primary" onclick="imprimirRotulos()" id="btn-imprimir-rot" disabled>🖨️ Imprimir seleccionados (<span id="rot-sel-count">0</span>)</button>
     <button class="btn btn-ghost btn-sm" onclick="imprimirTodosRotulos()">🖨️ Imprimir todos visibles</button>

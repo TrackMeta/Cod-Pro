@@ -4333,7 +4333,7 @@ function renderItemsPedido(){
       <div style="margin-top:8px;padding:10px;background:var(--surface3);border:1px solid var(--border2);border-radius:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:inline-flex;align-items:center;gap:5px">${ic('palette',13)} Distribución de colores</div>
-          ${(()=>{const a=desglose.reduce((s,d)=>s+(parseInt(d.cantidad)||0),0);const r=cant-a;return r>0?`<span style="font-size:11px;color:var(--amber);font-weight:700">⚠️ Faltan ${r}</span>`:r===0?`<span style="font-size:11px;color:var(--green);font-weight:700">✅ Completo</span>`:`<span style="font-size:11px;color:var(--red);font-weight:700">❌ Excede ${Math.abs(r)}</span>`;})()}
+          ${(()=>{const a=desglose.reduce((s,d)=>s+(parseInt(d.cantidad)||0),0);const r=cant-a;return r>0?`<span style="font-size:11px;color:var(--amber);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('alert-triangle',12)} Faltan ${r}</span>`:r===0?`<span style="font-size:11px;color:var(--green);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('check-circle',12)} Completo</span>`:`<span style="font-size:11px;color:var(--red);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('x-circle',12)} Excede ${Math.abs(r)}</span>`;})()}
         </div>
         ${desglose.map((d,di)=>`
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -5666,7 +5666,7 @@ function openTracking(id){
   else headerExtra=`<span style="color:var(--text3)">Aún no enviado</span>`;
   document.getElementById('tr-header').innerHTML=`
     <div style="font-weight:700;font-size:14px">${p.nombre} <span style="color:var(--text3);font-weight:400;font-size:12px">· ${p.celular||''}</span></div>
-    <div style="font-size:12px;color:var(--text2);margin-top:3px">📦 ${p.producto||''}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:3px;display:inline-flex;align-items:center;gap:5px">${ic('package',13)} ${p.producto||''}</div>
     <div style="font-size:11.5px;color:var(--text3);margin-top:3px">Sede destino: <b style="color:var(--text2)">${p.sede||'-'}</b> · Pedido #${p.id}</div>
     <div style="margin-top:6px;font-size:12px">${headerExtra}</div>`;
   // Timeline (editable)
@@ -6869,19 +6869,19 @@ function renderFinanzas(){
   <div class="g2" style="margin-top:0">
     <div class="card">
       <div class="card-title" style="margin-bottom:10px">${ic('trending-up',13)} Métricas financieras</div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--greenL)">💹</div><div class="stat-txt"><div class="stat-label">ROI sobre costos</div><div class="stat-val mv-${roi>=0?'green':'red'}">${roi.toFixed(1)}%</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">📊</div><div class="stat-txt"><div class="stat-label">Margen bruto <span style="font-size:10px;color:var(--text3)">(sin pub/gastos)</span></div><div class="stat-val mv-${margenBruto>=40?'green':margenBruto>=25?'amber':'red'}">${margenBruto.toFixed(1)}%</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">🎯</div><div class="stat-txt"><div class="stat-label">Margen post-publicidad</div><div class="stat-val mv-${margenPostPub>=20?'blue':margenPostPub>=10?'amber':'red'}">${margenPostPub.toFixed(1)}%</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--tealL)">🎟️</div><div class="stat-txt"><div class="stat-label">Ticket promedio</div><div class="stat-val mv-teal">${fmt(ticket)}</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--greenL);color:var(--green)">${ic('trending-up',18)}</div><div class="stat-txt"><div class="stat-label">ROI sobre costos</div><div class="stat-val mv-${roi>=0?'green':'red'}">${roi.toFixed(1)}%</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--amberL);color:var(--amber)">${ic('dashboard',18)}</div><div class="stat-txt"><div class="stat-label">Margen bruto <span style="font-size:10px;color:var(--text3)">(sin pub/gastos)</span></div><div class="stat-val mv-${margenBruto>=40?'green':margenBruto>=25?'amber':'red'}">${margenBruto.toFixed(1)}%</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--blueL);color:var(--blue)">${ic('target',18)}</div><div class="stat-txt"><div class="stat-label">Margen post-publicidad</div><div class="stat-val mv-${margenPostPub>=20?'blue':margenPostPub>=10?'amber':'red'}">${margenPostPub.toFixed(1)}%</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--tealL);color:var(--teal)">${ic('ticket',18)}</div><div class="stat-txt"><div class="stat-label">Ticket promedio</div><div class="stat-val mv-teal">${fmt(ticket)}</div></div></div>
       ${dev.length>0?`<div class="stat-row"><div class="stat-ico" style="background:var(--redL)">↩️</div><div class="stat-txt"><div class="stat-label">Impacto devoluciones</div><div class="stat-val mv-red">−${fmt(cDev)} <span style="font-size:10px;color:var(--text3)">(${dev.length} dev.)</span></div></div></div>`:''}
     </div>
     <div class="card">
-      <div class="card-title" style="margin-bottom:10px">📢 Métricas de marketing</div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--accentL)">💰</div><div class="stat-txt"><div class="stat-label">CPA real (pub/entrega)</div><div class="stat-val mv-accent">${cpaReal>0?fmt(cpaReal):'Sin datos'}</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--blueL)">📈</div><div class="stat-txt"><div class="stat-label">ROAS <span style="font-size:10px;color:var(--text3)">meta: ${CFG.roas_min}x</span></div><div class="stat-val mv-${roas>=CFG.roas_min?'blue':'red'}">${cpub>0?roas.toFixed(2)+'x':'Sin pub.'} ${delta(roas,pRoas)}</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL)">👥</div><div class="stat-txt"><div class="stat-label">Leads totales</div><div class="stat-val mv-purple">${totalLeads>0?totalLeads:'—'}</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--amberL)">🎯</div><div class="stat-txt"><div class="stat-label">CPL (costo por lead)</div><div class="stat-val mv-${cpl>0?'amber':'teal'}">${cpl>0?fmt(cpl):'Sin leads'}</div></div></div>
-      <div class="stat-row"><div class="stat-ico" style="background:var(--redL)">📢</div><div class="stat-txt"><div class="stat-label">Inversión publicidad</div><div class="stat-val mv-red">${cpub>0?fmt(cpub):'S/ 0'}</div></div></div>
+      <div class="card-title" style="margin-bottom:10px">${ic('megaphone',13)} Métricas de marketing</div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--accentL);color:var(--accent)">${ic('wallet',18)}</div><div class="stat-txt"><div class="stat-label">CPA real (pub/entrega)</div><div class="stat-val mv-accent">${cpaReal>0?fmt(cpaReal):'Sin datos'}</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--blueL);color:var(--blue)">${ic('trending-up',18)}</div><div class="stat-txt"><div class="stat-label">ROAS <span style="font-size:10px;color:var(--text3)">meta: ${CFG.roas_min}x</span></div><div class="stat-val mv-${roas>=CFG.roas_min?'blue':'red'}">${cpub>0?roas.toFixed(2)+'x':'Sin pub.'} ${delta(roas,pRoas)}</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--purpleL);color:var(--purple)">${ic('users',18)}</div><div class="stat-txt"><div class="stat-label">Leads totales</div><div class="stat-val mv-purple">${totalLeads>0?totalLeads:'—'}</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--amberL);color:var(--amber)">${ic('target',18)}</div><div class="stat-txt"><div class="stat-label">CPL (costo por lead)</div><div class="stat-val mv-${cpl>0?'amber':'teal'}">${cpl>0?fmt(cpl):'Sin leads'}</div></div></div>
+      <div class="stat-row"><div class="stat-ico" style="background:var(--redL);color:var(--red)">${ic('megaphone',18)}</div><div class="stat-txt"><div class="stat-label">Inversión publicidad</div><div class="stat-val mv-red">${cpub>0?fmt(cpub):'S/ 0'}</div></div></div>
     </div>
   </div>
 
@@ -6928,7 +6928,7 @@ function renderFinanzas(){
   <!-- GASTOS PUBLICIDAD -->
   <div class="card" style="margin-top:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="card-title" style="margin:0">📢 Gastos de publicidad</div>
+      <div class="card-title" style="margin:0">${ic('megaphone',13)} Gastos de publicidad</div>
       <div style="display:flex;gap:8px;align-items:center">
         ${cpub>0?`<span class="mono" style="font-size:12px;color:var(--red);font-weight:700">−${fmt(cpub)}</span>`:''}
         ${totalLeads>0?`<span style="font-size:12px;color:var(--text3)">${totalLeads} leads · CPL ${fmt(cpl)}</span>`:''}
@@ -6943,7 +6943,7 @@ function renderFinanzas(){
       <td class="mono" style="color:var(--red);font-weight:700;text-align:right">${fmt(p.monto)}</td>
       <td class="mono" style="text-align:center">${p.leads||0}</td>
       <td class="mono" style="color:var(--accent)">${(p.leads||0)>0?fmt(p.monto/p.leads):'—'}</td>
-      <td><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${p.id})">🗑️</button></td>
+      <td><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${p.id})">${ic('trash',14)}</button></td>
     </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Sin gastos de publicidad en este período</td></tr>`}
     </tbody></table></div>
   </div>
@@ -6951,7 +6951,7 @@ function renderFinanzas(){
   <!-- GASTOS EXTRAS -->
   <div class="card" style="margin-top:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="card-title" style="margin:0">📋 Gastos extras / operativos</div>
+      <div class="card-title" style="margin:0">${ic('note',13)} Gastos extras / operativos</div>
       <div style="display:flex;gap:8px;align-items:center">
         ${cgastos>0?`<span class="mono" style="font-size:12px;color:var(--amber);font-weight:700">−${fmt(cgastos)}</span>`:''}
         <button class="btn btn-ghost btn-xs" onclick="abrirModalGastoExtra()">+ Agregar</button>
@@ -6963,7 +6963,7 @@ function renderFinanzas(){
       <td><span class="bdg bdg-enviado">${g.categoria||'Otro'}</span></td>
       <td style="color:var(--text2);font-size:12px">${g.descripcion||'—'}</td>
       <td class="mono" style="color:var(--amber);font-weight:700;text-align:right">${fmt(g.monto)}</td>
-      <td><button class="btn btn-danger btn-xs" onclick="eliminarGastoExtra(${g.id})">🗑️</button></td>
+      <td><button class="btn btn-danger btn-xs" onclick="eliminarGastoExtra(${g.id})">${ic('trash',14)}</button></td>
     </tr>`).join('')}
     </tbody></table></div>`
     :`<div class="empty" style="padding:20px">Sin gastos extras en este período · <button class="btn btn-ghost btn-xs" onclick="abrirModalGastoExtra()">+ Registrar</button></div>`}
@@ -7018,8 +7018,8 @@ function roiPorProducto(filtro){
         <div style="width:${Math.min(parseFloat(margin),100)}%;background:${mColor};height:100%;border-radius:4px;opacity:.8"></div>
       </div>
       <div style="display:flex;gap:10px;font-size:10.5px;color:var(--text3)">
-        <span>📦 ${d.cnt} und.</span>
-        <span>💰 ${fmt(d.ing)}</span>
+        <span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} ${d.cnt} und.</span>
+        <span style="display:inline-flex;align-items:center;gap:4px">${ic('wallet',12)} ${fmt(d.ing)}</span>
         <span style="color:${d.util>=0?'var(--green)':'var(--red)'}">Util: ${fmtN(d.util)}</span>
       </div>
     </div>`;
@@ -7062,7 +7062,7 @@ function renderComisiones(){
   const deliveriesHtml=`
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="card-title" style="margin:0">🛵 Deliveries Lima registrados</div>
+      <div class="card-title" style="margin:0">${ic('bike',13)} Deliveries Lima registrados</div>
       <button class="btn btn-primary btn-sm" onclick="openModalDelivery()">+ Agregar delivery</button>
     </div>
     ${DB.deliveries.length
@@ -7086,8 +7086,8 @@ function renderComisiones(){
             </div>
           </td>
           <td><div style="display:flex;gap:4px">
-            <button class="btn btn-ghost btn-xs" onclick="openModalDelivery(${d.id})">✏️</button>
-            <button class="btn btn-danger btn-xs" onclick="eliminarDelivery(${d.id})">🗑️</button>
+            <button class="btn btn-ghost btn-xs" onclick="openModalDelivery(${d.id})">${ic('pencil',14)}</button>
+            <button class="btn btn-danger btn-xs" onclick="eliminarDelivery(${d.id})">${ic('trash',14)}</button>
           </div></td>
         </tr>`;
       }).join('')}
@@ -7113,21 +7113,21 @@ function renderComisiones(){
         return `<div class="card" style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px">
             <div>
-              <div style="font-size:17px;font-weight:700">👤 ${a.nombre}</div>
+              <div style="font-size:17px;font-weight:700;display:inline-flex;align-items:center;gap:6px">${ic('user',16)} ${a.nombre}</div>
               <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Com. Lima S/${a.comLima} · Provincia S/${a.comProv} · Fijo S/${a.sueldo}</div>
             </div>
             <div style="display:flex;gap:6px">
-              <button class="btn btn-ghost btn-sm" onclick="openModalAsesor(${a.id})">✏️ Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="eliminarAsesor(${a.id})">🗑️</button>
+              <button class="btn btn-ghost btn-sm" onclick="openModalAsesor(${a.id})">${ic('pencil',13)} Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="eliminarAsesor(${a.id})">${ic('trash',14)}</button>
             </div>
           </div>
           <div class="metrics-grid">
-            <div class="mcard mc-green"><div class="mcard-label">💰 Ingresos generados</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(ingGenerado)}</div><div class="mcard-sub">ROI: ${roi.toFixed(1)}x</div></div>
+            <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ingresos generados</div><div class="mcard-val mv-green" style="font-size:18px">${fmt(ingGenerado)}</div><div class="mcard-sub">ROI: ${roi.toFixed(1)}x</div></div>
             <div class="mcard mc-${ef>=70?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=70?'green':'red'}">${ef}%</div><div class="mcard-sub">${aPeds.length} ped · ${aDev.length} dev</div></div>
             <div class="mcard mc-accent"><div class="mcard-label">Entregas Lima</div><div class="mcard-val mv-accent">${aLima.length}</div><div class="mcard-sub">${fmt(comLima)}</div></div>
             <div class="mcard mc-purple"><div class="mcard-label">Entregas Prov.</div><div class="mcard-val mv-purple">${aProv.length}</div><div class="mcard-sub">${fmt(comProv)}</div></div>
             <div class="mcard mc-amber"><div class="mcard-label">Sueldo fijo</div><div class="mcard-val mv-amber">${fmt(a.sueldo)}</div><div class="mcard-sub">S/${a.pagoDia}/día</div></div>
-            <div class="mcard mc-red"><div class="mcard-label">💸 Total a pagar</div><div class="mcard-val mv-red" style="font-size:20px">${fmt(total)}</div><div class="mcard-sub">${fmt(totalCom)} com + ${fmt(a.sueldo)} fijo</div></div>
+            <div class="mcard mc-red"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('banknote',13)} Total a pagar</div><div class="mcard-val mv-red" style="font-size:20px">${fmt(total)}</div><div class="mcard-sub">${fmt(totalCom)} com + ${fmt(a.sueldo)} fijo</div></div>
           </div>
         </div>`;
       }).join('')
@@ -7180,40 +7180,40 @@ function renderComisiones(){
   <!-- MÉTRICAS RESUMEN -->
   <div class="metrics-grid" style="margin-bottom:16px">
     <div class="mcard mc-green">
-      <div class="mcard-label">💰 Ingresos generados</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ingresos generados</div>
       <div class="mcard-val mv-green" style="font-size:19px">${fmt(totalIngEquipo)}</div>
       <div class="mcard-sub">${ent.length} entregas en el período</div>
     </div>
     <div class="mcard mc-red">
-      <div class="mcard-label">💸 Comisiones a pagar</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('banknote',13)} Comisiones a pagar</div>
       <div class="mcard-val mv-red" style="font-size:19px">${fmt(totalComisiones)}</div>
       <div class="mcard-sub">Solo por entregas del período</div>
     </div>
     <div class="mcard mc-amber">
-      <div class="mcard-label">💼 Sueldos fijos</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('users',13)} Sueldos fijos</div>
       <div class="mcard-val mv-amber" style="font-size:19px">${fmt(totalSueldos)}</div>
       <div class="mcard-sub">${DB.asesores.length} vendedor(es)</div>
     </div>
     <div class="mcard mc-${totalAPagar>0?'purple':'blue'}">
-      <div class="mcard-label">💳 Total a pagar equipo</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('credit-card',13)} Total a pagar equipo</div>
       <div class="mcard-val mv-${totalAPagar>0?'purple':'blue'}" style="font-size:19px">${fmt(totalAPagar)}</div>
       <div class="mcard-sub">ROI del equipo: ${roiEquipo.toFixed(1)}x</div>
     </div>
   </div>
-  ${sinVendedor.length>0?`<div class="abox abox-amber" style="margin-bottom:12px"><span class="abox-icon">⚠️</span><div class="abox-text"><b>${sinVendedor.length} pedido(s) sin vendedor asignado</b> en este período — no se contabilizan en el rendimiento individual</div></div>`:''}
+  ${sinVendedor.length>0?`<div class="abox abox-amber" style="margin-bottom:12px"><span class="abox-icon">${ic('alert-triangle',18)}</span><div class="abox-text"><b>${sinVendedor.length} pedido(s) sin vendedor asignado</b> en este período — no se contabilizan en el rendimiento individual</div></div>`:''}
   `:''}
 
   ${deliveriesHtml}
 
   <!-- VENDEDORES -->
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">📊 Rendimiento por vendedor</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px">${ic('dashboard',13)} Rendimiento por vendedor</div>
     <button class="btn btn-ghost btn-sm" onclick="openModalAsesor()">+ Agregar vendedor</button>
   </div>
   ${DB.asesores.length
     ?vendedoresHtml
     :`<div class="card"><div class="empty" style="padding:28px;text-align:center">
-        <div style="font-size:28px;margin-bottom:8px">👤</div>
+        <div style="margin-bottom:8px;color:var(--text3)">${ic('user',28)}</div>
         <div style="font-weight:700;margin-bottom:6px">Sin vendedores registrados</div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Agrega vendedores para medir su rendimiento y calcular comisiones automáticamente</div>
         <button class="btn btn-primary btn-sm" onclick="openModalAsesor()">+ Agregar primer vendedor</button>
@@ -7566,22 +7566,22 @@ function renderFlujoContent(){
   <!-- MÉTRICAS PRINCIPALES -->
   <div class="metrics-grid">
     <div class="mcard mc-accent">
-      <div class="mcard-label">💸 Por cobrar (real)</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('banknote',13)} Por cobrar (real)</div>
       <div class="mcard-val mv-accent" style="font-size:20px">${fmt(porCobrar)}</div>
       <div class="mcard-sub">${activos.length} pedidos activos · cartera total ${fmt(valorCartera)}</div>
     </div>
     <div class="mcard mc-blue">
-      <div class="mcard-label">🤝 Adelantos en mano</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Adelantos en mano</div>
       <div class="mcard-val mv-blue" style="font-size:20px">${fmt(adelantosEnMano)}</div>
       <div class="mcard-sub">Cobrado de ${conf.filter(p=>p.zona==='provincia'&&(p.adelanto||0)>0).length} pedidos prov. confirmados</div>
     </div>
     <div class="mcard mc-green">
-      <div class="mcard-label">📈 Ingresos (período)</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('trending-up',13)} Ingresos (período)</div>
       <div class="mcard-val mv-green" style="font-size:20px">${fmt(ingTotal)}</div>
       <div class="mcard-sub">Prom: ${fmt(promDiario)}/día activo · ${diasConActividad.length} días</div>
     </div>
     <div class="mcard mc-${utilTotal>=0?'green':'red'}">
-      <div class="mcard-label">✅ Utilidad (período)</div>
+      <div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Utilidad (período)</div>
       <div class="mcard-val mv-${utilTotal>=0?'green':'red'}" style="font-size:20px">${fmtN(utilTotal)}</div>
       <div class="mcard-sub">Prom: ${fmtN(promUtil)}/día · margen ${ingTotal>0?((utilTotal/ingTotal)*100).toFixed(1):'0'}%</div>
     </div>
@@ -7590,7 +7590,7 @@ function renderFlujoContent(){
   <!-- MEJOR / PEOR DÍA -->
   ${mejorDia?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
     <div style="flex:1;min-width:180px;padding:10px 14px;background:var(--greenL);border:1px solid rgba(34,197,94,.25);border-radius:8px">
-      <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em">🏆 Mejor día</div>
+      <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;display:inline-flex;align-items:center;gap:5px">${ic('trophy',12)} Mejor día</div>
       <div style="font-size:15px;font-weight:700;margin-top:3px">${mejorDia.dow} ${mejorDia.dia.slice(5)} · <span class="mono" style="color:var(--green)">${fmt(mejorDia.ing)}</span></div>
       <div style="font-size:10.5px;color:var(--text3)">${mejorDia.ent} entregas · utilidad: ${fmtN(mejorDia.util)}</div>
     </div>

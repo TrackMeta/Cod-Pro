@@ -2501,7 +2501,6 @@ async function _dualWriteChangedPedidos(){
       const key=String(p.id);
       current.add(key);
       if(_pedidosSnapshot[key]!==JSON.stringify(p)){
-        console.log('[dual-write] cambio detectado #'+p.id+' → UPSERT');
         await _persistPedidoTabla(p);
       }
     }
@@ -2542,10 +2541,8 @@ function initRealtime(){
     .subscribe(status=>updateRtIndicator(status==='SUBSCRIBED'));
   // === Canal 2: tabla pedidos (TODOS reciben INSERT/UPDATE/DELETE) ===
   _rtChannel2=_supabase.channel(`rt-pedidos-${wsId}`)
-    // (debug: log de suscripción del canal pedidos)
     .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`workspace_id=eq.${wsId}`},
       payload=>{
-        console.log('[RT-pedidos]',payload.eventType,'numero:',payload.new?.numero??payload.old?.numero,'rowId:',payload.new?.id??payload.old?.id);
         if(!DB.pedidos)DB.pedidos=[];
         if(payload.eventType==='INSERT'){
           const nuevo=_rowToPedido(payload.new);
@@ -2584,7 +2581,7 @@ function initRealtime(){
         _takePedidosSnapshot(); // mantener baseline sincronizado con realtime
         refrescarVistasPedidos();
       })
-    .subscribe(s=>console.log('[RT-pedidos] sub:',s));
+    .subscribe();
 }
 function updateRtIndicator(connected){
   const el=document.getElementById('rt-indicator');
@@ -4455,6 +4452,21 @@ async function guardarPedido(){
   if(!nombre){alert('⚠️ El nombre es obligatorio.');document.getElementById('p-nombre').focus();return;}
   if(!celular){alert('⚠️ El celular es obligatorio.');document.getElementById('p-celular').focus();return;}
   if(!pedidoItems.length||!pedidoItems[0].nombre){alert('⚠️ Agrega al menos un producto.');return;}
+  // Validar variantes obligatorias (productos tipo stock con variantes)
+  for(let i=0;i<pedidoItems.length;i++){
+    const it=pedidoItems[i];
+    const prod=it.productoId?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
+    if(!prod||prod.modalidad!=='stock'||!prod.variantes||!prod.variantes.length)continue;
+    const cant=parseInt(it.cantidad)||1;
+    if(cant<=1){
+      if(!it.variante){alert(`⚠️ El producto "${it.nombre}" tiene variantes. Debes elegir el color/variante.`);return;}
+    }else{
+      const desglose=(it.desglose||[]).filter(d=>d.variante);
+      if(!desglose.length){alert(`⚠️ El producto "${it.nombre}" tiene variantes. Debes distribuir los colores en "🎨 Distribución de colores".`);return;}
+      const suma=desglose.reduce((s,d)=>s+(parseInt(d.cantidad)||0),0);
+      if(suma!==cant){alert(`⚠️ La distribución de colores de "${it.nombre}" suma ${suma} pero la cantidad es ${cant}. Deben coincidir.`);return;}
+    }
+  }
   // Normalizar celular
   let celNorm=celular.replace(/\D/g,'');
   if(celNorm.length===9&&celNorm.startsWith('9'))celNorm='+51'+celNorm;

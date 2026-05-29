@@ -6297,28 +6297,28 @@ function renderProdTabla(){
     const stockColor=agotado?'var(--red)':isLow?'var(--amber)':'var(--green)';
     const diasHtml=diasRestantes!==null?`<span style="font-size:11px;color:${diasRestantes<=7?'var(--red)':diasRestantes<=14?'var(--amber)':'var(--text3)'}">~${diasRestantes}d</span>`:'—';
     return`<tr style="${agotado?'background:rgba(239,68,68,.05)':isLow?'background:rgba(245,158,11,.04)':''}">
-      <td style="font-weight:600">${rank===0&&vendidos>0?ic('trophy',13)+' ':agotado?ic('x-circle',13)+' ':isLow?ic('alert-triangle',13)+' ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></td>
-      <td><span class="bdg" style="background:var(--tealL);color:var(--teal);font-size:10px">${p.categoria||'General'}</span></td>
-      <td class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</td>
-      <td class="mono" style="color:var(--red)">${fmt(p.costo)}</td>
-      <td class="mono" style="color:var(--accent);font-weight:700">${fmt(ganancia)} <span style="font-size:10px;opacity:.7">${margen.toFixed(0)}%</span></td>
-      <td>${p.modalidad==='stock'?`<span style="font-weight:700;color:${stockColor}">${p.stock}</span> <span style="font-size:10.5px;color:var(--text3)">/ ${p.stockMin} mín</span>`:'<span style="color:var(--text3)">Drop</span>'}</td>
-      <td class="mono">${vendidos>0?`<b>${vendidos} u.</b>`:'—'} ${ingPeriodo>0?`<div style="font-size:10.5px;color:var(--green)">${fmt(ingPeriodo)}</div>`:''}</td>
-      <td>${p.modalidad==='stock'?diasHtml:'—'}</td>
-      <td>
+      <td data-label="Producto" style="font-weight:600">${rank===0&&vendidos>0?ic('trophy',13)+' ':agotado?ic('x-circle',13)+' ':isLow?ic('alert-triangle',13)+' ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></td>
+      <td data-label="Categoría"><span class="bdg" style="background:var(--tealL);color:var(--teal);font-size:10px">${p.categoria||'General'}</span></td>
+      <td data-label="Precio" class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</td>
+      <td data-label="Costo" class="mono" style="color:var(--red)">${fmt(p.costo)}</td>
+      <td data-label="Ganancia/u" class="mono" style="color:var(--accent);font-weight:700">${fmt(ganancia)} <span style="font-size:10px;opacity:.7">${margen.toFixed(0)}%</span></td>
+      <td data-label="Stock">${p.modalidad==='stock'?`<span style="font-weight:700;color:${stockColor}">${p.stock}</span> <span style="font-size:10.5px;color:var(--text3)">/ ${p.stockMin} mín</span>`:'<span style="color:var(--text3)">Drop</span>'}</td>
+      <td data-label="Vendidos (per.)" class="mono">${vendidos>0?`<b>${vendidos} u.</b>`:'—'} ${ingPeriodo>0?`<div style="font-size:10.5px;color:var(--green)">${fmt(ingPeriodo)}</div>`:''}</td>
+      <td data-label="Días rest.">${p.modalidad==='stock'?diasHtml:'—'}</td>
+      <td data-label="Ajuste stock">
         ${p.modalidad==='stock'?`<div style="display:flex;gap:4px;align-items:center">
           <button class="btn btn-ghost btn-xs" onclick="ajustarStock(${p.id},-1)" title="−1">−</button>
           <button class="btn btn-success btn-xs" onclick="ajustarStock(${p.id},1)" title="+1">+</button>
           <button class="btn btn-ghost btn-xs" onclick="ajustarStockInput(${p.id})" title="Ajustar">${ic('pencil',14)}</button>
         </div>`:''}
       </td>
-      <td><div style="display:flex;gap:3px">
+      <td data-label="Acciones"><div style="display:flex;gap:3px">
         <button class="btn btn-ghost btn-xs" onclick="openModalProd(${p.id})">${ic('pencil',14)}</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarProducto(${p.id})">${ic('trash',14)}</button>
       </div></td>
     </tr>`;
   }).join('');
-  return`<div class="tw ts"><table><thead><tr>
+  return`<div class="tw ts tw-cards"><table><thead><tr>
     <th>Producto</th><th>Categoría</th><th>Precio</th><th>Costo</th><th>Ganancia/u</th><th>Stock</th><th>Vendidos (per.)</th><th>Días rest.</th><th>Stock</th><th>Acciones</th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }

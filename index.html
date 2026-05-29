@@ -5251,6 +5251,7 @@ function renderLimaContent(){
         }
         limaHtml+='<td><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">'
           +liqBtn
+          +'<button class="btn btn-ghost btn-xs" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp" style="background:rgba(37,211,102,.10);color:#25D366">&#128242;</button>'
           +'<button class="btn btn-ghost btn-xs" onclick="verResumenPedido('+p.id+')" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">&#128176;</button>'
           +'<button class="btn btn-ghost btn-xs" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
           +'<button class="btn btn-ghost btn-xs" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'

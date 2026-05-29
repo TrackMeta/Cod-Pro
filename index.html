@@ -306,6 +306,26 @@ tbody tr:hover td{background:var(--accentL2)}
 [data-theme="light"] .bdg-warn{background:rgba(220,130,0,.14);color:var(--amberD);border-color:rgba(220,130,0,.45)}
 [data-theme="light"] .bdg-crit{background:rgba(220,48,66,.14);color:var(--redD);border-color:rgba(220,48,66,.45)}
 
+/* ── ACTION ICON BUTTONS (unificados) ────────── */
+.act{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border2);background:var(--surface3);color:var(--text2);cursor:pointer;font-size:13px;line-height:1;transition:transform .12s,box-shadow .12s,background .12s,color .12s;flex-shrink:0}
+.act:hover{transform:translateY(-1px);box-shadow:0 3px 9px rgba(0,0,0,.18);color:var(--text)}
+.act:active{transform:scale(.94)}
+.act-wa{background:rgba(37,211,102,.12);color:#1FB855;border-color:rgba(37,211,102,.3)}
+.act-wa:hover{background:rgba(37,211,102,.2);color:#25D366}
+.act-money{background:var(--greenL);color:var(--green);border-color:rgba(16,212,106,.3)}
+.act-money:hover{background:rgba(16,212,106,.22);color:var(--green)}
+.act-del{background:var(--redL);color:var(--red);border-color:rgba(240,68,85,.3)}
+.act-del:hover{background:rgba(240,68,85,.22);color:var(--red)}
+.act-liq{width:auto;padding:0 11px;gap:5px;font-size:11.5px;font-weight:700;white-space:nowrap;background:var(--amberL);color:var(--amber);border-color:rgba(240,165,32,.35)}
+.act-liq:hover{background:rgba(240,165,32,.26);color:var(--amber)}
+.act-liqok{width:auto;padding:0 11px;gap:5px;font-size:11.5px;font-weight:700;white-space:nowrap;background:var(--greenL);color:var(--green);border-color:rgba(16,212,106,.3)}
+.act-liqok:hover{background:rgba(16,212,106,.22);color:var(--green)}
+[data-theme="light"] .act-liqok{color:var(--greenD)}
+.act-grp{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+[data-theme="light"] .act-money{color:var(--greenD)}
+[data-theme="light"] .act-liq{color:var(--amberD)}
+[data-theme="light"] .act-del{color:var(--redD)}
+
 /* ── STATUS PILL (larger) ────────────────────── */
 .spill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
 .spill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
@@ -636,6 +656,8 @@ td{padding:11px 14px;font-size:13px}
   .btn{padding:10px 14px;font-size:13px;min-height:44px}
   .btn-sm{padding:8px 13px;font-size:12.5px;min-height:38px}
   .btn-xs{padding:7px 10px;font-size:12px;min-height:34px}
+  .act{width:36px;height:36px;font-size:15px}
+  .act-liq,.act-liqok{height:36px}
 
   /* Cards */
   .card{padding:13px 14px;margin-bottom:10px}
@@ -3952,9 +3974,9 @@ function renderDashboard(){
       <td style="color:${x.zona==='lima'?'var(--blue)':'var(--accent)'}"><b>${x.zona==='lima'?'Lima':'Prov.'}</b></td>
       <td class="td-mono" style="font-weight:700">${fmt(x.precio)}</td>
       <td>${badge(x.estado)}</td>
-      <td><div style="display:flex;gap:3px">
-        <button class="btn btn-ghost btn-xs" onclick="editarPedido(${x.id})">✏️</button>
-        <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${x.id})">🕐</button>
+      <td><div class="act-grp">
+        <button class="act" onclick="editarPedido(${x.id})" title="Editar">✏️</button>
+        <button class="act" onclick="renderHistorial(${x.id})" title="Historial">🕐</button>
       </div></td>
     </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Sin pedidos</td></tr>'}
     </tbody></table></div>
@@ -4163,11 +4185,11 @@ function renderPedidosContent(){
     <td class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
     <td>${badge(p.estado)}</td>
     <td>${p.upsellRes==='aceptado'?'<span class="upsell-badge">⬆️ Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px">❌ Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
-    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-xs" onclick="verResumenPedido(${p.id})" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">💰</button>
-      <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
-      <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarPedido(${p.id})" title="Eliminar">🗑️</button>
+    <td><div class="act-grp">
+      <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">💰</button>
+      <button class="act" onclick="editarPedido(${p.id})" title="Editar">✏️</button>
+      <button class="act" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
+      <button class="act act-del" onclick="eliminarPedido(${p.id})" title="Eliminar">🗑️</button>
     </div></td>
   </tr>`).join('');
     return sepRow+rows;
@@ -5252,17 +5274,17 @@ function renderLimaContent(){
         if(p.estado==='entregado'){
           if(p.liquidado){
             const fLiq=fechaCorta(p.fechaLiq||'')||'';
-            liqBtn='<button class="btn btn-ghost btn-xs" onclick="toggleLiquidadoPedido('+p.id+')" title="Liquidado'+(fLiq?' el '+fLiq:'')+'. Click para revertir." style="background:rgba(16,212,106,.15);color:var(--green);font-weight:700;white-space:nowrap">&#9989; Liq.'+(fLiq?' '+fLiq:'')+'</button>';
+            liqBtn='<button class="act act-liqok" onclick="toggleLiquidadoPedido('+p.id+')" title="Liquidado'+(fLiq?' el '+fLiq:'')+'. Click para revertir.">&#9989; Liq.'+(fLiq?' '+fLiq:'')+'</button>';
           } else {
-            liqBtn='<button class="btn btn-ghost btn-xs" onclick="toggleLiquidadoPedido('+p.id+')" title="Marcar como liquidado por courier" style="background:rgba(240,165,32,.18);color:var(--amber);font-weight:700;white-space:nowrap">&#128181; Liquidar</button>';
+            liqBtn='<button class="act act-liq" onclick="toggleLiquidadoPedido('+p.id+')" title="Marcar como liquidado por courier">&#128181; Liquidar</button>';
           }
         }
-        limaHtml+='<td><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">'
+        limaHtml+='<td><div class="act-grp">'
           +liqBtn
-          +'<button class="btn btn-ghost btn-xs" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp" style="background:rgba(37,211,102,.10);color:#25D366">&#128242;</button>'
-          +'<button class="btn btn-ghost btn-xs" onclick="verResumenPedido('+p.id+')" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">&#128176;</button>'
-          +'<button class="btn btn-ghost btn-xs" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
-          +'<button class="btn btn-ghost btn-xs" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'
+          +'<button class="act act-wa" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp">&#128242;</button>'
+          +'<button class="act act-money" onclick="verResumenPedido('+p.id+')" title="Resumen financiero">&#128176;</button>'
+          +'<button class="act" onclick="editarPedido('+p.id+')" title="Editar">&#9999;&#65039;</button>'
+          +'<button class="act" onclick="renderHistorial('+p.id+')" title="Historial">&#128336;</button>'
           +'</div></td>'
           +'</tr>';
       });
@@ -5479,11 +5501,11 @@ function renderProvinciaContent(){
       </select>
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
-    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-xs" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp" style="background:rgba(37,211,102,.10);color:#25D366">📲</button>
-      <button class="btn btn-ghost btn-xs" onclick="verResumenPedido(${p.id})" title="Resumen financiero" style="background:rgba(16,212,106,.12);color:var(--green)">💰</button>
-      <button class="btn btn-ghost btn-xs" onclick="editarPedido(${p.id})" title="Editar pedido">✏️</button>
-      <button class="btn btn-ghost btn-xs" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
+    <td><div class="act-grp">
+      <button class="act act-wa" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp">📲</button>
+      <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">💰</button>
+      <button class="act" onclick="editarPedido(${p.id})" title="Editar pedido">✏️</button>
+      <button class="act" onclick="renderHistorial(${p.id})" title="Historial">🕐</button>
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
@@ -7848,7 +7870,7 @@ function renderLiquidacion(){
               <td class="mono" style="text-align:right;font-weight:700;color:var(--accent)">${fmt(p.precio||0)}</td>
               <td class="mono" style="text-align:right;font-size:11px;color:var(--red)">−${fmt(cenvP)}</td>
               <td class="mono" style="text-align:right;font-weight:700;color:var(--green)">${fmt((p.precio||0)-cenvP)}</td>
-              <td><button class="btn btn-ghost btn-xs" onclick="toggleLiquidadoPedido(${p.id})">💵 Liq.</button></td>
+              <td><button class="act act-liq" onclick="toggleLiquidadoPedido(${p.id})" title="Marcar como liquidado">💵 Liq.</button></td>
             </tr>`;
           }).join('')}</tbody>
           <tfoot><tr style="background:var(--surface3)">

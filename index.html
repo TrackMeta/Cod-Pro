@@ -4802,6 +4802,11 @@ function cambiarEstado(id,estado){
   p.estado=estado;
   if(!p.historial)p.historial=[];
   p.historial.push({estado,ts:new Date().toISOString(),user:SESSION?.name||'Sistema'});
+  // Limpiar datos de devolución/rechazo al pasar a un estado que NO es devuelto ni rechazado
+  if(estado!=='devuelto'&&estado!=='rechazado'){
+    if(p.motivoDevolucion)p.motivoDevolucion='';
+    if(p.devueltoSinRecoger)p.devueltoSinRecoger=false;
+  }
   // Tracking provincia: sincronizar timeline con estado del pedido
   if(p.zona==='provincia'){
     const today=hoy();
@@ -4813,8 +4818,8 @@ function cambiarEstado(id,estado){
     }
     // Cambio de "confirmado" → "enviado": marcar fechaDespacho si vacía
     if(estado==='enviado'&&prev==='confirmado'&&!p.fechaDespacho)p.fechaDespacho=today;
-    // Cambio a "confirmado" desde enviado/entregado: limpiar todo el timeline
-    if(estado==='confirmado'&&(prev==='enviado'||prev==='entregado')){
+    // Cambio a "confirmado" desde enviado/entregado/devuelto/rechazado: limpiar todo el timeline
+    if(estado==='confirmado'&&['enviado','entregado','devuelto','rechazado'].includes(prev)){
       p.fechaDespacho='';p.fechaAgencia='';p.fechaEntregado='';
     }
     // Devuelto estando en agencia → marca devueltoSinRecoger
@@ -5474,7 +5479,7 @@ function renderLimaContent(){
       });
     });
   }
-  v.innerHTML='<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado (editable)</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
+  v.innerHTML='<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
 }
 
 function openCourier(id){

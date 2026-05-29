@@ -627,6 +627,25 @@ td{padding:11px 14px;font-size:13px}
   .ts table{min-width:600px}
   td,th{padding:9px 10px;font-size:12.5px;white-space:nowrap}
 
+  /* Tablas como tarjetas apiladas (opt-in con .tw-cards) */
+  .tw-cards,.tw-cards .ts{overflow:visible!important;border:none!important;max-height:none!important}
+  .tw-cards table{min-width:0!important;display:block;background:transparent}
+  .tw-cards thead{display:none}
+  .tw-cards tbody{display:block}
+  .tw-cards tbody tr{display:block;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 14px;box-shadow:var(--shadow)}
+  .tw-cards tbody tr:hover td{background:transparent!important}
+  .tw-cards td{display:block;border:none!important;padding:5px 0!important;white-space:normal!important;background:transparent!important;text-align:left;font-size:13px}
+  .tw-cards td::before{content:attr(data-label);display:block;font-weight:700;color:var(--text3);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+  .tw-cards td[data-label=""]::before,.tw-cards td:not([data-label])::before{display:none}
+  .tw-cards td[data-label=""]{padding:2px 0!important}
+  .tw-cards td select{width:100%}
+  .tw-cards .act-grp{justify-content:flex-start;gap:8px}
+  /* Fila separadora de fecha = encabezado entre tarjetas */
+  .tw-cards tr.ped-date-sep{display:block;background:transparent!important;border:none;box-shadow:none;padding:2px 0!important;margin:16px 0 2px}
+  .tw-cards tr.ped-date-sep:first-child{margin-top:0}
+  .tw-cards tr.ped-date-sep td{display:block;padding:0!important}
+  .tw-cards tr.ped-date-sep td::before{display:none}
+
   /* Filter bars */
   .fbar{gap:8px;padding:10px 0 12px}
   .fg-filter{width:calc(50% - 4px)}
@@ -691,6 +710,16 @@ td{padding:11px 14px;font-size:13px}
 
   /* Inline status selects */
   .tw select{min-height:36px}
+}
+
+/* Tablet: campos de la tarjeta en 2 columnas (más compacto) */
+@media(min-width:561px) and (max-width:768px){
+  .tw-cards tbody tr:not(.ped-date-sep){display:grid;grid-template-columns:1fr 1fr;gap:4px 26px;align-items:start;max-width:760px}
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Cliente"],
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Producto"],
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Estado"],
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Acciones"],
+  .tw-cards tbody tr:not(.ped-date-sep) td[data-label="Tracking"]{grid-column:1/-1}
 }
 
 @media(max-width:480px){
@@ -5552,20 +5581,20 @@ function renderProvinciaContent(){
         ? `<span style="background:${trBgSolid[tr.color]||'var(--surface3)'};color:#fff;font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;letter-spacing:.02em" onclick="openTracking(${p.id})" title="Click para editar tracking">${tr.icon} ${tr.text}</span>`
         : `<button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="font-size:11px;color:var(--text3)">+ Agregar tracking</button>`;
       return `<tr style="${rowBg}">
-    <td class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
-    <td><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
-    <td style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
-    <td style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
-    <td style="color:var(--text2);font-size:11.5px">${p.sede||'-'}</td>
-    <td style="white-space:nowrap;background:${cellBg}">${trackingCell}</td>
-    <td class="mono" style="font-weight:700">${fmt(p.precio)}</td>
-    <td class="mono" style="color:var(--accent);font-weight:700">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px">'+ic('check-circle',12)+' Cobrado</span>':fmt(p.adelanto||0)}</td>
-    <td class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px">'+ic('check-circle',12)+' Cobrado</span>':fmt(p.pendiente||0)}</td>
-    <td style="background:${p.clave?'rgba(155,110,240,.08)':urgente?'rgba(239,68,68,.08)':'transparent'}">${p.clave
+    <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
+    <td data-label="Cliente"><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
+    <td data-label="Producto" style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
+    <td data-label="Provincia" style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
+    <td data-label="Sede" style="color:var(--text2);font-size:11.5px">${p.sede||'-'}</td>
+    <td data-label="Tracking" style="white-space:nowrap;background:${cellBg}">${trackingCell}</td>
+    <td data-label="Precio" class="mono" style="font-weight:700">${fmt(p.precio)}</td>
+    <td data-label="Adelanto" class="mono" style="color:var(--accent);font-weight:700">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px">'+ic('check-circle',12)+' Cobrado</span>':fmt(p.adelanto||0)}</td>
+    <td data-label="Pendiente" class="mono">${entregado?'<span style="color:var(--green);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px">'+ic('check-circle',12)+' Cobrado</span>':fmt(p.pendiente||0)}</td>
+    <td data-label="Clave" style="background:${p.clave?'rgba(155,110,240,.08)':urgente?'rgba(239,68,68,.08)':'transparent'}">${p.clave
       ?`<div style="display:flex;align-items:center;gap:5px"><span style="background:var(--purple);color:#fff;font-family:var(--mono);font-weight:800;font-size:13px;padding:3px 10px;border-radius:6px;letter-spacing:.05em">${p.clave}</span><button onclick="navigator.clipboard.writeText('${p.clave}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='📋',1500)})" style="background:var(--purpleL);border:1px solid rgba(155,110,240,.3);border-radius:5px;color:var(--purple);cursor:pointer;font-size:12px;padding:2px 6px">📋</button><button onclick="openTracking(${p.id})" style="background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 6px">✏️</button></div>`
       :`<div style="display:flex;flex-direction:column;gap:3px"><button class="btn btn-ghost btn-xs" onclick="openTracking(${p.id})" style="color:${urgente?'var(--red)':'var(--text3)'}">${urgente?ic('alert-triangle',12)+' ':''}+ Agregar</button>${urgente?'<span style="font-size:9px;color:var(--red);font-weight:700">Urgente</span>':''}</div>`
     }</td>
-    <td style="min-width:145px">
+    <td data-label="Estado" style="min-width:145px">
       <select onchange="cambiarEstadoRapido(${p.id},this.value,this)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;cursor:pointer">
         <option value="nuevo"       ${p.estado==='nuevo'       ?'selected':''}>🆕 Nuevo</option>
         <option value="confirmado"  ${p.estado==='confirmado'  ?'selected':''}>✅ Confirmado</option>
@@ -5578,7 +5607,7 @@ function renderProvinciaContent(){
       </select>
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
-    <td><div class="act-grp">
+    <td data-label="Acciones"><div class="act-grp">
       <button class="act act-wa" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp">${ic('send',15)}</button>
       <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
       <button class="act" onclick="editarPedido(${p.id})" title="Editar pedido">${ic('pencil',15)}</button>
@@ -5587,7 +5616,7 @@ function renderProvinciaContent(){
   </tr>`;}).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316"><span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Tracking</span></th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)"><span style="display:inline-flex;align-items:center;gap:4px">${ic('key',12)} Clave</span></th><th>Estado</th><th>Acciones</th></tr></thead>
+  v.innerHTML=`<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316"><span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Tracking</span></th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)"><span style="display:inline-flex;align-items:center;gap:4px">${ic('key',12)} Clave</span></th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 

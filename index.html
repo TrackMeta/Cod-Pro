@@ -3747,6 +3747,7 @@ function updateSidebarBadges(){
 function hoy(){return new Date().toISOString().split('T')[0];}
 function fmt(n){return 'S/ '+Math.abs(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function fmtN(n){return 'S/ '+(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function fmtReg(iso){if(!iso)return'—';const dt=new Date(iso);if(isNaN(dt))return'—';const dd=String(dt.getDate()).padStart(2,'0'),mm=String(dt.getMonth()+1).padStart(2,'0');const hh=String(dt.getHours()).padStart(2,'0'),mi=String(dt.getMinutes()).padStart(2,'0');return dd+'/'+mm+' · '+hh+':'+mi;}
 // Marca filtros activos con clase .f-on — se llama automáticamente desde setContent
 function initFbar(){
   document.querySelectorAll('.fg-filter select,.fg-filter input[type=text]').forEach(el=>{
@@ -5405,7 +5406,6 @@ function renderLimaContent(){
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('lima-view');if(!v)return;
   // Helper: formatear fechaCreado
-  function fmtReg(iso){if(!iso)return'—';const dt=new Date(iso);if(isNaN(dt))return'—';const dd=String(dt.getDate()).padStart(2,'0'),mm=String(dt.getMonth()+1).padStart(2,'0');const hh=String(dt.getHours()).padStart(2,'0'),mi=String(dt.getMinutes()).padStart(2,'0');return dd+'/'+mm+' · '+hh+':'+mi;}
   // Agrupar por fecha
   const byDateL={};
   arr.forEach(function(p){const d=p.fecha||'—';if(!byDateL[d])byDateL[d]=[];byDateL[d].push(p);});

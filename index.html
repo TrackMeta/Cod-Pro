@@ -235,6 +235,10 @@ input,select,textarea,button{font-family:var(--font)}
 .mcard-sub{font-size:10.5px;color:var(--text3);margin-top:5px}
 .mcard-trend{font-size:11px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:3px}
 
+/* ── LOGOS DE COURIER ───────────────────────── */
+.cour-logo{width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface3);display:block}
+.cour-logo-sm{width:24px;height:24px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface3);display:inline-block;vertical-align:middle}
+
 /* ── KPI HERO (Dashboard) ───────────────────── */
 .kpi-hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 .kpi-hero{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:16px 18px 0;position:relative;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
@@ -4909,7 +4913,7 @@ function abrirMenuExport(btn){
   menu.innerHTML=`
     <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:6px 10px 4px">Seleccionar courier</div>
     <button onclick="_exportMenuOpen.remove();_exportMenuOpen=null;abrirModalExportEva()" style="width:100%;background:none;border:none;padding:10px 12px;border-radius:7px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text);font-size:13px;font-weight:600" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">
-      <span style="color:var(--accent)">${ic('package',18)}</span><div><div>Eva Courier</div><div style="font-size:11px;color:var(--text3);font-weight:400">Solo Lima · Excel masivo</div></div>
+      <img src="assets/logos/eva.png" alt="Eva" class="cour-logo"><div><div>Eva Courier</div><div style="font-size:11px;color:var(--text3);font-weight:400">Solo Lima · Excel masivo</div></div>
     </button>
     <div style="opacity:.4;padding:10px 12px;font-size:12px;display:flex;align-items:center;gap:10px"><span>${ic('truck',16)}</span><div><div>Otros couriers</div><div style="font-size:11px">Próximamente</div></div></div>`;
   document.body.appendChild(menu);_exportMenuOpen=menu;
@@ -4925,7 +4929,7 @@ function abrirMenuExportProv(btn){
   menu.innerHTML=`
     <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:6px 10px 4px">Seleccionar courier</div>
     <button onclick="_exportMenuProvOpen.remove();_exportMenuProvOpen=null;abrirModalExportShalom()" style="width:100%;background:none;border:none;padding:10px 12px;border-radius:7px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text);font-size:13px;font-weight:600" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">
-      <span style="color:var(--accent)">${ic('truck',18)}</span><div><div>Shalom</div><div style="font-size:11px;color:var(--text3);font-weight:400">Provincia · Excel masivo</div></div>
+      <img src="assets/logos/shalom.png" alt="Shalom" class="cour-logo"><div><div>Shalom</div><div style="font-size:11px;color:var(--text3);font-weight:400">Provincia · Excel masivo</div></div>
     </button>
     <div style="opacity:.4;padding:10px 12px;font-size:12px;display:flex;align-items:center;gap:10px"><span>${ic('package',16)}</span><div><div>Olva Courier</div><div style="font-size:11px">Próximamente</div></div></div>`;
   document.body.appendChild(menu);_exportMenuProvOpen=menu;
@@ -4940,7 +4944,7 @@ function abrirModalExportEva(){
   mod.style.cssText+='align-items:flex-start;padding:20px;overflow-y:auto;';
   mod.innerHTML=`<div class="modal" style="max-width:960px;width:100%;margin:auto">
     <div class="modal-h">
-      <div><div class="modal-title">${ic('package',18)} Exportar a Eva Courier</div><div class="modal-sub">Selecciona los pedidos Lima que deseas exportar</div></div>
+      <div><div class="modal-title" style="display:inline-flex;align-items:center;gap:8px"><img src="assets/logos/eva.png" alt="Eva" class="cour-logo-sm"> Exportar a Eva Courier</div><div class="modal-sub">Selecciona los pedidos Lima que deseas exportar</div></div>
       <div class="mc" onclick="document.getElementById('modal-eva').remove()">×</div>
     </div>
     <div class="form-grid" style="margin-bottom:12px">
@@ -5094,7 +5098,7 @@ function abrirModalExportShalom(){
   mod.style.cssText+='align-items:flex-start;padding:20px;overflow-y:auto;';
   mod.innerHTML=`<div class="modal" style="max-width:980px;width:100%;margin:auto">
     <div class="modal-h">
-      <div><div class="modal-title">${ic('truck',18)} Exportar a Shalom</div><div class="modal-sub">Selecciona los pedidos Provincia que deseas exportar</div></div>
+      <div><div class="modal-title" style="display:inline-flex;align-items:center;gap:8px"><img src="assets/logos/shalom.png" alt="Shalom" class="cour-logo-sm"> Exportar a Shalom</div><div class="modal-sub">Selecciona los pedidos Provincia que deseas exportar</div></div>
       <div class="mc" onclick="document.getElementById('modal-shalom').remove()">×</div>
     </div>
     <div class="form-grid" style="margin-bottom:12px">

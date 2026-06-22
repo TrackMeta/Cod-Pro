@@ -983,6 +983,7 @@ td{padding:11px 14px;font-size:13px}
         <!-- ANÁLISIS & FINANZAS (admin) -->
         <div class="nav-section admin-only">Análisis & Finanzas</div>
         <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico" data-ic="dashboard"></span>Dashboard</div>
+        <div class="nav-item admin-only" onclick="showPage('conversion',this)"><span class="ico" data-ic="target"></span>Conversión</div>
         <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico" data-ic="wallet"></span>Finanzas</div>
         <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico" data-ic="trending-up"></span>Flujo de Caja</div>
         <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico" data-ic="banknote"></span>Liquidación</div>
@@ -3914,7 +3915,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // =====================================================================
 // PAGE ROUTING
 // =====================================================================
-const PAGE_TITLES={dashboard:'Dashboard',miDia:'Mi Día',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',integraciones:'Integraciones',config:'Configuración',usuarios:'Gestión de Usuarios'};
+const PAGE_TITLES={dashboard:'Dashboard',conversion:'Conversión',miDia:'Mi Día',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',integraciones:'Integraciones',config:'Configuración',usuarios:'Gestión de Usuarios'};
 
 // ── MOBILE NAVIGATION ─────────────────────────────────────────────────
 function toggleSidebar(){
@@ -3954,7 +3955,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -4735,6 +4736,40 @@ async function intgGuardarSecret(btn){
   if(error){alert('Error: '+error.message);return;}
   if(_intg){_intg.shopify_secret=v;}
   if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Guardado';setTimeout(()=>btn.innerHTML=t,1500);}
+}
+
+// =====================================================================
+// CONVERSIÓN — embudo de validación + ranking de vendedores (admin)
+// =====================================================================
+async function renderConversion(){
+  if(!isAdmin()){setContent('<div class="abox abox-red"><span class="abox-icon">'+ic('x-circle',18)+'</span><div class="abox-text">Solo administradores.</div></div>');return;}
+  const ws=SESSION?.workspace_id; if(!ws)return;
+  setContent(`<div class="section-header"><div><div class="section-title">Conversión</div><div class="section-sub">Embudo de validación y rendimiento por vendedor</div></div>
+    <div class="section-actions"><button class="btn btn-ghost btn-sm" onclick="renderConversion()">${ic('repeat',14)} Actualizar</button></div></div>
+    <div id="conv-funnel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
+    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('trophy',16)} Ranking de vendedores</div>
+    <div id="conv-ranking"><div style="padding:24px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
+  // Embudo (brutos_counts)
+  let counts={};
+  try{const{data}=await _supabase.rpc('brutos_counts',{p_ws:ws});(data||[]).forEach(r=>{counts[r.estado]=Number(r.n);});}catch(_){}
+  const total=Object.values(counts).reduce((s,v)=>s+v,0);
+  const reg=counts.registrado||0, rech=counts.rechazado||0, perd=counts.perdido||0;
+  const pend=total-reg-rech-perd;
+  const card=(l,v,c)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:25px;font-weight:800;font-family:var(--mono);color:${c||'var(--text)'};margin-top:4px">${v}</div></div>`;
+  const f=document.getElementById('conv-funnel');
+  if(f)f.innerHTML=card('Brutos totales',total)+card('Confirmados',reg,'var(--green)')+card('Tasa confirmación',(total?Math.round(reg/total*100):0)+'%','var(--accent)')+card('Tasa rechazo',(total?Math.round(rech/total*100):0)+'%','var(--red)')+card('Pendientes',pend,'var(--amber)');
+  // Ranking (brutos_metricas)
+  const box=document.getElementById('conv-ranking'); if(!box)return;
+  let met=[];
+  try{const{data,error}=await _supabase.rpc('brutos_metricas',{p_ws:ws});if(error)throw error;met=data||[];}
+  catch(e){box.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar el ranking.<br><span style="color:var(--text3)">¿Ejecutaste <b>sql/03_metricas.sql</b>? · ${escB(e.message||e)}</span></div></div>`;return;}
+  const rows=met.filter(m=>m.asesor_id).map(m=>{const r=Number(m.registrados),tot=Number(m.total);return {nombre:brutoNombreAsesor(m.asesor_id),reg:r,rech:Number(m.rechazados),tot,ef:tot?Math.round(r/tot*100):0};}).sort((a,b)=>b.ef-a.ef||b.reg-a.reg);
+  if(!rows.length){box.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3)">Aún no hay pedidos asignados a vendedores.</div>';return;}
+  const th='padding:9px 11px;text-align:left;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em';
+  const td='padding:9px 11px;border-top:1px solid var(--border);font-size:13px';
+  box.innerHTML=`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr><th style="${th}">#</th><th style="${th}">Vendedor</th><th style="${th};text-align:right">Confirmados</th><th style="${th};text-align:right">Rechazados</th><th style="${th};text-align:right">Trabajados</th><th style="${th};text-align:right">Efectividad</th></tr></thead>
+    <tbody>${rows.map((r,i)=>`<tr><td style="${td};color:var(--text3)">${i+1}</td><td style="${td};font-weight:600">${r.nombre}</td><td style="${td};text-align:right;color:var(--green);font-family:var(--mono)">${r.reg}</td><td style="${td};text-align:right;color:var(--red);font-family:var(--mono)">${r.rech}</td><td style="${td};text-align:right;font-family:var(--mono)">${r.tot}</td><td style="${td};text-align:right;font-weight:700;font-family:var(--mono);color:var(--accent)">${r.ef}%</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 // =====================================================================

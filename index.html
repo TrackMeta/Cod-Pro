@@ -7,21 +7,21 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="KONTROL">
-<meta name="theme-color" content="#0d0d14">
+<meta name="theme-color" content="#071212">
 <style>
 /* PWA Splash screen while loading */
 #pwa-splash{
-  position:fixed;inset:0;background:#0d0d14;
+  position:fixed;inset:0;background:#071212;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   z-index:9999;transition:opacity .4s ease;
 }
 #pwa-splash img{width:140px;height:140px;border-radius:28px}
 #pwa-splash .splash-name{
-  color:#fff;font-family:'Sora',system-ui,sans-serif;
+  color:#fff;font-family:'Inter',system-ui,sans-serif;
   font-size:22px;font-weight:800;letter-spacing:-.5px;margin-top:20px
 }
 #pwa-splash .splash-sub{
-  color:rgba(255,255,255,.35);font-family:'Sora',system-ui,sans-serif;
+  color:rgba(255,255,255,.35);font-family:'Inter',system-ui,sans-serif;
   font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-top:6px
 }
 #pwa-splash.hidden{opacity:0;pointer-events:none}
@@ -32,7 +32,7 @@
 // Override favicon with custom logo if saved
 (function(){const s=localStorage.getItem('cod_logo');if(s){const l=document.getElementById('app-favicon');if(l)l.href=s;}})();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <!-- PWA: Manifest + Service Worker -->
 <script>
@@ -44,7 +44,7 @@
     document.head.appendChild(al);
     // Inline manifest as blob
     const icons=[{src:document.getElementById('app-favicon')?.href||'',sizes:'512x512',type:'image/png',purpose:'any maskable'}];
-    const mf={name:'KONTROL',short_name:'KONTROL',description:'Gestión COD · Perú',start_url:'./',display:'standalone',orientation:'portrait-primary',background_color:'#0d0d14',theme_color:'#0d0d14',icons};
+    const mf={name:'KONTROL',short_name:'KONTROL',description:'Gestión COD · Perú',start_url:'./',display:'standalone',orientation:'portrait-primary',background_color:'#071212',theme_color:'#071212',icons};
     const mfBlob=new Blob([JSON.stringify(mf)],{type:'application/json'});
     const mfLink=document.createElement('link');mfLink.rel='manifest';mfLink.href=URL.createObjectURL(mfBlob);
     document.head.appendChild(mfLink);
@@ -81,34 +81,34 @@ self.addEventListener('fetch',e=>{
    Mobile-first · Better contrast · Cleaner UI
 ═══════════════════════════════════════════════ */
 [data-theme="dark"]{
-  --bg:#0d0d14;--surface:#13131d;--surface2:#1a1a26;--surface3:#21212f;--surface4:#2a2a3a;
-  --border:#222233;--border2:#2d2d42;--border3:#3a3a52;
-  --text:#eeeef8;--text2:#8888aa;--text3:#55556a;--text4:#303045;
-  --card-bg:#13131d;
+  --bg:#071212;--surface:#0D1A1A;--surface2:#112020;--surface3:#132323;--surface4:#1b2e2d;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.10);--border3:rgba(255,255,255,.16);
+  --text:#FFFFFF;--text2:#A4B2B2;--text3:#708080;--text4:#44504D;
+  --card-bg:#0D1A1A;
   --shadow:0 1px 4px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.35);
   --shadow2:0 2px 12px rgba(0,0,0,.6),0 24px 64px rgba(0,0,0,.45);
   --card-glow:0 0 0 1px var(--border),var(--shadow);
 }
 [data-theme="light"]{
-  --bg:#eeeef5;--surface:#ffffff;--surface2:#f5f5fb;--surface3:#ebebf5;--surface4:#dddded;
-  --border:#dddde8;--border2:#cbcbd8;--border3:#b8b8c8;
-  --text:#111122;--text2:#505070;--text3:#9090aa;--text4:#c4c4d4;
-  --card-bg:#ffffff;
+  --bg:#F5FAF8;--surface:#FFFFFF;--surface2:#F0F7F4;--surface3:#EAF3EF;--surface4:#DDEAE4;
+  --border:#DDEAE4;--border2:#CFE0D8;--border3:#B7C7C0;
+  --text:#102020;--text2:#506060;--text3:#7A8A8A;--text4:#B7C7C0;
+  --card-bg:#FFFFFF;
   --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 14px rgba(0,0,0,.07);
   --shadow2:0 4px 20px rgba(0,0,0,.12),0 20px 50px rgba(0,0,0,.09);
   --card-glow:0 0 0 1px var(--border),var(--shadow);
 }
 :root{
-  --accent:#ff5500;--accent2:#ff7033;--accentL:rgba(255,85,0,.12);--accentL2:rgba(255,85,0,.07);
-  --green:#10d46a;--greenD:#0ab856;--greenL:rgba(16,212,106,.12);
-  --red:#f04455;--redD:#d43042;--redL:rgba(240,68,85,.12);
-  --blue:#4a8ff5;--blueD:#2a6fd8;--blueL:rgba(74,143,245,.12);
+  --accent:#2DFF64;--accent2:#22F058;--accentL:rgba(45,255,100,.12);--accentL2:rgba(45,255,100,.07);
+  --green:#2DFF64;--greenD:#18D94A;--greenL:rgba(45,255,100,.12);
+  --red:#FF4D4F;--redD:#e23b3d;--redL:rgba(255,77,79,.12);
+  --blue:#3B82F6;--blueD:#2563eb;--blueL:rgba(59,130,246,.12);
   --purple:#9b6ef0;--purpleD:#7a4ed4;--purpleL:rgba(155,110,240,.12);
-  --amber:#f0a520;--amberD:#d48500;--amberL:rgba(240,165,32,.12);
+  --amber:#FFB020;--amberD:#e09810;--amberL:rgba(255,176,32,.12);
   --teal:#16bfa8;--tealL:rgba(22,191,168,.12);
   --cyan:#22c8e8;--cyanL:rgba(34,200,232,.12);
   --r:8px;--r2:12px;--r3:16px;--r4:20px;
-  --font:'Sora',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
   --nav-h:56px;--sidebar-w:228px;
   --mob-tab-h:60px;
 }
@@ -127,7 +127,7 @@ input,select,textarea,button{font-family:var(--font)}
 #login-screen::after{content:'';position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(77,142,240,.06) 0%,transparent 70%);bottom:-80px;left:-80px;pointer-events:none;z-index:0}
 .login-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r4);padding:44px 40px;width:100%;max-width:400px;box-shadow:var(--shadow2);position:relative;z-index:1}
 .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:36px;justify-content:center}
-.login-brand-icon{width:46px;height:46px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;box-shadow:0 4px 14px rgba(255,85,0,.4)}
+.login-brand-icon{width:46px;height:46px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#071212;box-shadow:0 0 22px rgba(45,255,100,.35)}
 .login-brand-text{font-size:24px;font-weight:800;letter-spacing:-.8px}
 .login-brand-text span{color:var(--accent)}
 .login-subtitle{text-align:center;font-size:12px;color:var(--text3);margin-top:-24px;margin-bottom:28px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
@@ -140,7 +140,7 @@ input,select,textarea,button{font-family:var(--font)}
 /* ── SIDEBAR ────────────────────────────────── */
 .sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:transform .25s}
 .sidebar-brand{padding:20px 16px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sidebar-logo{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:13px;flex-shrink:0;box-shadow:0 2px 8px rgba(255,85,0,.35)}
+.sidebar-logo{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#071212;font-size:13px;flex-shrink:0;box-shadow:0 0 14px rgba(45,255,100,.35)}
 .sidebar-name{font-weight:800;font-size:14px;letter-spacing:-.4px}
 .sidebar-name span{color:var(--accent)}
 .sidebar-version{font-size:10px;color:var(--text3);margin-top:1px;font-weight:500}
@@ -150,7 +150,7 @@ input,select,textarea,button{font-family:var(--font)}
 .nav-item + .nav-section{border-top:1px solid var(--border);margin-top:14px;padding-top:16px}
 .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .12s;margin-bottom:1px;position:relative;user-select:none}
 .nav-item:hover{background:var(--surface3);color:var(--text)}
-.nav-item.active{background:var(--accentL);color:var(--accent);font-weight:600}
+.nav-item.active{background:var(--accentL);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px rgba(45,255,100,.12),0 0 14px rgba(45,255,100,.08)}
 .nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--accent);border-radius:0 3px 3px 0}
 .nav-item .ico{font-size:15px;width:18px;text-align:center;flex-shrink:0;opacity:.85}
 .nav-item.active .ico{opacity:1}
@@ -159,7 +159,7 @@ input,select,textarea,button{font-family:var(--font)}
 .sidebar-bottom{padding:10px;border-top:1px solid var(--border)}
 .user-card{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r);background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all .12s}
 .user-card:hover{background:var(--surface3)}
-.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--accentL);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--accent);flex-shrink:0;border:1.5px solid rgba(255,85,0,.25)}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--accentL);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--accent);flex-shrink:0;border:1.5px solid rgba(45,255,100,.25)}
 .user-info{flex:1;min-width:0}
 .user-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .user-role{font-size:10.5px;color:var(--text3);text-transform:capitalize}
@@ -271,7 +271,7 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── BUTTONS ─────────────────────────────────── */
 .btn{border:none;border-radius:var(--r);padding:7px 14px;font-size:12.5px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .12s;font-family:var(--font);line-height:1;white-space:nowrap;letter-spacing:-.1px}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(255,85,0,.3)}.btn-primary:hover{background:var(--accent2);box-shadow:0 4px 12px rgba(255,85,0,.4);transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#071212;font-weight:700;box-shadow:0 0 20px rgba(45,255,100,.20)}.btn-primary:hover{background:var(--accent2);box-shadow:0 0 26px rgba(45,255,100,.32);transform:translateY(-1px)}
 .btn-success{background:var(--greenD);color:#fff}.btn-success:hover{background:var(--green)}
 .btn-danger{background:var(--redD);color:#fff}.btn-danger:hover{background:var(--red)}
 .btn-ghost{background:var(--surface3);color:var(--text2);border:1px solid var(--border2)}.btn-ghost:hover{color:var(--text);border-color:var(--border3);background:var(--surface4)}
@@ -406,7 +406,7 @@ tbody tr:hover td{background:var(--accentL2)}
 .abox{border-radius:var(--r);padding:10px 13px;font-size:12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:9px;line-height:1.5}
 .abox-icon{font-size:13px;flex-shrink:0;margin-top:1px}
 .abox-text{flex:1}
-.abox-orange{background:var(--accentL);border:1px solid rgba(255,85,0,.2);color:var(--accent)}
+.abox-orange{background:var(--accentL);border:1px solid rgba(45,255,100,.2);color:var(--accent)}
 .abox-red{background:var(--redL);border:1px solid rgba(240,68,68,.2);color:var(--red)}
 .abox-green{background:var(--greenL);border:1px solid rgba(22,199,106,.2);color:var(--green)}
 .abox-blue{background:var(--blueL);border:1px solid rgba(77,142,240,.2);color:var(--blue)}
@@ -543,7 +543,7 @@ tbody tr:hover td{background:var(--accentL2)}
 }
 .fg-filter select:hover:not(:focus),.fg-filter input:hover:not(:focus){border-color:var(--border3)}
 .fg-filter select:focus,.fg-filter input:focus{
-  border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,85,0,.1)
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,255,100,.1)
 }
 .fg-filter select option{background:var(--surface2);color:var(--text)}
 .fg-filter input[type=text]{
@@ -556,8 +556,8 @@ tbody tr:hover td{background:var(--accentL2)}
 /* filtro activo — se aplica con JS cuando valor ≠ default */
 .fg-filter select.f-on{border-color:var(--accent);background-color:var(--accentL);color:var(--accent);font-weight:600}
 .fg-filter input.f-on{border-color:var(--accent);background-color:var(--accentL)}
-[data-theme="light"] .fg-filter select.f-on{background-color:rgba(255,85,0,.07)}
-[data-theme="light"] .fg-filter input.f-on{background-color:rgba(255,85,0,.07)}
+[data-theme="light"] .fg-filter select.f-on{background-color:rgba(45,255,100,.07)}
+[data-theme="light"] .fg-filter input.f-on{background-color:rgba(45,255,100,.07)}
 .fbar-sep{width:1px;background:var(--border);height:28px;align-self:center;margin:0 4px}
 /* luz — fondo fbar un poco más marcado */
 [data-theme="light"] .fbar{background:var(--surface3);border-color:var(--border2)}
@@ -593,7 +593,7 @@ td{padding:11px 14px;font-size:13px}
 .btn{font-size:13px;padding:8px 15px;border-radius:9px}
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn-xs{padding:4px 9px;font-size:11.5px}
-.btn-primary{box-shadow:0 3px 10px rgba(255,85,0,.35)}
+.btn-primary{box-shadow:0 3px 10px rgba(45,255,100,.35)}
 
 /* ── TOP BAR HAMBURGER ──────────────────────── */
 .topbar{padding:0 16px}
@@ -873,8 +873,8 @@ td{padding:11px 14px;font-size:13px}
 
 /* ── REALTIME INDICATOR ───────────────────────────────────────── */
 @keyframes rtPulse{0%,100%{opacity:1}50%{opacity:.3}}
-#rt-indicator{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600;padding:3px 8px;border-radius:20px;background:var(--greenL);border:1px solid rgba(34,197,94,.2);cursor:default;transition:all .3s}
-#rt-indicator.rt-off{color:var(--text3);background:var(--surface3);border-color:var(--border)}
+#rt-indicator{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600;padding:3px 8px;border-radius:20px;background:var(--greenL);border:1px solid rgba(45,255,100,.25);box-shadow:0 0 12px rgba(45,255,100,.15);cursor:default;transition:all .3s}
+#rt-indicator.rt-off{color:var(--text3);background:var(--surface3);border-color:var(--border);box-shadow:none}
 #rt-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:rtPulse 2.5s infinite;flex-shrink:0;transition:background .3s}
 #rt-indicator.rt-off #rt-dot{background:var(--text3);animation:none}
 
@@ -2760,7 +2760,7 @@ function renderDashboardCharts(trendData){
       labels:trendData.map(d=>d.dow),
       datasets:[
         {label:'Entregas',data:trendData.map(d=>d.ent),
-         backgroundColor:trendData.map(d=>d.dia===today?'rgba(255,85,0,.9)':'rgba(34,197,94,.75)'),
+         backgroundColor:trendData.map(d=>d.dia===today?'rgba(45,255,100,.9)':'rgba(34,197,94,.75)'),
          borderRadius:4,borderSkipped:false},
         {label:'Devoluciones',data:trendData.map(d=>d.dev),
          backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,borderSkipped:false}
@@ -3555,7 +3555,7 @@ function applyAccentColor(hex){
 function loadAccentColor(){
   const c=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''));
   if(c)applyAccentColor(c);
-  else applyAccentColor('#ff5500'); // initialize --print-accent with default
+  else applyAccentColor('#2DFF64'); // initialize --print-accent with default
 }
 function setAccentColor(hex){applyAccentColor(hex);if(SESSION)localStorage.setItem('cod_accent_'+SESSION.workspace_id,hex);}
 
@@ -9585,7 +9585,7 @@ function importarPedidos(rows,map){
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         ${lima>0?`<div style="padding:8px 14px;background:rgba(59,130,246,.12);border-radius:8px;border:1px solid rgba(59,130,246,.2)"><div style="font-size:11px;color:var(--blue);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('building',12)} Lima</div><div style="font-size:18px;font-weight:800;color:var(--blue)">${lima}</div></div>`:''}
-        ${prov>0?`<div style="padding:8px 14px;background:var(--accentL);border-radius:8px;border:1px solid rgba(255,85,0,.2)"><div style="font-size:11px;color:var(--accent);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Provincia</div><div style="font-size:18px;font-weight:800;color:var(--accent)">${prov}</div></div>`:''}
+        ${prov>0?`<div style="padding:8px 14px;background:var(--accentL);border-radius:8px;border:1px solid rgba(45,255,100,.2)"><div style="font-size:11px;color:var(--accent);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Provincia</div><div style="font-size:18px;font-weight:800;color:var(--accent)">${prov}</div></div>`:''}
         ${conCprod>0?`<div style="padding:8px 14px;background:var(--surface3);border-radius:8px;border:1px solid var(--border)"><div style="font-size:11px;color:var(--text3);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('wallet',12)} Con costo prod.</div><div style="font-size:18px;font-weight:800">${conCprod}</div></div>`:''}
       </div>
       ${conCprod<ok?`<div style="font-size:11px;color:var(--amber);margin-bottom:10px;display:flex;align-items:center;gap:5px">${ic('alert-triangle',13)} ${ok-conCprod} pedido(s) sin costo de producto detectado (no encontrado en catálogo). Edítalos después.</div>`:''}
@@ -9606,7 +9606,7 @@ function renderConfig(){
   if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador.</div>');return;}
   const wsLogo=SESSION?.logoData||'';
   const wsName=SESSION?.negocioName||'';
-  const accentColor=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''))||'#ff5500';
+  const accentColor=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''))||'#2DFF64';
   const backups=getBackups();
   const ultimo=backups[0];
   const html=`
@@ -9739,7 +9739,7 @@ function renderConfig(){
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <input type="color" value="${accentColor}" onchange="setAccentColor(this.value)" style="width:38px;height:32px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;background:var(--surface3);padding:2px">
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
-            ${['#ff5500','#6366f1','#0ea5e9','#10b981','#f43f5e','#8b5cf6','#f59e0b','#ec4899'].map(c=>`<div onclick="setAccentColor('${c}')" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===accentColor?'var(--text)':'transparent'};transition:all .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''"></div>`).join('')}
+            ${['#2DFF64','#6366f1','#0ea5e9','#10b981','#f43f5e','#8b5cf6','#f59e0b','#ec4899'].map(c=>`<div onclick="setAccentColor('${c}')" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===accentColor?'var(--text)':'transparent'};transition:all .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''"></div>`).join('')}
           </div>
         </div>
       </div>
@@ -9834,7 +9834,7 @@ async function renderUsuarios(){
       <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text"><b>Trabajadores:</b> pueden registrar pedidos, cambiar estados e imprimir rótulos. No tienen acceso a Dashboard, Finanzas, Productos ni Configuración.</div></div>
 
       <!-- Admin (tú) -->
-      <div style="padding:10px 14px;background:var(--accentL);border:1px solid rgba(255,85,0,.2);border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="padding:10px 14px;background:var(--accentL);border:1px solid rgba(45,255,100,.2);border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
         <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex-shrink:0;font-size:14px">${SESSION?.initials||'AD'}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${SESSION.name}</div>

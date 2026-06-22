@@ -116,6 +116,20 @@ Deno.serve(async (req) => {
     }
 
     if (!brutos.length) return json({ recibidos: 0, inserted: 0 });
+
+    // Reglas de asignación por producto → auto-asignar vendedor al entrar
+    try {
+      const { data: reglas } = await supa.from("reglas_asignacion").select("patron, asesor_id").eq("workspace_id", ws);
+      if (reglas && reglas.length) {
+        for (const b of brutos) {
+          if (b && !b.asesor_id) {
+            const pn = norm(b.producto_raw);
+            for (const r of reglas) { if (pn && norm(r.patron) && pn.includes(norm(r.patron))) { b.asesor_id = r.asesor_id; break; } }
+          }
+        }
+      }
+    } catch (_) { /* sin reglas o tabla ausente: continúa */ }
+
     const { data, error } = await supa.from("pedidos_brutos")
       .upsert(brutos, { onConflict: "workspace_id,huella", ignoreDuplicates: true })
       .select("id");

@@ -4256,6 +4256,14 @@ function renderBrutos(){
     </div>
   </div>
   <div class="abox" style="background:var(--surface3);border:1px solid var(--border);margin-bottom:12px"><span class="abox-icon">${ic('inbox',18)}</span><div class="abox-text">Cola previa de validación. Estos pedidos <b>no</b> afectan stock, finanzas ni métricas hasta que se registran.</div></div>
+  ${isAdmin()?`<div class="card" style="padding:10px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <span style="font-size:12px;color:var(--text3);font-weight:600">Repartir del pool:</span>
+    <select id="bf-asignar-asesor" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px"><option value="">Vendedor…</option>${asesoresOpts}</select>
+    <input id="bf-asignar-cant" type="number" min="1" placeholder="cant." style="width:74px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px">
+    <button class="btn btn-primary btn-sm" onclick="repartirPool()">Asignar</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-ghost btn-sm" onclick="openReglas()">${ic('link',13)} Reglas por producto</button>
+  </div>`:''}
   <div id="brutos-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
   <div class="fbar">
     <div class="fg-filter"><label>Buscar</label><input type="text" id="bf-q" placeholder="Nombre, celular, producto..." oninput="brutosBuscarDebounced()"></div>
@@ -4467,6 +4475,68 @@ async function brutoSetAsignacion(b,asesorId,accion){
 function tomarBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;brutoSetAsignacion(b,miAsesorId(),'tomado');}
 function devolverBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm('¿Devolver este pedido al pool?'))return;brutoSetAsignacion(b,null,'devuelto_al_pool');}
 
+// Admin: reasignar un bruto por fila
+function asignarBrutoSel(id,sel){
+  const b=_brutosCache[id]; if(!b)return;
+  const asesorId=sel.value==='__pool__'?null:sel.value;
+  brutoSetAsignacion(b,asesorId,asesorId?'asignado':'devuelto_al_pool');
+}
+// Admin: repartir N pedidos del pool a un vendedor
+async function repartirPool(){
+  const asesorId=document.getElementById('bf-asignar-asesor')?.value||'';
+  const cant=parseInt(document.getElementById('bf-asignar-cant')?.value)||0;
+  if(!asesorId){alert('Elige un vendedor.');return;}
+  if(cant<=0){alert('Indica cuántos pedidos asignar.');return;}
+  const ws=SESSION.workspace_id;
+  const{data,error}=await _supabase.from('pedidos_brutos').select('id,historial')
+    .eq('workspace_id',ws).is('asesor_id',null)
+    .not('estado','in','("rechazado","registrado","perdido")')
+    .order('created_at',{ascending:true}).limit(cant);
+  if(error){alert('Error: '+error.message);return;}
+  if(!data||!data.length){alert('No hay pedidos en el pool.');return;}
+  for(const b of data){
+    const hist=Array.isArray(b.historial)?b.historial.slice():[];
+    hist.push({accion:'asignado',asesor_id:asesorId,asesor_nombre:brutoNombreAsesor(asesorId),ts:new Date().toISOString()});
+    await _supabase.from('pedidos_brutos').update({asesor_id:asesorId,historial:hist}).eq('id',b.id).eq('workspace_id',ws);
+  }
+  refrescarBrutosUI();
+  alert('Asignados '+data.length+' pedido(s) a '+brutoNombreAsesor(asesorId)+'.');
+}
+
+// Admin: reglas de asignación por producto
+async function openReglas(){
+  const ws=SESSION.workspace_id;
+  let reglas=[]; try{const{data}=await _supabase.from('reglas_asignacion').select('*').eq('workspace_id',ws).order('id');reglas=data||[];}catch(_){}
+  const asesoresOpts=(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}">${escB(a.nombre)}</option>`).join('');
+  const lista=reglas.length?reglas.map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="flex:1;font-size:13px"><b>${escB(r.patron)}</b> → ${brutoNombreAsesor(r.asesor_id)}</div><button class="btn btn-ghost btn-sm" onclick="eliminarRegla(${r.id})">${ic('trash',13)}</button></div>`).join(''):'<div style="color:var(--text3);padding:10px 0;font-size:13px">Sin reglas. Los pedidos llegan al pool.</div>';
+  let ov=document.getElementById('reglas-ov');
+  if(!ov){ov=document.createElement('div');ov.id='reglas-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:480px;width:100%;max-height:80vh;overflow:auto;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:800;font-size:15px">Reglas de asignación por producto</div><button onclick="document.getElementById('reglas-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Si el producto del pedido <b>contiene</b> el texto, se asigna solo a ese vendedor al entrar (Sheets o Shopify).</p>
+    ${lista}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <input id="regla-patron" placeholder="Texto del producto (ej. Lector)" style="flex:1;min-width:140px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:13px">
+      <select id="regla-asesor" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:13px"><option value="">Vendedor…</option>${asesoresOpts}</select>
+      <button class="btn btn-primary btn-sm" onclick="agregarRegla()">Agregar</button>
+    </div>
+  </div>`;
+}
+async function agregarRegla(){
+  const patron=(document.getElementById('regla-patron')?.value||'').trim();
+  const asesor=document.getElementById('regla-asesor')?.value||'';
+  if(!patron||!asesor){alert('Completa producto y vendedor.');return;}
+  const{error}=await _supabase.from('reglas_asignacion').insert({workspace_id:SESSION.workspace_id,patron,asesor_id:asesor});
+  if(error){alert('Error: '+error.message+'\n¿Ejecutaste sql/05_reglas_asignacion.sql?');return;}
+  openReglas();
+}
+async function eliminarRegla(id){
+  if(!confirm('¿Eliminar esta regla?'))return;
+  const{error}=await _supabase.from('reglas_asignacion').delete().eq('id',id).eq('workspace_id',SESSION.workspace_id);
+  if(error){alert('Error: '+error.message);return;}
+  openReglas();
+}
+
 // Acciones operativas (No contesta / No responde WA / Reintento / Rechazado / Reactivar)
 async function brutoAccion(id,tipo){
   const b=_brutosCache[id]; if(!b)return;
@@ -4522,8 +4592,12 @@ function brutoAccionesHtml(r){
   }
   const mineId=miAsesorId();
   let pool='';
-  if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
-  else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
+  if(isAdmin()){
+    pool=`<select onchange="asignarBrutoSel(${r.id},this)" class="btn btn-ghost btn-sm" style="cursor:pointer" title="Asignar a vendedor"><option value="__pool__" ${!r.asesor_id?'selected':''}>— Pool</option>${(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}" ${String(r.asesor_id)===String(a.id)?'selected':''}>${escB(a.nombre)}</option>`).join('')}</select>`;
+  } else {
+    if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
+    else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
+  }
   return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${reg}${menu}${pool}${hist}</div>`;
 }
 

@@ -960,13 +960,12 @@ td{padding:11px 14px;font-size:13px}
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
       <div class="sidebar-brand">
-        <div class="sidebar-logo logo-upload-wrap" id="sidebar-logo-el" title="Clic para cambiar logo" style="display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;padding:0;background:transparent;box-shadow:none;border-radius:8px">
+        <div class="sidebar-logo logo-upload-wrap" id="sidebar-logo-el" style="display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0;background:transparent;box-shadow:none;border-radius:8px">
           <img src="assets/logo-256.png" id="sidebar-logo-default-img" style="width:30px;height:30px;object-fit:contain;border-radius:8px;display:block" alt="KONTROL">
-          <input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
         </div>
         <div>
           <div class="sidebar-name">KON<span>TROL</span></div>
-          <div class="sidebar-version">Gestión COD Perú</div>
+          <div class="sidebar-version" id="sidebar-negocio">Gestión COD Perú</div>
         </div>
       </div>
       <nav class="sidebar-nav" id="sidebar-nav">
@@ -3210,6 +3209,7 @@ async function onSignedIn(user){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('ua-name').textContent=SESSION.name;
+  {const _sn=document.getElementById('sidebar-negocio');if(_sn)_sn.textContent=SESSION.negocioName||'Gestión COD Perú';}
   document.getElementById('ua-role').textContent=SESSION.role==='admin'?'Administrador':'Trabajador';
   document.getElementById('ua-initials').textContent=SESSION.initials;
   document.getElementById('ua-email').textContent=SESSION.email;
@@ -3375,6 +3375,7 @@ function bootSaWorkspace(w,saInfo){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('ua-name').textContent=w.negocio_name;
+  {const _sn=document.getElementById('sidebar-negocio');if(_sn)_sn.textContent=w.negocio_name||'Gestión COD Perú';}
   document.getElementById('ua-role').textContent='Super Admin 👁️';
   document.getElementById('ua-initials').textContent=SESSION.initials;
   document.getElementById('ua-email').textContent=saInfo.email;
@@ -3507,22 +3508,25 @@ function updateSidebarLogo(){
   const logoEl=document.getElementById('sidebar-logo-el');
   if(!logoEl)return;
   const logoData=SESSION?.logoData||'';
+  const admin=isAdmin();
+  const inputHtml=admin?`<input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">`:'';
+  logoEl.style.cursor=admin?'pointer':'default';
+  logoEl.title=admin?'Clic para cambiar logo':'';
   if(logoData){
-    logoEl.innerHTML=`<img src="${logoData}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" alt="logo"><input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer">`;
+    logoEl.innerHTML=`<img src="${logoData}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" alt="logo">${inputHtml}`;
     logoEl.style.background='transparent';
     logoEl.style.boxShadow='none';
     updateFavicon(logoData);
   } else {
-    // Keep default embedded logo visible, just refresh the file input
+    // Logo por defecto (archivo). El input de subida solo para admin.
     const defaultImg=document.getElementById('sidebar-logo-default-img');
     if(defaultImg){
-      // Already there, just make sure file input exists
-      if(!logoEl.querySelector('input[type=file]')){
-        const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=uploadLogo;inp.style.cssText='position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%';logoEl.appendChild(inp);
-      }
+      const ex=logoEl.querySelector('input[type=file]');
+      if(admin&&!ex){const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=uploadLogo;inp.style.cssText='position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%';logoEl.appendChild(inp);}
+      else if(!admin&&ex){ex.remove();}
     } else {
-      logoEl.innerHTML=`<span style="font-weight:900;color:#fff;font-size:13px">C</span><input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer">`;
-      logoEl.style.background='var(--accent)';
+      logoEl.innerHTML=`<img src="assets/logo-256.png" style="width:30px;height:30px;object-fit:contain;border-radius:8px" alt="KONTROL">${inputHtml}`;
+      logoEl.style.background='transparent';
     }
   }
 }
@@ -10008,6 +10012,7 @@ function updateNegocioName(name){
   if(SESSION){SESSION.negocioName=name;WORKSPACE=SESSION;}
   _supabase.from('workspaces').update({negocio_name:name}).eq('id',SESSION?.workspace_id);
   localStorage.setItem('rot_negocio',name);
+  const _sn=document.getElementById('sidebar-negocio');if(_sn)_sn.textContent=name||'Gestión COD Perú';
 }
 
 // =====================================================================

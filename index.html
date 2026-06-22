@@ -972,6 +972,7 @@ td{padding:11px 14px;font-size:13px}
       <nav class="sidebar-nav" id="sidebar-nav">
         <!-- OPERACIONES (todos) -->
         <div class="nav-section">Operaciones</div>
+        <div class="nav-item" onclick="showPage('brutos',this)"><span class="ico" data-ic="inbox"></span>Pedidos Brutos <span class="nav-badge" id="nb-brutos">0</span></div>
         <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico" data-ic="clipboard-list"></span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
         <div class="nav-item" onclick="showPage('lima',this)"><span class="ico" data-ic="building"></span>Lima</div>
         <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico" data-ic="package"></span>Provincia</div>
@@ -2632,12 +2633,13 @@ async function _dualWriteChangedPedidos(){
 // =====================================================================
 // REALTIME — Actualizaciones en vivo sin recargar (no más F5)
 // =====================================================================
-let _rtChannel=null,_rtChannel2=null;
+let _rtChannel=null,_rtChannel2=null,_rtChannel3=null;
 function initRealtime(){
   if(!SESSION?.workspace_id)return;
   const wsId=SESSION.workspace_id;
   if(_rtChannel){try{_supabase.removeChannel(_rtChannel);}catch(_){}  _rtChannel=null;}
   if(_rtChannel2){try{_supabase.removeChannel(_rtChannel2);}catch(_){}  _rtChannel2=null;}
+  if(_rtChannel3){try{_supabase.removeChannel(_rtChannel3);}catch(_){}  _rtChannel3=null;}
   // === Canal 1: cambios en workspaces.db_data (asesores, productos, CFG, etc.) ===
   // Preserva DB.pedidos (los pedidos viven en su tabla, no en db_data).
   _rtChannel=_supabase.channel(`rt-ws-${wsId}`)
@@ -2699,6 +2701,15 @@ function initRealtime(){
         refrescarVistasPedidos();
       })
     .subscribe();
+  // === Canal 3: tabla pedidos_brutos (capa previa, aislada — NO toca DB.pedidos) ===
+  _rtChannel3=_supabase.channel(`rt-brutos-${wsId}`)
+    .on('postgres_changes',{event:'*',schema:'public',table:'pedidos_brutos',filter:`workspace_id=eq.${wsId}`},
+      ()=>{
+        updateBrutosBadge();
+        if(CURRENT_PAGE==='brutos')renderBrutosContent();
+      })
+    .subscribe();
+  updateBrutosBadge();
 }
 function updateRtIndicator(connected){
   const el=document.getElementById('rt-indicator');
@@ -3879,7 +3890,8 @@ const ICONS={
   'eye':'<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
   'list':'<path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/>',
   'kanban':'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 8v8"/><path d="M15 8v5"/>',
-  'arrows-h':'<path d="m8 3-4 4 4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>'
+  'arrows-h':'<path d="m8 3-4 4 4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+  'inbox':'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
 };
 function ic(name,size){size=size||16;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;}
 function badge(est){
@@ -3902,7 +3914,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // =====================================================================
 // PAGE ROUTING
 // =====================================================================
-const PAGE_TITLES={dashboard:'Dashboard',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',config:'Configuración',usuarios:'Gestión de Usuarios'};
+const PAGE_TITLES={dashboard:'Dashboard',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',config:'Configuración',usuarios:'Gestión de Usuarios'};
 
 // ── MOBILE NAVIGATION ─────────────────────────────────────────────────
 function toggleSidebar(){
@@ -3942,7 +3954,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -4206,6 +4218,146 @@ function renderEfChart(p,ent){
       <span class="mono" style="color:var(--accent)">${fmt(ingP)} <span style="color:var(--text3)">(${Math.round(ingP/ingTotal*100)}%)</span></span>
     </div>
   </div>`;
+}
+
+// =====================================================================
+// PEDIDOS BRUTOS — capa previa de validación (query-driven, tabla aparte)
+// NO afecta stock / finanzas / métricas / liquidaciones.
+// =====================================================================
+let BRUTOS={page:0,size:25,q:'',estado:'',asesor:''};
+let _brutosDebTimer=null;
+const BRUTO_ESTADOS={
+  por_contactar:{label:'Por contactar',color:'var(--blue)',ic:'circle-dot'},
+  no_contesta:{label:'No contesta',color:'var(--amber)',ic:'phone-off'},
+  no_responde_wa:{label:'No responde WA',color:'var(--amber)',ic:'message-circle'},
+  reintento:{label:'Reintento',color:'var(--purple)',ic:'calendar-clock'},
+  rechazado:{label:'Rechazado',color:'var(--red)',ic:'x-circle'},
+  registrado:{label:'Registrado',color:'var(--green)',ic:'check-circle'},
+  perdido:{label:'Perdido',color:'var(--text3)',ic:'undo'}
+};
+const BRUTO_ORDEN=['por_contactar','no_contesta','no_responde_wa','reintento','rechazado','registrado','perdido'];
+
+function escB(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function brutoFmtFecha(iso){if(!iso)return '—';const d=new Date(iso);if(isNaN(d))return '—';return d.toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});}
+function brutoNombreAsesor(id){const a=(DB.asesores||[]).find(x=>String(x.id)===String(id));return a?escB(a.nombre):'#'+escB(id);}
+
+function renderBrutos(){
+  const asesoresOpts=(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}">${escB(a.nombre)}</option>`).join('');
+  const estadoOpts=BRUTO_ORDEN.map(k=>`<option value="${k}">${BRUTO_ESTADOS[k].label}</option>`).join('');
+  const html=`
+  <div class="section-header"><div><div class="section-title">Pedidos Brutos</div><div class="section-sub" id="brutos-count">Cargando…</div></div>
+    <div class="section-actions">
+      <button class="btn btn-ghost btn-sm" onclick="BRUTOS.page=0;renderBrutosContent()">${ic('repeat',14)} Actualizar</button>
+    </div>
+  </div>
+  <div class="abox" style="background:var(--surface3);border:1px solid var(--border);margin-bottom:12px"><span class="abox-icon">${ic('inbox',18)}</span><div class="abox-text">Cola previa de validación. Estos pedidos <b>no</b> afectan stock, finanzas ni métricas hasta que se registran.</div></div>
+  <div id="brutos-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+  <div class="fbar">
+    <div class="fg-filter"><label>Buscar</label><input type="text" id="bf-q" placeholder="Nombre, celular, producto..." oninput="brutosBuscarDebounced()"></div>
+    <div class="fg-filter"><label>Estado</label><select id="bf-est" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option>${estadoOpts}</select></div>
+    <div class="fg-filter"><label>Asesor</label><select id="bf-asesor" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option><option value="__pool__">— En el pool</option>${asesoresOpts}</select></div>
+  </div>
+  <div id="brutos-view"></div>
+  <div id="brutos-pager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px"></div>`;
+  setContent(html);
+  renderBrutosContent();
+}
+
+function brutosBuscarDebounced(){clearTimeout(_brutosDebTimer);_brutosDebTimer=setTimeout(()=>{BRUTOS.page=0;renderBrutosContent();},300);}
+function brutosFiltrarEstado(k){const sel=document.getElementById('bf-est');if(sel)sel.value=(BRUTOS.estado===k?'':k);BRUTOS.page=0;renderBrutosContent();}
+function brutosPag(d){BRUTOS.page=Math.max(0,BRUTOS.page+d);renderBrutosContent();}
+
+async function renderBrutosContent(){
+  const ws=SESSION?.workspace_id; if(!ws)return;
+  BRUTOS.q=(document.getElementById('bf-q')?.value||'').trim();
+  BRUTOS.estado=document.getElementById('bf-est')?.value||'';
+  BRUTOS.asesor=document.getElementById('bf-asesor')?.value||'';
+  const view=document.getElementById('brutos-view'); if(!view)return;
+  view.innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div>`;
+  brutosRenderChips(ws);
+  const from=BRUTOS.page*BRUTOS.size, to=from+BRUTOS.size-1;
+  let query=_supabase.from('pedidos_brutos').select('*',{count:'exact'}).eq('workspace_id',ws);
+  if(BRUTOS.estado)query=query.eq('estado',BRUTOS.estado);
+  if(BRUTOS.asesor==='__pool__')query=query.is('asesor_id',null);
+  else if(BRUTOS.asesor)query=query.eq('asesor_id',BRUTOS.asesor);
+  if(BRUTOS.q){const s=BRUTOS.q.replace(/[%,()]/g,' ');query=query.or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%,direccion.ilike.%${s}%,ciudad.ilike.%${s}%`);}
+  query=query.order('created_at',{ascending:false}).range(from,to);
+  let res;
+  try{res=await query;}catch(e){res={error:e};}
+  const cntEl=document.getElementById('brutos-count');
+  const pagerEl=document.getElementById('brutos-pager');
+  if(res.error){
+    view.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar Pedidos Brutos.<br><span style="color:var(--text3)">${escB(res.error.message||res.error)}</span><br><span style="color:var(--text3)">Si dice que la tabla no existe, primero ejecuta el SQL <b>sql/01_pedidos_brutos.sql</b> en Supabase.</span></div></div>`;
+    if(cntEl)cntEl.textContent='—';
+    if(pagerEl)pagerEl.innerHTML='';
+    return;
+  }
+  const total=res.count||0;
+  if(cntEl)cntEl.textContent=total+' bruto(s)';
+  const data=res.data||[];
+  if(!data.length){
+    view.innerHTML=`<div style="padding:48px;text-align:center;color:var(--text3)">${ic('inbox',30)}<div style="margin-top:10px;font-size:14px">Sin pedidos brutos${(BRUTOS.q||BRUTOS.estado||BRUTOS.asesor)?' con estos filtros':' todavía'}</div></div>`;
+  } else {
+    view.innerHTML=brutosTabla(data);
+  }
+  brutosRenderPager(total);
+}
+
+function brutosTabla(rows){
+  const th='padding:9px 11px;text-align:left;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap';
+  const head=`<tr>
+    <th style="${th}">Fecha</th><th style="${th}">Cliente</th><th style="${th}">Celular</th>
+    <th style="${th}">Producto</th><th style="${th};text-align:right">Precio</th>
+    <th style="${th}">Ubicación</th><th style="${th}">Asesor</th><th style="${th}">Estado</th></tr>`;
+  const td='padding:9px 11px;border-top:1px solid var(--border);font-size:13px;vertical-align:top';
+  const body=rows.map(r=>{
+    const e=BRUTO_ESTADOS[r.estado]||{label:r.estado,color:'var(--text3)',ic:'circle-dot'};
+    const asesor=r.asesor_id?brutoNombreAsesor(r.asesor_id):'<span style="color:var(--text3)">— Pool</span>';
+    const loc=[r.ciudad,r.provincia_raw].filter(Boolean).map(escB).join(' · ')||'—';
+    return `<tr>
+      <td style="${td};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap">${brutoFmtFecha(r.fecha_hora||r.created_at)}</td>
+      <td style="${td};font-weight:600">${escB(r.nombre)||'—'}</td>
+      <td style="${td};font-family:var(--mono);font-size:12px">${escB(r.celular)||'—'}</td>
+      <td style="${td};max-width:240px">${escB(r.producto_raw)||'—'}</td>
+      <td style="${td};text-align:right;font-family:var(--mono)">${r.precio!=null?fmt(r.precio):'—'}</td>
+      <td style="${td};font-size:12px;color:var(--text2);max-width:160px">${loc}</td>
+      <td style="${td};font-size:12px">${asesor}</td>
+      <td style="${td}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${e.color};background:var(--surface3);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap">${ic(e.ic,12)} ${e.label}</span></td>
+    </tr>`;
+  }).join('');
+  return `<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+
+async function brutosRenderChips(ws){
+  const el=document.getElementById('brutos-chips'); if(!el)return;
+  let map={};
+  try{
+    const{data,error}=await _supabase.rpc('brutos_counts',{p_ws:ws});
+    if(error)throw error;
+    (data||[]).forEach(r=>{map[r.estado]=r.n;});
+  }catch(_){el.innerHTML='';return;}
+  el.innerHTML=BRUTO_ORDEN.map(k=>{
+    const e=BRUTO_ESTADOS[k]; const n=map[k]||0; const active=BRUTOS.estado===k;
+    return `<button onclick="brutosFiltrarEstado('${k}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:${e.color};background:${active?'var(--surface)':'var(--surface3)'};border:1.5px solid ${active?e.color:'var(--border)'};padding:5px 12px;border-radius:20px;transition:border .12s">${ic(e.ic,13)} ${e.label} <span style="opacity:.85">${n}</span></button>`;
+  }).join('');
+}
+
+function brutosRenderPager(total){
+  const el=document.getElementById('brutos-pager'); if(!el)return;
+  const pages=Math.max(1,Math.ceil(total/BRUTOS.size));
+  if(pages<=1){el.innerHTML='';return;}
+  const p=BRUTOS.page;
+  el.innerHTML=`<button class="btn btn-ghost btn-sm" ${p<=0?'disabled':''} onclick="brutosPag(-1)">‹ Anterior</button>
+    <span style="font-size:12px;color:var(--text3)">Página ${p+1} de ${pages} · ${total} en total</span>
+    <button class="btn btn-ghost btn-sm" ${p>=pages-1?'disabled':''} onclick="brutosPag(1)">Siguiente ›</button>`;
+}
+
+async function updateBrutosBadge(){
+  const el=document.getElementById('nb-brutos'); if(!el||!SESSION?.workspace_id)return;
+  try{
+    const{count,error}=await _supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',SESSION.workspace_id).eq('estado','por_contactar');
+    if(!error)el.textContent=count||0;
+  }catch(_){}
 }
 
 // =====================================================================

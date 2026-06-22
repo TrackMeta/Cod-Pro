@@ -4228,19 +4228,18 @@ let BRUTOS={page:0,size:25,q:'',estado:'',asesor:''};
 let _brutosDebTimer=null;
 let _brutosCache={};       // {id: row} de la página actual (para acciones)
 let _brutoEnRegistro=null; // bruto que se está convirtiendo a pedido
+// Estados que definen el COLOR del pedido: pendiente(amarillo) / rechazado(rojo) / registrado(verde) / perdido(gris).
+// Las acciones "No contesta" y "No responde WA" NO cambian el estado: solo suman al contador (se derivan del historial).
 const BRUTO_ESTADOS={
-  por_contactar:{label:'Por contactar',color:'var(--blue)',ic:'circle-dot'},
-  no_contesta:{label:'No contesta',color:'var(--amber)',ic:'phone-off'},
-  no_responde_wa:{label:'No responde WA',color:'var(--amber)',ic:'message-circle'},
-  reintento:{label:'Reintento',color:'var(--purple)',ic:'calendar-clock'},
+  por_contactar:{label:'Pendiente',color:'var(--amber)',ic:'circle-dot'},
   rechazado:{label:'Rechazado',color:'var(--red)',ic:'x-circle'},
   registrado:{label:'Registrado',color:'var(--green)',ic:'check-circle'},
   perdido:{label:'Perdido',color:'var(--text3)',ic:'undo'}
 };
-const BRUTO_ORDEN=['por_contactar','no_contesta','no_responde_wa','reintento','rechazado','registrado','perdido'];
+const BRUTO_ORDEN=['por_contactar','rechazado','registrado','perdido'];
 const BRUTO_ACCION_LBL={tomado:'Tomado',devuelto_al_pool:'Devuelto al pool',no_contesta:'No contestó (llamada)',no_responde_wa:'No respondió WhatsApp',reintento:'Intento de llamada',rechazado:'Rechazado',registrado:'Registrado (venta cerrada)',perdido:'Marcado como perdido',reactivar:'Reactivado'};
-function retryCfg(){return {max:CFG.brutoMaxIntentos||4,hLlam:CFG.brutoHorasLlamada||3,hWA:CFG.brutoHorasWA||6,hIni:CFG.brutoHoraIni||8,hFin:CFG.brutoHoraFin||21};}
-function calcProximoReintento(horas){const c=retryCfg();const d=new Date(Date.now()+horas*3600*1000);const h=d.getHours();if(h>=c.hFin){d.setDate(d.getDate()+1);d.setHours(c.hIni,0,0,0);}else if(h<c.hIni){d.setHours(c.hIni,0,0,0);}return d.toISOString();}
+const BRUTO_TINT={por_contactar:{bg:'rgba(245,158,11,.08)',bd:'var(--amber)'},rechazado:{bg:'rgba(239,68,68,.10)',bd:'var(--red)'},registrado:{bg:'rgba(34,197,94,.10)',bd:'var(--green)'},perdido:{bg:'rgba(148,163,184,.08)',bd:'var(--text3)'}};
+function brutoEstadoNorm(e){return (e==='rechazado'||e==='registrado'||e==='perdido')?e:'por_contactar';}
 
 function escB(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function brutoFmtFecha(iso){if(!iso)return '—';const d=new Date(iso);if(isNaN(d))return '—';return d.toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});}
@@ -4282,7 +4281,10 @@ async function renderBrutosContent(){
   brutosRenderChips(ws);
   const from=BRUTOS.page*BRUTOS.size, to=from+BRUTOS.size-1;
   let query=_supabase.from('pedidos_brutos').select('*',{count:'exact'}).eq('workspace_id',ws);
-  if(BRUTOS.estado)query=query.eq('estado',BRUTOS.estado);
+  if(BRUTOS.estado){
+    if(BRUTOS.estado==='por_contactar')query=query.not('estado','in','("rechazado","registrado","perdido")');
+    else query=query.eq('estado',BRUTOS.estado);
+  }
   if(BRUTOS.asesor==='__pool__')query=query.is('asesor_id',null);
   else if(BRUTOS.asesor)query=query.eq('asesor_id',BRUTOS.asesor);
   if(BRUTOS.q){const s=BRUTOS.q.replace(/[%,()]/g,' ');query=query.or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%,direccion.ilike.%${s}%,ciudad.ilike.%${s}%`);}
@@ -4317,18 +4319,24 @@ function brutosTabla(rows){
     <th style="${th}">Ubicación</th><th style="${th}">Asesor</th><th style="${th}">Estado</th><th style="${th};text-align:right">Acción</th></tr>`;
   const td='padding:9px 11px;border-top:1px solid var(--border);font-size:13px;vertical-align:top';
   const body=rows.map(r=>{
-    const e=BRUTO_ESTADOS[r.estado]||{label:r.estado,color:'var(--text3)',ic:'circle-dot'};
+    const est=brutoEstadoNorm(r.estado);
+    const e=BRUTO_ESTADOS[est];
+    const t=BRUTO_TINT[est];
     const asesor=r.asesor_id?brutoNombreAsesor(r.asesor_id):'<span style="color:var(--text3)">— Pool</span>';
     const loc=[r.ciudad,r.provincia_raw].filter(Boolean).map(escB).join(' · ')||'—';
-    return `<tr>
-      <td style="${td};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap">${brutoFmtFecha(r.fecha_hora||r.created_at)}</td>
+    const h=Array.isArray(r.historial)?r.historial:[];
+    const nc=h.filter(x=>x.accion==='no_contesta').length;
+    const wa=h.filter(x=>x.accion==='no_responde_wa').length;
+    const cont=(nc||wa)?`<div style="display:flex;gap:9px;margin-top:4px;font-size:10px;color:var(--text3)">${nc?`<span title="No contestó">${ic('phone-off',11)} ×${nc}</span>`:''}${wa?`<span title="No respondió WhatsApp">${ic('message-circle',11)} ×${wa}</span>`:''}</div>`:'';
+    return `<tr style="background:${t.bg}">
+      <td style="${td};border-left:3px solid ${t.bd};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap">${brutoFmtFecha(r.fecha_hora||r.created_at)}</td>
       <td style="${td};font-weight:600">${escB(r.nombre)||'—'}</td>
       <td style="${td};font-family:var(--mono);font-size:12px">${escB(r.celular)||'—'}</td>
       <td style="${td};max-width:240px">${escB(r.producto_raw)||'—'}</td>
       <td style="${td};text-align:right;font-family:var(--mono)">${r.precio!=null?fmt(r.precio):'—'}</td>
       <td style="${td};font-size:12px;color:var(--text2);max-width:160px">${loc}</td>
       <td style="${td};font-size:12px">${asesor}</td>
-      <td style="${td}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${e.color};background:var(--surface3);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap">${ic(e.ic,12)} ${e.label}</span>${r.intentos?`<div style="font-size:10px;color:var(--text3);margin-top:3px">${r.intentos}/${retryCfg().max} intentos</div>`:''}${r.proximo_reintento?`<div style="font-size:10px;color:var(--amber);margin-top:2px;white-space:nowrap">↻ ${brutoFmtFecha(r.proximo_reintento)}</div>`:''}</td>
+      <td style="${td}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${e.color};background:var(--surface3);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap">${ic(e.ic,12)} ${e.label}</span>${cont}</td>
       <td style="${td};text-align:right;white-space:nowrap">${brutoAccionesHtml(r)}</td>
     </tr>`;
   }).join('');
@@ -4337,12 +4345,15 @@ function brutosTabla(rows){
 
 async function brutosRenderChips(ws){
   const el=document.getElementById('brutos-chips'); if(!el)return;
-  let map={};
+  let raw={};
   try{
     const{data,error}=await _supabase.rpc('brutos_counts',{p_ws:ws});
     if(error)throw error;
-    (data||[]).forEach(r=>{map[r.estado]=r.n;});
+    (data||[]).forEach(r=>{raw[r.estado]=r.n;});
   }catch(_){el.innerHTML='';return;}
+  // "Pendiente" absorbe cualquier estado que no sea rechazado/registrado/perdido (incluye legacy)
+  const map={por_contactar:0,rechazado:raw.rechazado||0,registrado:raw.registrado||0,perdido:raw.perdido||0};
+  Object.entries(raw).forEach(([k,v])=>{if(!['rechazado','registrado','perdido'].includes(k))map.por_contactar+=v;});
   el.innerHTML=BRUTO_ORDEN.map(k=>{
     const e=BRUTO_ESTADOS[k]; const n=map[k]||0; const active=BRUTOS.estado===k;
     return `<button onclick="brutosFiltrarEstado('${k}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:${e.color};background:${active?'var(--surface)':'var(--surface3)'};border:1.5px solid ${active?e.color:'var(--border)'};padding:5px 12px;border-radius:20px;transition:border .12s">${ic(e.ic,13)} ${e.label} <span style="opacity:.85">${n}</span></button>`;
@@ -4459,24 +4470,18 @@ function devolverBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm('¿
 // Acciones operativas (No contesta / No responde WA / Reintento / Rechazado / Reactivar)
 async function brutoAccion(id,tipo){
   const b=_brutosCache[id]; if(!b)return;
-  const c=retryCfg();
-  let estado=b.estado, intentos=b.intentos||0, prox=b.proximo_reintento||null;
-  if(tipo==='no_contesta'||tipo==='no_responde_wa'||tipo==='reintento'){
-    intentos++;
-    if(intentos>=c.max){estado='perdido';prox=null;}
-    else{estado=(tipo==='reintento')?'reintento':tipo;prox=calcProximoReintento(tipo==='no_responde_wa'?c.hWA:c.hLlam);}
-  } else if(tipo==='rechazado'){estado='rechazado';prox=null;}
-  else if(tipo==='reactivar'){estado='por_contactar';prox=null;}
+  let estado;
+  if(tipo==='no_contesta'||tipo==='no_responde_wa'||tipo==='reactivar')estado='por_contactar'; // sigue pendiente (solo suma al contador)
+  else if(tipo==='rechazado')estado='rechazado';
+  else if(tipo==='perdido')estado='perdido';
   else return;
   const hist=Array.isArray(b.historial)?b.historial.slice():[];
-  const ev={accion:tipo,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()};
-  if(tipo==='no_contesta'||tipo==='no_responde_wa'||tipo==='reintento')ev.intento=intentos;
-  hist.push(ev);
-  const{error}=await _supabase.from('pedidos_brutos').update({estado,intentos,proximo_reintento:prox,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
+  hist.push({accion:tipo,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
+  const{error}=await _supabase.from('pedidos_brutos').update({estado,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('No se pudo actualizar: '+error.message);return;}
   renderBrutosContent();
 }
-function brutoAccionSel(id,sel){const v=sel.value;sel.value='';if(!v)return;if(v==='rechazado'&&!confirm('¿Marcar este pedido como Rechazado?'))return;brutoAccion(id,v);}
+function brutoAccionSel(id,sel){const v=sel.value;sel.value='';if(!v)return;if(v==='rechazado'&&!confirm('¿Marcar este pedido como Rechazado?'))return;if(v==='perdido'&&!confirm('¿Marcar como Perdido? Saldrá de la cola activa (luego puedes Reactivarlo).'))return;brutoAccion(id,v);}
 
 function verBrutoHistorial(id){
   const b=_brutosCache[id]; if(!b)return;
@@ -4496,23 +4501,23 @@ function verBrutoHistorial(id){
 }
 
 function brutoAccionesHtml(r){
+  const est=brutoEstadoNorm(r.estado);
   const hist=`<button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Ver historial">${ic('clock',13)}</button>`;
-  if(r.estado==='registrado'){
+  if(est==='registrado'){
     const tag=r.pedido_numero?`<span style="font-size:12px;color:var(--green);font-weight:700;white-space:nowrap">${ic('check-circle',12)} #${r.pedido_numero}</span>`:`<span style="font-size:12px;color:var(--green)">Registrado</span>`;
     return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${hist}</div>`;
   }
   const reg=`<button class="btn btn-primary btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>`;
-  const activos=['por_contactar','no_contesta','no_responde_wa','reintento'];
   let menu='';
-  if(activos.includes(r.estado)){
+  if(est==='por_contactar'){
     menu=`<select onchange="brutoAccionSel(${r.id},this)" class="btn btn-ghost btn-sm" style="cursor:pointer">
       <option value="">Marcar…</option>
       <option value="no_contesta">📞 No contesta</option>
       <option value="no_responde_wa">💬 No responde WA</option>
-      <option value="reintento">🔄 Reintento (+1)</option>
       <option value="rechazado">❌ Rechazado</option>
+      <option value="perdido">🚫 Perdido</option>
     </select>`;
-  } else if(r.estado==='rechazado'||r.estado==='perdido'){
+  } else {
     menu=`<button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'reactivar')">↺ Reactivar</button>`;
   }
   const mineId=miAsesorId();

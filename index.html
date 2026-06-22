@@ -993,6 +993,7 @@ td{padding:11px 14px;font-size:13px}
         <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico" data-ic="users"></span>Equipo & Usuarios</div>
         <!-- SISTEMA (admin) -->
         <div class="nav-section admin-only">Sistema</div>
+        <div class="nav-item admin-only" onclick="showPage('integraciones',this)"><span class="ico" data-ic="link"></span>Integraciones</div>
         <div class="nav-item admin-only" onclick="showPage('config',this)"><span class="ico" data-ic="settings"></span>Configuración</div>
       </nav>
       <div class="sidebar-bottom">
@@ -3912,7 +3913,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // =====================================================================
 // PAGE ROUTING
 // =====================================================================
-const PAGE_TITLES={dashboard:'Dashboard',miDia:'Mi Día',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',config:'Configuración',usuarios:'Gestión de Usuarios'};
+const PAGE_TITLES={dashboard:'Dashboard',miDia:'Mi Día',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',integraciones:'Integraciones',config:'Configuración',usuarios:'Gestión de Usuarios'};
 
 // ── MOBILE NAVIGATION ─────────────────────────────────────────────────
 function toggleSidebar(){
@@ -3952,7 +3953,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -4602,6 +4603,137 @@ function miDiaCard(r){
       <button class="btn btn-ghost btn-sm" onclick="if(confirm('¿Marcar como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazado">❌</button>
     </div>
   </div>`;
+}
+
+// =====================================================================
+// INTEGRACIONES — conectar Google Sheets / Shopify (admin) con token por tienda
+// =====================================================================
+let _intg=null;
+const INGEST_URL=SUPABASE_URL+'/functions/v1/ingest';
+
+async function cargarIntegracion(){
+  const ws=SESSION?.workspace_id; if(!ws)return null;
+  try{
+    let{data,error}=await _supabase.from('integraciones').select('*').eq('workspace_id',ws).maybeSingle();
+    if(error)throw error;
+    if(!data){const ins=await _supabase.from('integraciones').insert({workspace_id:ws}).select('*').single();if(ins.error)throw ins.error;data=ins.data;}
+    return data;
+  }catch(e){console.warn('integraciones:',e);return null;}
+}
+
+function genScriptSheets(token){
+  return `// KONTROL · Sync Google Sheets → pedidos_brutos (token seguro)
+// Pegar en: Google Sheet → Extensiones → Apps Script. Luego ejecutar setupTriggers ▶
+const FUNCTION_URL = '${INGEST_URL}';
+const SYNC_TOKEN   = '${token}';
+const SHEET_NAME   = '';        // '' = primera pestaña
+const HEADER_ROWS  = 1;
+// Mapeo de columnas (1=A, 2=B, ...). Ajusta si tu Sheet difiere.
+const COL = { fecha:1, nombre:2, celular:3, direccion:4, ciudad:5, provincia:6, producto:7, precio:8, order_id:0 };
+
+function toISO(v){ if(v instanceof Date) return isNaN(v)?null:v.toISOString(); if(!v) return null; var d=new Date(v); return isNaN(d)?null:d.toISOString(); }
+function cell(row, idx){ return (idx && idx>0) ? row[idx-1] : ''; }
+function syncToSupabase(){
+  var lock = LockService.getScriptLock(); if(!lock.tryLock(5000)) return;
+  try{
+    var ss=SpreadsheetApp.getActiveSpreadsheet();
+    var sh=SHEET_NAME?ss.getSheetByName(SHEET_NAME):ss.getSheets()[0]; if(!sh) return;
+    var lastRow=sh.getLastRow(); if(lastRow<=HEADER_ROWS) return;
+    var props=PropertiesService.getScriptProperties();
+    var from=parseInt(props.getProperty('lastRow')||HEADER_ROWS,10);
+    if(isNaN(from)||from<HEADER_ROWS) from=HEADER_ROWS;
+    from=Math.min(from, Math.max(HEADER_ROWS, lastRow-50)); if(from>=lastRow) return;
+    var cols=Object.keys(COL).map(function(k){return COL[k];}).filter(function(n){return n>0;});
+    var rows=sh.getRange(from+1,1,lastRow-from,Math.max.apply(null,cols)).getValues();
+    var payload=[];
+    rows.forEach(function(row){
+      var celular=String(cell(row,COL.celular)||'').trim();
+      var nombre=String(cell(row,COL.nombre)||'').trim();
+      if(!celular && !nombre) return;
+      payload.push({ fecha_hora:toISO(cell(row,COL.fecha)), nombre:nombre, celular:celular,
+        direccion:String(cell(row,COL.direccion)||'').trim(), ciudad:String(cell(row,COL.ciudad)||'').trim(),
+        provincia_raw:String(cell(row,COL.provincia)||'').trim(), producto_raw:String(cell(row,COL.producto)||'').trim(),
+        precio:parseFloat(cell(row,COL.precio))||null,
+        order_id:COL.order_id?(String(cell(row,COL.order_id)||'').trim()||null):null });
+    });
+    if(!payload.length){ props.setProperty('lastRow',String(lastRow)); return; }
+    var res=UrlFetchApp.fetch(FUNCTION_URL+'?src=sheets',{ method:'post', contentType:'application/json',
+      headers:{'x-sync-token':SYNC_TOKEN}, payload:JSON.stringify({rows:payload}), muteHttpExceptions:true });
+    var code=res.getResponseCode();
+    if(code>=200&&code<300){ props.setProperty('lastRow',String(lastRow)); Logger.log('OK: '+res.getContentText()); }
+    else { Logger.log('Error '+code+': '+res.getContentText()); }
+  } finally { lock.releaseLock(); }
+}
+function onChangeTrigger(e){ syncToSupabase(); }
+function setupTriggers(){
+  ScriptApp.getProjectTriggers().forEach(function(t){ ScriptApp.deleteTrigger(t); });
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  ScriptApp.newTrigger('onChangeTrigger').forSpreadsheet(ss).onChange().create();
+  ScriptApp.newTrigger('syncToSupabase').timeBased().everyMinutes(1).create();
+}
+function resyncTodo(){ PropertiesService.getScriptProperties().deleteProperty('lastRow'); syncToSupabase(); }`;
+}
+
+async function renderIntegraciones(){
+  if(!isAdmin()){setContent('<div class="abox abox-red"><span class="abox-icon">'+ic('x-circle',18)+'</span><div class="abox-text">Solo administradores.</div></div>');return;}
+  setContent(`<div class="section-header"><div><div class="section-title">Integraciones</div><div class="section-sub">Conecta tus pedidos automáticamente</div></div></div><div id="intg-body"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
+  const row=await cargarIntegracion();
+  const body=document.getElementById('intg-body'); if(!body)return;
+  if(!row){body.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar. ¿Ejecutaste <b>sql/02_integraciones.sql</b> en Supabase?</div></div>`;return;}
+  _intg=row;
+  const token=row.token;
+  const shopUrl=`${INGEST_URL}?src=shopify&token=${token}`;
+  const script=genScriptSheets(token);
+  body.innerHTML=`
+  <div class="abox" style="background:var(--surface3);border:1px solid var(--border);margin-bottom:14px"><span class="abox-icon">${ic('inbox',18)}</span><div class="abox-text">Los pedidos entran solos a <b>Pedidos Brutos</b>. Tu token es privado de esta tienda: no lo compartas.</div></div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">${ic('download',14)} Google Sheets</div>
+    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">1) Abre tu Sheet → <b>Extensiones → Apps Script</b>. 2) Pega este script. 3) Ejecuta <b>setupTriggers</b> ▶ y autoriza. 4) Verifica el mapeo de columnas (COL).</p>
+    <textarea id="intg-script" readonly style="width:100%;height:150px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto">${escB(script)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-script',this)">${ic('copy',13)} Copiar script</button>
+      <button class="btn btn-ghost btn-sm" onclick="intgProbar(this)">${ic('check-circle',13)} Probar conexión</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">${ic('store',14)} Shopify (incluye Releasit y EasySell)</div>
+    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">En tu Shopify: <b>Configuración → Notificaciones → Webhooks</b> → crear webhook <b>"Creación de pedido"</b> (formato JSON) con esta URL:</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="intg-shopurl" readonly value="${escB(shopUrl)}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
+      <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-shopurl',this)">${ic('copy',13)} Copiar URL</button>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin:12px 0 6px">Shopify te muestra un <b>secreto de webhook</b>. Pégalo aquí para validar que los pedidos vienen de Shopify (opcional pero recomendado):</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="intg-shopify-secret" type="text" placeholder="Secreto del webhook de Shopify" value="${escB(row.shopify_secret||'')}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
+      <button class="btn btn-primary btn-sm" onclick="intgGuardarSecret(this)">${ic('save',13)} Guardar</button>
+    </div>
+  </div>`;
+}
+
+function intgCopiar(elId,btn){
+  const el=document.getElementById(elId); if(!el)return;
+  const txt=el.value!=null?el.value:el.textContent;
+  navigator.clipboard.writeText(txt).then(()=>{if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Copiado';setTimeout(()=>btn.innerHTML=t,1500);}}).catch(()=>{try{el.select();document.execCommand('copy');}catch(_){}});
+}
+async function intgProbar(btn){
+  if(!_intg)return; const t0=btn?btn.innerHTML:'';
+  if(btn)btn.innerHTML='Probando…';
+  try{
+    const r=await fetch(INGEST_URL+'?src=test&token='+encodeURIComponent(_intg.token));
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok)alert('✓ Conexión correcta. La Edge Function responde y el token es válido.');
+    else alert('⚠ Respuesta: '+r.status+' — '+(j.error||'revisa que la función esté desplegada con "Verify JWT" desactivado.'));
+  }catch(e){alert('⚠ No se pudo conectar: '+e.message+'\n¿Ya desplegaste la Edge Function "ingest"?');}
+  if(btn)btn.innerHTML=t0;
+}
+async function intgGuardarSecret(btn){
+  const v=(document.getElementById('intg-shopify-secret')?.value||'').trim();
+  const{error}=await _supabase.from('integraciones').update({shopify_secret:v||null,shopify_activo:!!v}).eq('workspace_id',SESSION.workspace_id);
+  if(error){alert('Error: '+error.message);return;}
+  if(_intg){_intg.shopify_secret=v;}
+  if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Guardado';setTimeout(()=>btn.innerHTML=t,1500);}
 }
 
 // =====================================================================

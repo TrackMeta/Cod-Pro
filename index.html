@@ -4612,6 +4612,11 @@ function miDiaCard(r){
 // =====================================================================
 let _intg=null;
 const INGEST_URL=SUPABASE_URL+'/functions/v1/ingest';
+const NOTIFY_URL=SUPABASE_URL+'/functions/v1/notify-telegram';
+let _syncToken=null;
+async function getSyncToken(){ if(_syncToken)return _syncToken; try{const{data}=await _supabase.from('integraciones').select('token').eq('workspace_id',SESSION?.workspace_id).maybeSingle(); _syncToken=data?.token||null;}catch(_){} return _syncToken; }
+function nombreVendedor(v){ if(!v)return ''; if(String(v).indexOf('admin_')===0)return SESSION?.name||'Admin'; const a=(DB.asesores||[]).find(x=>String(x.id)===String(v)); return a?a.nombre:String(v); }
+async function notificarConfirmado(p){ try{ const token=await getSyncToken(); if(!token)return; fetch(NOTIFY_URL+'?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pedido:{nombre:p.nombre,producto:p.producto,precio:p.precio,zona:p.zona,dist:p.dist,prov:p.prov,vendedor:nombreVendedor(p.vendedor),id:p.id}})}).catch(()=>{}); }catch(_){} }
 
 async function cargarIntegracion(){
   const ws=SESSION?.workspace_id; if(!ws)return null;
@@ -4682,7 +4687,7 @@ async function renderIntegraciones(){
   const row=await cargarIntegracion();
   const body=document.getElementById('intg-body'); if(!body)return;
   if(!row){body.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar. ¿Ejecutaste <b>sql/02_integraciones.sql</b> en Supabase?</div></div>`;return;}
-  _intg=row;
+  _intg=row; _syncToken=row.token;
   const token=row.token;
   const shopUrl=`${INGEST_URL}?src=shopify&token=${token}`;
   const script=genScriptSheets(token);
@@ -4711,6 +4716,19 @@ async function renderIntegraciones(){
       <input id="intg-shopify-secret" type="text" placeholder="Secreto del webhook de Shopify" value="${escB(row.shopify_secret||'')}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
       <button class="btn btn-primary btn-sm" onclick="intgGuardarSecret(this)">${ic('save',13)} Guardar</button>
     </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="card-title">${ic('send',14)} Telegram (aviso de pedido confirmado)</div>
+    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">Crea un bot con <b>@BotFather</b> y pega su <b>token</b>. El <b>chat ID</b> es el de tu chat o grupo (usa <b>@userinfobot</b> para obtenerlo). Recibirás un aviso cada vez que se confirme un pedido.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;max-width:480px">
+      <input id="intg-tg-token" type="text" placeholder="Bot token (123456:ABC...)" value="${escB(row.telegram_token||'')}" style="font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
+      <input id="intg-tg-chat" type="text" placeholder="Chat ID (ej. 123456789 o -100123...)" value="${escB(row.telegram_chat_id||'')}" style="font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="intgGuardarTelegram(this)">${ic('save',13)} Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="intgProbarTelegram(this)">${ic('send',13)} Enviar prueba</button>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -4736,6 +4754,24 @@ async function intgGuardarSecret(btn){
   if(error){alert('Error: '+error.message);return;}
   if(_intg){_intg.shopify_secret=v;}
   if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Guardado';setTimeout(()=>btn.innerHTML=t,1500);}
+}
+async function intgGuardarTelegram(btn){
+  const tk=(document.getElementById('intg-tg-token')?.value||'').trim();
+  const ch=(document.getElementById('intg-tg-chat')?.value||'').trim();
+  const{error}=await _supabase.from('integraciones').update({telegram_token:tk||null,telegram_chat_id:ch||null}).eq('workspace_id',SESSION.workspace_id);
+  if(error){alert('Error: '+error.message);return;}
+  if(_intg){_intg.telegram_token=tk;_intg.telegram_chat_id=ch;}
+  if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Guardado';setTimeout(()=>btn.innerHTML=t,1500);}
+}
+async function intgProbarTelegram(btn){
+  if(!_intg)return; const t0=btn?btn.innerHTML:''; if(btn)btn.innerHTML='Enviando…';
+  try{
+    const r=await fetch(NOTIFY_URL+'?token='+encodeURIComponent(_intg.token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok)alert('✓ Mensaje de prueba enviado a Telegram.');
+    else alert('⚠ '+(j.error||('HTTP '+r.status))+'\nGuarda primero el token/chat ID y verifica que la función notify-telegram esté desplegada.');
+  }catch(e){alert('⚠ No se pudo enviar: '+e.message);}
+  if(btn)btn.innerHTML=t0;
 }
 
 // =====================================================================
@@ -5421,6 +5457,7 @@ async function guardarPedido(){
   closeModal('modal-pedido');
   refrescarVistasPedidos();
   if(!id&&_brutoEnRegistro)marcarBrutoRegistrado(_brutoEnRegistro,p.id);
+  if(!id&&p.estado==='confirmado')notificarConfirmado(p);
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
 }
 function eliminarPedido(id){
@@ -5443,6 +5480,7 @@ function cambiarEstado(id,estado){
   p.estado=estado;
   if(!p.historial)p.historial=[];
   p.historial.push({estado,ts:new Date().toISOString(),user:SESSION?.name||'Sistema'});
+  if(estado==='confirmado'&&prev!=='confirmado')notificarConfirmado(p);
   // Limpiar datos de devolución/rechazo al pasar a un estado que NO es devuelto ni rechazado
   if(estado!=='devuelto'&&estado!=='rechazado'){
     if(p.motivoDevolucion)p.motivoDevolucion='';

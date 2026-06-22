@@ -972,6 +972,7 @@ td{padding:11px 14px;font-size:13px}
       <nav class="sidebar-nav" id="sidebar-nav">
         <!-- OPERACIONES (todos) -->
         <div class="nav-section">Operaciones</div>
+        <div class="nav-item" onclick="showPage('miDia',this)"><span class="ico" data-ic="sun"></span>Mi Día</div>
         <div class="nav-item" onclick="showPage('brutos',this)"><span class="ico" data-ic="inbox"></span>Pedidos Brutos <span class="nav-badge" id="nb-brutos">0</span></div>
         <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico" data-ic="clipboard-list"></span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
         <div class="nav-item" onclick="showPage('lima',this)"><span class="ico" data-ic="building"></span>Lima</div>
@@ -2704,10 +2705,7 @@ function initRealtime(){
   // === Canal 3: tabla pedidos_brutos (capa previa, aislada — NO toca DB.pedidos) ===
   _rtChannel3=_supabase.channel(`rt-brutos-${wsId}`)
     .on('postgres_changes',{event:'*',schema:'public',table:'pedidos_brutos',filter:`workspace_id=eq.${wsId}`},
-      ()=>{
-        updateBrutosBadge();
-        if(CURRENT_PAGE==='brutos')renderBrutosContent();
-      })
+      ()=>{ refrescarBrutosUI(); })
     .subscribe();
   updateBrutosBadge();
 }
@@ -3218,7 +3216,7 @@ async function onSignedIn(user){
   renderNotifications();
   if(isAdmin())syncWorkerChanges();
   initRealtime();
-  const startPage=isAdmin()?'dashboard':'pedidos';
+  const startPage=isAdmin()?'dashboard':'miDia';
   showPage(startPage,document.querySelector(`.nav-item[onclick*="'${startPage}'"]`));
 }
 
@@ -3914,7 +3912,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // =====================================================================
 // PAGE ROUTING
 // =====================================================================
-const PAGE_TITLES={dashboard:'Dashboard',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',config:'Configuración',usuarios:'Gestión de Usuarios'};
+const PAGE_TITLES={dashboard:'Dashboard',miDia:'Mi Día',brutos:'Pedidos Brutos',pedidos:'Pedidos',lima:'Lima — Control de Envío',provincia:'Provincia — Control de Envío',liquidacion:'Liquidación Courier',productos:'Catálogo & Stock',upsells:'Upsells / Order Bumps',finanzas:'Finanzas',flujo:'Flujo de Caja',comisiones:'Equipo & Usuarios',whatsapp:'Plantillas WhatsApp',importar:'Importar CSV',rotulos:'Rótulos de Envío',config:'Configuración',usuarios:'Gestión de Usuarios'};
 
 // ── MOBILE NAVIGATION ─────────────────────────────────────────────────
 function toggleSidebar(){
@@ -3954,7 +3952,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -4453,8 +4451,7 @@ async function marcarBrutoRegistrado(b,numeroPedido){
     }).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
     if(error)console.warn('[bruto] marcar registrado:',error.message);
   }catch(e){console.warn('[bruto] marcar registrado:',e);}
-  updateBrutosBadge();
-  if(CURRENT_PAGE==='brutos')renderBrutosContent();
+  refrescarBrutosUI();
 }
 
 async function brutoSetAsignacion(b,asesorId,accion){
@@ -4462,7 +4459,7 @@ async function brutoSetAsignacion(b,asesorId,accion){
   hist.push({accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
   const{error}=await _supabase.from('pedidos_brutos').update({asesor_id:asesorId,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('No se pudo actualizar: '+error.message);return;}
-  renderBrutosContent();
+  refrescarBrutosUI();
 }
 function tomarBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;brutoSetAsignacion(b,miAsesorId(),'tomado');}
 function devolverBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm('¿Devolver este pedido al pool?'))return;brutoSetAsignacion(b,null,'devuelto_al_pool');}
@@ -4479,7 +4476,7 @@ async function brutoAccion(id,tipo){
   hist.push({accion:tipo,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
   const{error}=await _supabase.from('pedidos_brutos').update({estado,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('No se pudo actualizar: '+error.message);return;}
-  renderBrutosContent();
+  refrescarBrutosUI();
 }
 function brutoAccionSel(id,sel){const v=sel.value;sel.value='';if(!v)return;if(v==='rechazado'&&!confirm('¿Marcar este pedido como Rechazado?'))return;if(v==='perdido'&&!confirm('¿Marcar como Perdido? Saldrá de la cola activa (luego puedes Reactivarlo).'))return;brutoAccion(id,v);}
 
@@ -4525,6 +4522,86 @@ function brutoAccionesHtml(r){
   if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
   else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
   return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${reg}${menu}${pool}${hist}</div>`;
+}
+
+// Refresca la UI de brutos según la página activa (Pedidos Brutos o Mi Día)
+function refrescarBrutosUI(){updateBrutosBadge();if(CURRENT_PAGE==='brutos')renderBrutosContent();else if(CURRENT_PAGE==='miDia')renderMiDia();}
+
+// =====================================================================
+// MI DÍA — pantalla operativa del asesor (cola de brutos + resumen)
+// =====================================================================
+async function renderMiDia(){
+  const ws=SESSION?.workspace_id; if(!ws)return;
+  const mineId=miAsesorId();
+  const fecha=new Date().toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'});
+  setContent(`<div class="section-header"><div><div class="section-title">Mi Día</div><div class="section-sub" style="text-transform:capitalize">${fecha}</div></div>
+    <div class="section-actions"><button class="btn btn-ghost btn-sm" onclick="renderMiDia()">${ic('repeat',14)} Actualizar</button></div></div>
+    <div id="midia-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
+    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('inbox',16)} Por contactar${isAdmin()?'':' <span style="font-size:12px;color:var(--text3);font-weight:500">(mías + pool)</span>'}</div>
+    <div id="midia-cola"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
+  miDiaResumen(ws,mineId);
+  miDiaCola(ws,mineId);
+}
+
+async function miDiaResumen(ws,mineId){
+  const el=document.getElementById('midia-resumen'); if(!el)return;
+  const d=new Date(); d.setHours(0,0,0,0); const startISO=d.toISOString();
+  const baseHoy=est=>{let q=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).eq('estado',est).gte('updated_at',startISO);if(!isAdmin())q=q.eq('asesor_id',mineId);return q;};
+  let reg=0,rech=0,pend=0;
+  try{
+    const r1=await baseHoy('registrado'); reg=r1.count||0;
+    const r2=await baseHoy('rechazado'); rech=r2.count||0;
+    let q3=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
+    if(!isAdmin())q3=q3.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
+    const r3=await q3; pend=r3.count||0;
+  }catch(_){}
+  const gest=reg+rech; const conv=gest?Math.round(reg/gest*100):0;
+  const card=(label,val,color)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
+  el.innerHTML=card('Pendientes',pend,'var(--amber)')+card('Confirmados hoy',reg,'var(--green)')+card('Rechazados hoy',rech,'var(--red)')+card('Conversión hoy',conv+'%','var(--accent)');
+}
+
+async function miDiaCola(ws,mineId){
+  const el=document.getElementById('midia-cola'); if(!el)return;
+  let q=_supabase.from('pedidos_brutos').select('*').eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
+  if(!isAdmin())q=q.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
+  q=q.order('created_at',{ascending:true}).limit(60);
+  let res; try{res=await q;}catch(e){res={error:e};}
+  if(res.error){el.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar la cola.<br><span style="color:var(--text3)">${escB(res.error.message||res.error)}</span></div></div>`;return;}
+  const rows=res.data||[];
+  rows.forEach(r=>{_brutosCache[r.id]=r;});
+  if(!rows.length){el.innerHTML=`<div style="padding:44px;text-align:center;color:var(--text3)">${ic('check-circle',32)}<div style="margin-top:10px;font-size:14px">¡Sin pendientes! Todo contactado 🎉</div></div>`;return;}
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${rows.map(miDiaCard).join('')}</div>`;
+}
+
+function miDiaCard(r){
+  const h=Array.isArray(r.historial)?r.historial:[];
+  const nc=h.filter(x=>x.accion==='no_contesta').length;
+  const wa=h.filter(x=>x.accion==='no_responde_wa').length;
+  const tel=(r.celular||'').replace(/[^\d+]/g,'');
+  const waNum=tel.replace(/\D/g,'');
+  const pool=!r.asesor_id;
+  const loc=escB([r.ciudad,r.provincia_raw].filter(Boolean).join(' · '))||'';
+  return `<div class="card" style="padding:14px;border-left:3px solid var(--amber)">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+      <div style="font-weight:700;font-size:14px">${escB(r.nombre)||'—'}${pool?' <span style="font-size:10px;color:var(--text3);font-weight:600">· pool</span>':''}</div>
+      <button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Historial">${ic('clock',13)}</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px;font-family:var(--mono)">${escB(r.celular)||''}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:5px">${escB(r.producto_raw)||'—'}${r.precio!=null?` · <b>${fmt(r.precio)}</b>`:''}</div>
+    ${loc?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${loc}</div>`:''}
+    ${(nc||wa)?`<div style="display:flex;gap:11px;margin-top:6px;font-size:11px;color:var(--text3)">${nc?`<span>${ic('phone-off',12)} ×${nc}</span>`:''}${wa?`<span>${ic('message-circle',12)} ×${wa}</span>`:''}</div>`:''}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px">
+      ${waNum?`<a class="btn btn-ghost btn-sm" href="https://wa.me/${waNum}" target="_blank" rel="noopener">${ic('message-circle',13)} WA</a>`:''}
+      ${tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}">${ic('phone',13)} Llamar</a>`:''}
+      ${pool?`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`:''}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      <button class="btn btn-primary btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>
+      <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_contesta')" title="No contesta">📞</button>
+      <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_responde_wa')" title="No responde WA">💬</button>
+      <button class="btn btn-ghost btn-sm" onclick="if(confirm('¿Marcar como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazado">❌</button>
+    </div>
+  </div>`;
 }
 
 // =====================================================================

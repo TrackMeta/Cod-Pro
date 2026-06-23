@@ -4236,6 +4236,7 @@ let BRUTOS={page:0,size:25,q:'',estado:'',asesor:''};
 let _brutosDebTimer=null;
 let _brutosCache={};       // {id: row} de la página actual (para acciones)
 let _brutoEnRegistro=null; // bruto que se está convirtiendo a pedido
+let _brutosSel=new Set();  // ids seleccionados (acciones masivas) en la página actual
 // Estados que definen el COLOR del pedido: pendiente(amarillo) / rechazado(rojo) / registrado(verde) / perdido(gris).
 // Las acciones "No contesta" y "No responde WA" NO cambian el estado: solo suman al contador (se derivan del historial).
 const BRUTO_ESTADOS={
@@ -4281,8 +4282,10 @@ function renderBrutos(){
     <div class="fg-filter"><label>Estado</label><select id="bf-est" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option>${estadoOpts}</select></div>
     <div class="fg-filter"><label>Asesor</label><select id="bf-asesor" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option><option value="__pool__">— En el pool</option>${asesoresOpts}</select></div>
   </div>
+  <div id="brutos-bulkbar" style="display:none"></div>
   <div id="brutos-view"></div>
   <div id="brutos-pager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px"></div>`;
+  _brutosSel=new Set();
   setContent(html);
   renderBrutosContent();
 }
@@ -4291,6 +4294,62 @@ function brutosBuscarDebounced(){clearTimeout(_brutosDebTimer);_brutosDebTimer=s
 function brutosFiltrarEstado(k){const sel=document.getElementById('bf-est');if(sel)sel.value=(BRUTOS.estado===k?'':k);BRUTOS.page=0;renderBrutosContent();}
 function brutosPag(d){BRUTOS.page=Math.max(0,BRUTOS.page+d);renderBrutosContent();}
 function setBrutosRetencion(v){const n=Math.max(0,parseInt(v)||0);CFG.brutosRetencion=n;save();BRUTOS.page=0;renderBrutosContent();}
+
+// ── Selección múltiple + acciones masivas (admin) ──
+function updateBrutosBulkBar(){
+  const el=document.getElementById('brutos-bulkbar'); if(!el)return;
+  const n=_brutosSel.size;
+  if(!n){el.style.display='none';el.innerHTML='';return;}
+  const asesoresOpts=(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}">${escB(a.nombre)}</option>`).join('');
+  el.style.display='flex';
+  el.style.cssText='display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--accentL);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:12px;position:sticky;top:8px;z-index:20';
+  el.innerHTML=`<span style="font-size:13px;font-weight:800;color:var(--accent)">${n} seleccionado(s)</span>
+    <span style="font-size:12px;color:var(--text3)">→ asignar a</span>
+    <select id="bf-bulk-asesor" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px"><option value="">Vendedor…</option><option value="__pool__">— Devolver al pool</option>${asesoresOpts}</select>
+    <button class="btn btn-primary btn-sm" onclick="brutosAsignarSel()">Asignar</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-danger btn-sm" onclick="brutosEliminarSel()">${ic('trash',13)} Eliminar</button>
+    <button class="btn btn-ghost btn-sm" onclick="brutosSelClear()">Limpiar selección</button>`;
+}
+function brutoToggleSel(id,chk){
+  if(chk.checked)_brutosSel.add(id); else _brutosSel.delete(id);
+  const tr=document.querySelector(`tr[data-bruto-row="${id}"]`); if(tr)tr.style.outline=chk.checked?'2px solid var(--accent)':'';
+  const all=document.getElementById('bruto-chk-all'); if(all){const boxes=[...document.querySelectorAll('.bruto-chk')];all.checked=boxes.length&&boxes.every(c=>c.checked);}
+  updateBrutosBulkBar();
+}
+function brutoToggleAll(chk){
+  document.querySelectorAll('.bruto-chk').forEach(c=>{c.checked=chk.checked;const id=Number(c.dataset.id);if(chk.checked)_brutosSel.add(id);else _brutosSel.delete(id);const tr=document.querySelector(`tr[data-bruto-row="${id}"]`);if(tr)tr.style.outline=chk.checked?'2px solid var(--accent)':'';});
+  updateBrutosBulkBar();
+}
+function brutosSelClear(){
+  _brutosSel=new Set();
+  document.querySelectorAll('.bruto-chk').forEach(c=>{c.checked=false;});
+  const all=document.getElementById('bruto-chk-all'); if(all)all.checked=false;
+  document.querySelectorAll('tr[data-bruto-row]').forEach(tr=>{tr.style.outline='';});
+  updateBrutosBulkBar();
+}
+async function brutosAsignarSel(){
+  const sel=document.getElementById('bf-bulk-asesor'); const val=sel?sel.value:'';
+  if(val===''){alert('Elige un vendedor (o "Devolver al pool").');return;}
+  const asesorId=val==='__pool__'?null:val;
+  const ids=[..._brutosSel]; if(!ids.length)return;
+  const accion=asesorId?'asignado':'devuelto_al_pool';
+  for(const id of ids){
+    const b=_brutosCache[id]; if(!b)continue;
+    const hist=Array.isArray(b.historial)?b.historial.slice():[];
+    hist.push({accion,asesor_id:asesorId,asesor_nombre:asesorId?brutoNombreAsesor(asesorId):'',ts:new Date().toISOString()});
+    await _supabase.from('pedidos_brutos').update({asesor_id:asesorId,historial:hist}).eq('id',id).eq('workspace_id',SESSION.workspace_id);
+  }
+  _brutosSel=new Set(); refrescarBrutosUI();
+  alert('Asignados '+ids.length+' pedido(s)'+(asesorId?' a '+brutoNombreAsesor(asesorId):' al pool')+'.');
+}
+async function brutosEliminarSel(){
+  const ids=[..._brutosSel]; if(!ids.length)return;
+  if(!confirm('¿Eliminar definitivamente '+ids.length+' pedido(s) bruto(s)?\nEsta acción no se puede deshacer.'))return;
+  const{error}=await _supabase.from('pedidos_brutos').delete().in('id',ids).eq('workspace_id',SESSION.workspace_id);
+  if(error){alert('No se pudo eliminar: '+error.message);return;}
+  _brutosSel=new Set(); refrescarBrutosUI();
+}
 async function brutosPurgar(){
   const ret=Number(CFG.brutosRetencion)||0;
   if(ret<=0){alert('La retención está en 0 (sin límite). Sube el número de días antes de limpiar.');return;}
@@ -4348,6 +4407,7 @@ async function renderBrutosContent(){
   if(cntEl)cntEl.textContent=total+' bruto(s)';
   const data=res.data||[];
   _brutosCache={}; data.forEach(r=>{_brutosCache[r.id]=r;});
+  _brutosSel=new Set(); updateBrutosBulkBar();
   if(!data.length){
     view.innerHTML=`<div style="padding:48px;text-align:center;color:var(--text3)">${ic('inbox',30)}<div style="margin-top:10px;font-size:14px">Sin pedidos brutos${(BRUTOS.q||BRUTOS.estado||BRUTOS.asesor)?' con estos filtros':' todavía'}</div></div>`;
   } else {
@@ -4359,6 +4419,7 @@ async function renderBrutosContent(){
 function brutosTabla(rows){
   const th='padding:9px 11px;text-align:left;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap';
   const head=`<tr>
+    <th style="${th};width:30px;text-align:center"><input type="checkbox" id="bruto-chk-all" onclick="brutoToggleAll(this)" title="Seleccionar todos" style="cursor:pointer"></th>
     <th style="${th}">Fecha</th><th style="${th}">Cliente</th><th style="${th}">Celular</th>
     <th style="${th}">Producto</th><th style="${th};text-align:right">Precio</th>
     <th style="${th}">Ubicación</th><th style="${th}">Asesor</th><th style="${th}">Estado</th><th style="${th};text-align:right">Acción</th></tr>`;
@@ -4373,8 +4434,9 @@ function brutosTabla(rows){
     const nc=h.filter(x=>x.accion==='no_contesta').length;
     const wa=h.filter(x=>x.accion==='no_responde_wa').length;
     const cont=(nc||wa)?`<div style="display:flex;gap:9px;margin-top:4px;font-size:10px;color:var(--text3)">${nc?`<span title="No contestó">${ic('phone-off',11)} ×${nc}</span>`:''}${wa?`<span title="No respondió WhatsApp">${ic('message-circle',11)} ×${wa}</span>`:''}</div>`:'';
-    return `<tr style="background:${t.bg}">
-      <td style="${td};border-left:3px solid ${t.bd};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap">${brutoFmtFecha(r.fecha_hora||r.created_at)}</td>
+    return `<tr style="background:${t.bg}" data-bruto-row="${r.id}">
+      <td style="${td};text-align:center;border-left:3px solid ${t.bd}"><input type="checkbox" class="bruto-chk" data-id="${r.id}" onclick="brutoToggleSel(${r.id},this)" style="cursor:pointer"></td>
+      <td style="${td};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap">${brutoFmtFecha(r.fecha_hora||r.created_at)}</td>
       <td style="${td};font-weight:600">${escB(r.nombre)||'—'}</td>
       <td style="${td};font-family:var(--mono);font-size:12px">${escB(r.celular)||'—'}</td>
       <td style="${td};max-width:240px">${escB(r.producto_raw)||'—'}</td>

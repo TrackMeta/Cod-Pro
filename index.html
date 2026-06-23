@@ -1133,10 +1133,10 @@ td{padding:11px 14px;font-size:13px}
     <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Upsell / Order Bump ofrecido</div>
     <div class="form-grid">
       <div class="fg"><label>Producto upsell</label>
-        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value)"><option value="">— Sin upsell —</option></select>
+        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin upsell —</option></select>
       </div>
       <div class="fg"><label>Resultado</label>
-        <select id="p-upsell-res"><option value="">—</option><option value="aceptado">✅ Aceptado</option><option value="rechazado">❌ Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
+        <select id="p-upsell-res" onchange="recalcPend()"><option value="">—</option><option value="aceptado">✅ Aceptado</option><option value="rechazado">❌ Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
       </div>
     </div>
     <input type="hidden" id="p-upsell-precio" value="">
@@ -2349,6 +2349,7 @@ td{padding:11px 14px;font-size:13px}
     <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option>Order Bump</option><option>Upsell</option><option>Cross-sell</option><option>Downsell</option></select></div>
     <div class="fg"><label>Precio de oferta S/ *</label><input type="number" id="up-precio" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Costo S/</label><input type="number" id="up-costo" placeholder="0" min="0" step="0.01"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Producto del catálogo (para descontar stock) <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Sin vínculo (no toca stock) —</option></select></div>
     <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
   </div>
   <!-- Ofertas por cantidad -->
@@ -5443,14 +5444,14 @@ function renderPedidosContent(){
     <td data-label="" style="padding:6px 8px;text-align:center"><input type="checkbox" class="ped-chk" data-id="${p.id}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" onchange="actualizarSelPed()"></td>
     <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}</td>
     <td data-label="Cliente"><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('alert-triangle',10)+' DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
-    <td data-label="Producto">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
+    <td data-label="Producto">${pedidoProductoMain(p)}</td>
+    <td data-label="Upsell / Order Bump">${(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':(p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':'<span style="font-size:10.5px;color:var(--text3)">—</span>');})()}</td>
     <td data-label="Modalidad">${bdgMod(p.modalidad||'stock')}</td>
     <td data-label="Zona" style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b style="display:inline-flex;align-items:center;gap:4px">${p.zona==='lima'?ic('building',13)+' Lima':ic('package',13)+' Prov.'}</b></td>
     <td data-label="Precio" class="mono" style="font-weight:700">${fmt(p.precio)}</td>
     <td data-label="Adelanto" class="mono" style="color:var(--accent)">${p.zona==='provincia'?fmt(p.adelanto||0):'-'}</td>
     <td data-label="Pendiente" class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
     <td data-label="Estado">${badge(p.estado)}</td>
-    <td data-label="Upsell">${p.upsellRes==='aceptado'?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' Aceptado</span>':p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':p.upsellRes==='no-ofrecido'?'<span style="font-size:10.5px;color:var(--text3)">—</span>':''}</td>
     <td data-label="Acciones"><div class="act-grp">
       <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
       <button class="act" onclick="editarPedido(${p.id})" title="Editar">${ic('pencil',15)}</button>
@@ -5460,7 +5461,7 @@ function renderPedidosContent(){
   </tr>`).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
-  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Upsell</th><th>Acciones</th></tr></thead>
+  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Upsell / Order Bump</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${tableBody}</tbody></table></div>`;
 }
 
@@ -5668,9 +5669,10 @@ function editarPedido(id){
   document.getElementById('p-emb').value=p.emb||0;
   ['p-cenv','p-emb'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=!isAdmin();e.style.opacity=isAdmin()?'':'0.6';e.style.cursor=isAdmin()?'':'not-allowed';}});
   document.getElementById('p-adv-default').textContent=CFG.adelanto||20;
-  // Load items
+  // Load items (excluye el upsell: se reconstruye desde la UI de upsell al guardar)
   if(p.items&&p.items.length){
-    pedidoItems=[...p.items];
+    pedidoItems=p.items.filter(it=>!it.esUpsell).map(it=>({...it}));
+    if(!pedidoItems.length)pedidoItems=[{productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''}];
   } else {
     // Legacy single-product
     pedidoItems=[{productoId:p.productoId||'',nombre:p.producto||'',variante:p.variante||'',cantidad:p.cantidad||1,precio:p.precio||0,cprod:p.cprod||0,cali:p.cali||0,sku:p.sku||''}];
@@ -5738,11 +5740,32 @@ function toggleModalidad(){
 }
 function recalcPend(){
   // precio por item YA es el total (ej: oferta 2x = S/119, no 119×2)
-  const totalPrecio=pedidoItems.reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0);
+  const upItem=typeof itemUpsellActual==='function'?itemUpsellActual():null;
+  const totalPrecio=pedidoItems.filter(it=>!it.esUpsell).reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0)+(upItem?(parseFloat(upItem.precio)||0):0);
   const adv=parseFloat(document.getElementById('p-adelanto')?.value)||0;
   const pend=document.getElementById('p-pendiente');
   if(pend)pend.value=Math.max(0,totalPrecio-adv).toFixed(2);
 }
+// ── Upsell / Order Bump como línea de pedido (cuenta igual que un producto) ──
+// Lee el upsell del modal; si fue ACEPTADO, devuelve un item marcado esUpsell
+// (con productoId del catálogo si está vinculado → descuenta stock). Devuelve
+// null si no se ofreció o fue rechazado.
+function itemUpsellActual(){
+  const upId=document.getElementById('p-upsell-prod')?.value||'';
+  const res=document.getElementById('p-upsell-res')?.value||'';
+  if(res!=='aceptado'||!upId)return null;
+  const u=(DB.upsells||[]).find(x=>String(x.id)===String(upId));
+  if(!u)return null;
+  const precioSel=parseFloat(document.getElementById('p-upsell-precio')?.value)||0;
+  let cantidad=1, precio=precioSel||u.precio||0;
+  if(precioSel&&u.ofertas&&u.ofertas.length){const of=u.ofertas.find(o=>o.precio===precioSel);if(of)cantidad=of.cantidad;}
+  return {productoId:u.productoId||'',nombre:u.nombre,variante:'',cantidad,precio,cprod:(u.costo||0)*cantidad,sku:'',esUpsell:true,upsellTipo:u.tipo||'Order Bump',upsellId:u.id};
+}
+// Items de un pedido (compat: legacy sin items[])
+function pedidoItemsArr(p){return (p.items&&p.items.length)?p.items:[{productoId:p.productoId,nombre:p.producto,variante:p.variante,cantidad:p.cantidad,esUpsell:false}];}
+function pedidoProductoMain(p){const its=pedidoItemsArr(p).filter(it=>!it.esUpsell);return its.map(it=>`${it.nombre||''}${it.variante?' ('+it.variante+')':''} ×${it.cantidad||1}`).join(', ')||(p.producto||'—');}
+function pedidoUpsellTxt(p){return pedidoItemsArr(p).filter(it=>it.esUpsell).map(it=>`${it.nombre||''} ×${it.cantidad||1}`).join(', ');}
+
 async function guardarPedido(){
   try{
   const nombre=document.getElementById('p-nombre').value.trim();
@@ -5775,10 +5798,14 @@ async function guardarPedido(){
   const id=document.getElementById('p-id').value;
   const zona=document.getElementById('p-zona').value;
   const adv=parseFloat(document.getElementById('p-adelanto').value)||0;
-  const totalPrecio=pedidoItems.reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0);
-  const totalCprod=pedidoItems.reduce((s,it)=>(s+(parseFloat(it.cprod)||0)),0);
-  const primerItem=pedidoItems[0];
-  const productoResumen=pedidoItems.map(it=>{
+  // Combinar productos principales + upsell aceptado (cuenta igual que un producto)
+  const baseItems=pedidoItems.filter(it=>!it.esUpsell);
+  const upItem=itemUpsellActual();
+  const allItems=upItem?baseItems.concat([upItem]):baseItems.slice();
+  const totalPrecio=allItems.reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0);
+  const totalCprod=allItems.reduce((s,it)=>(s+(parseFloat(it.cprod)||0)),0);
+  const primerItem=baseItems[0]||allItems[0];
+  const productoResumen=allItems.map(it=>{
     if(it.desglose&&it.desglose.length){const det=it.desglose.filter(d=>d.variante).map(d=>`${d.variante}×${d.cantidad}`).join(', ');if(det)return `${it.nombre} ×${it.cantidad} (${det})`;}
     return `${it.nombre}${it.variante?' ('+it.variante+')':''} ×${it.cantidad}`;
   }).join(', ');
@@ -5794,10 +5821,10 @@ async function guardarPedido(){
     producto:productoResumen,
     productoId:primerItem.productoId||null,
     variante:primerItem.variante||'',
-    cantidad:pedidoItems.reduce((s,it)=>s+(parseInt(it.cantidad)||1),0),
+    cantidad:allItems.reduce((s,it)=>s+(parseInt(it.cantidad)||1),0),
     precio:totalPrecio,
-    // Multi-item
-    items:pedidoItems.map(it=>({...it})),
+    // Multi-item (incluye el upsell aceptado como una línea marcada esUpsell)
+    items:allItems.map(it=>({...it})),
     zona,
     modalidad:primerItem.productoId?(DB.productos.find(x=>x.id===parseInt(primerItem.productoId))?.modalidad||'stock'):'stock',
     cprod:totalCprod,
@@ -7886,6 +7913,9 @@ function toggleUpsellFechas(per){
 
 function openModalUpsell(id){
   document.getElementById('up-id').value=id||'';
+  // Selector de producto del catálogo (vínculo para stock)
+  const vincSel=document.getElementById('up-prodvinc');
+  if(vincSel){const prods=(DB.productos||[]).filter(p=>p.modalidad==='stock');vincSel.innerHTML='<option value="">— Sin vínculo (no toca stock) —</option>'+prods.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');}
   if(id){
     const u=DB.upsells.find(x=>x.id===id);
     if(u){
@@ -7894,11 +7924,13 @@ function openModalUpsell(id){
       document.getElementById('up-precio').value=u.precio||'';
       document.getElementById('up-costo').value=u.costo||'';
       document.getElementById('up-desc').value=u.desc||'';
+      if(vincSel)vincSel.value=u.productoId||'';
       upsellOfertas=u.ofertas?JSON.parse(JSON.stringify(u.ofertas)):[];
     }
   } else {
     ['up-nombre','up-desc'].forEach(i=>document.getElementById(i).value='');
     ['up-precio','up-costo'].forEach(i=>document.getElementById(i).value='');
+    if(vincSel)vincSel.value='';
     upsellOfertas=[];
   }
   renderOfertasUp();
@@ -7915,6 +7947,7 @@ function guardarUpsell(){
     tipo:document.getElementById('up-tipo').value||'Order Bump',
     precio:parseFloat(document.getElementById('up-precio').value)||0,
     costo:parseFloat(document.getElementById('up-costo').value)||0,
+    productoId:document.getElementById('up-prodvinc')?.value?parseInt(document.getElementById('up-prodvinc').value):null,
     desc:document.getElementById('up-desc').value.trim(),
     ofertas:(upsellOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad)
   };
@@ -7971,6 +8004,7 @@ function seleccionarOfertaUp(cant,precio){
   });
   const res=document.getElementById('p-upsell-res');
   if(res&&!res.value)res.value='aceptado';
+  if(typeof recalcPend==='function')recalcPend();
 }
 
 // =====================================================================

@@ -972,7 +972,7 @@ td{padding:11px 14px;font-size:13px}
         <!-- OPERACIONES (todos) -->
         <div class="nav-section">Operaciones</div>
         <div class="nav-item" onclick="showPage('miDia',this)"><span class="ico" data-ic="sun"></span>Mi Día</div>
-        <div class="nav-item" onclick="showPage('brutos',this)"><span class="ico" data-ic="inbox"></span>Pedidos Brutos <span class="nav-badge" id="nb-brutos">0</span></div>
+        <div class="nav-item admin-only" onclick="showPage('brutos',this)"><span class="ico" data-ic="inbox"></span>Pedidos Brutos <span class="nav-badge" id="nb-brutos">0</span></div>
         <div class="nav-item" onclick="showPage('pedidos',this)"><span class="ico" data-ic="clipboard-list"></span>Pedidos <span class="nav-badge" id="nb-nuevos">0</span></div>
         <div class="nav-item" onclick="showPage('lima',this)"><span class="ico" data-ic="building"></span>Lima</div>
         <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico" data-ic="package"></span>Provincia</div>
@@ -4251,6 +4251,7 @@ function brutoFmtFecha(iso){if(!iso)return '—';const d=new Date(iso);if(isNaN(
 function brutoNombreAsesor(id){const a=(DB.asesores||[]).find(x=>String(x.id)===String(id));return a?escB(a.nombre):'#'+escB(id);}
 
 function renderBrutos(){
+  if(!isAdmin()){showPage('miDia');return;} // Pedidos Brutos es solo para admin; el trabajador opera desde Mi Día
   const asesoresOpts=(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}">${escB(a.nombre)}</option>`).join('');
   const estadoOpts=BRUTO_ORDEN.map(k=>`<option value="${k}">${BRUTO_ESTADOS[k].label}</option>`).join('');
   const html=`
@@ -4918,12 +4919,14 @@ async function buscarGlobal(q){
   const cmap={};
   (DB.pedidos||[]).forEach(p=>{const c=(p.celular||'').replace(/\D/g,'');if(!c)return;if(match(p.nombre,p.celular)||telMatch(p.celular)){if(!cmap[c])cmap[c]={celular:p.celular,nombre:p.nombre,n:0};cmap[c].n++;}});
   const clientes=Object.values(cmap).slice(0,5);
-  renderBuscadorResultados({peds,prods,clientes,brutos:null});
-  try{
-    const ws=SESSION.workspace_id; const s=q.replace(/[%,()]/g,' ');
-    const{data}=await _supabase.from('pedidos_brutos').select('id,nombre,celular,producto_raw').eq('workspace_id',ws).or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%`).limit(6);
-    renderBuscadorResultados({peds,prods,clientes,brutos:data||[]});
-  }catch(_){renderBuscadorResultados({peds,prods,clientes,brutos:[]});}
+  renderBuscadorResultados({peds,prods,clientes,brutos:isAdmin()?null:[]});
+  if(isAdmin()){
+    try{
+      const ws=SESSION.workspace_id; const s=q.replace(/[%,()]/g,' ');
+      const{data}=await _supabase.from('pedidos_brutos').select('id,nombre,celular,producto_raw').eq('workspace_id',ws).or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%`).limit(6);
+      renderBuscadorResultados({peds,prods,clientes,brutos:data||[]});
+    }catch(_){renderBuscadorResultados({peds,prods,clientes,brutos:[]});}
+  }
 }
 
 function renderBuscadorResultados(o){

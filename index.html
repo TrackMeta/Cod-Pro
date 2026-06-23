@@ -4736,7 +4736,39 @@ const NOTIFY_URL=SUPABASE_URL+'/functions/v1/notify-telegram';
 let _syncToken=null;
 async function getSyncToken(){ if(_syncToken)return _syncToken; try{const{data}=await _supabase.from('integraciones').select('token').eq('workspace_id',SESSION?.workspace_id).maybeSingle(); _syncToken=data?.token||null;}catch(_){} return _syncToken; }
 function nombreVendedor(v){ if(!v)return ''; if(String(v).indexOf('admin_')===0)return SESSION?.name||'Admin'; const a=(DB.asesores||[]).find(x=>String(x.id)===String(v)); return a?a.nombre:String(v); }
-async function notificarConfirmado(p){ try{ const token=await getSyncToken(); if(!token)return; fetch(NOTIFY_URL+'?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pedido:{nombre:p.nombre,producto:p.producto,precio:p.precio,zona:p.zona,dist:p.dist,prov:p.prov,vendedor:nombreVendedor(p.vendedor),id:p.id}})}).catch(()=>{}); }catch(_){} }
+// ── Telegram directo (sin Edge Function) ──────────────────────────────
+// El bot token vive en `integraciones` (legible por el workspace vía RLS), así
+// que el navegador lo usa para enviar directo a api.telegram.org. Se usa GET
+// para evitar el preflight CORS (no falla con "Failed to fetch").
+let _tgCreds=undefined; // {token,chat} | null
+async function getTelegramCreds(force){
+  if(!force&&_tgCreds!==undefined)return _tgCreds;
+  try{
+    const{data}=await _supabase.from('integraciones').select('telegram_token,telegram_chat_id').eq('workspace_id',SESSION?.workspace_id).maybeSingle();
+    _tgCreds=(data&&data.telegram_token&&data.telegram_chat_id)?{token:data.telegram_token,chat:data.telegram_chat_id}:null;
+  }catch(_){_tgCreds=null;}
+  return _tgCreds;
+}
+function tgEsc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function tgSend(token,chat,text){
+  const url='https://api.telegram.org/bot'+encodeURIComponent(token)+'/sendMessage?chat_id='+encodeURIComponent(chat)+'&parse_mode=HTML&disable_web_page_preview=true&text='+encodeURIComponent(text);
+  const r=await fetch(url); return r.json().catch(()=>({}));
+}
+function tgFormatPedido(p){
+  const lugar=p.zona==='provincia'?(p.prov||''):(p.dist||'');
+  return ['🟢 <b>PEDIDO CONFIRMADO</b>','👤 '+tgEsc(p.nombre||'—'),
+    p.producto?'📦 '+tgEsc(p.producto):'',
+    (p.precio!=null&&p.precio!=='')?'💰 S/ '+Number(p.precio).toFixed(2):'',
+    lugar?'📍 '+tgEsc(lugar)+(p.zona==='provincia'?' (Prov.)':' (Lima)'):'',
+    p.vendedor?'🧑‍💼 '+tgEsc(p.vendedor):'',
+    p.id!=null?'🔖 Pedido #'+tgEsc(p.id):''].filter(Boolean).join('\n');
+}
+async function notificarConfirmado(p){
+  try{
+    const c=await getTelegramCreds(); if(!c)return;
+    tgSend(c.token,c.chat,tgFormatPedido({nombre:p.nombre,producto:p.producto,precio:p.precio,zona:p.zona,dist:p.dist,prov:p.prov,vendedor:nombreVendedor(p.vendedor),id:p.id})).catch(()=>{});
+  }catch(_){}
+}
 
 async function cargarIntegracion(){
   const ws=SESSION?.workspace_id; if(!ws)return null;
@@ -4892,6 +4924,7 @@ async function intgGuardarTelegram(btn){
   const{error}=await _supabase.from('integraciones').update({telegram_token:tk||null,telegram_chat_id:ch||null}).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('Error: '+error.message);return;}
   if(_intg){_intg.telegram_token=tk;_intg.telegram_chat_id=ch;}
+  _tgCreds=(tk&&ch)?{token:tk,chat:ch}:null;
   if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Guardado';setTimeout(()=>btn.innerHTML=t,1500);}
 }
 // Lee el chat_id del último mensaje que alguien le envió al bot (getUpdates).
@@ -4934,18 +4967,16 @@ async function intgProbarTelegram(btn){
   if(!ch){alert('Falta el Chat ID y no pude detectarlo.\n\nEscríbele cualquier mensaje a tu bot en Telegram (ej. /start) y vuelve a pulsar "Enviar prueba". Telegram obliga a que le hables al bot una vez antes de que pueda enviarte mensajes.');if(btn)btn.innerHTML=t0;return;}
   await _supabase.from('integraciones').update({telegram_token:tk,telegram_chat_id:ch}).eq('workspace_id',SESSION.workspace_id);
   if(_intg){_intg.telegram_token=tk;_intg.telegram_chat_id=ch;}
+  _tgCreds={token:tk,chat:ch}; // refresca la caché para notificarConfirmado
   try{
-    const r=await fetch(NOTIFY_URL+'?token='+encodeURIComponent(_intg.token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});
-    const j=await r.json().catch(()=>({}));
-    if(r.ok&&j.ok)alert('✓ Mensaje de prueba enviado a Telegram. Revisa tu chat.');
-    else if(r.status===400&&/no configurado/i.test(j.error||''))alert('⚠ Faltan datos: guarda el token y el Chat ID e inténtalo de nuevo.');
-    else if(j.error&&/chat not found|chat_id is empty|bad request/i.test(j.error))alert('⚠ Telegram rechazó el envío: «'+j.error+'».\n\nRevisa el Chat ID. Recuerda: debes ESCRIBIRLE primero al bot (o agregarlo al grupo) para que pueda enviarte mensajes.');
-    else if(j.error&&/unauthorized|not found/i.test(j.error))alert('⚠ Bot token inválido: «'+j.error+'». Verifícalo con @BotFather.');
-    else alert('⚠ '+(j.error||('HTTP '+r.status)));
+    // Envío DIRECTO a Telegram (sin Edge Function). GET = sin preflight CORS.
+    const j=await tgSend(tk,ch,'✅ KONTROL conectado a Telegram. Las notificaciones de pedidos confirmados están activas.');
+    if(j.ok)alert('✓ Mensaje de prueba enviado a Telegram. Revisa tu chat.');
+    else if(j.description&&/chat not found|chat_id is empty|bad request|can't be reached/i.test(j.description))alert('⚠ Telegram rechazó el envío: «'+j.description+'».\n\nRevisa el Chat ID. Recuerda: debes ESCRIBIRLE primero al bot (o agregarlo al grupo) para que pueda enviarte mensajes.');
+    else if(j.description&&/unauthorized|not found|token/i.test(j.description))alert('⚠ Bot token inválido: «'+j.description+'». Verifícalo con @BotFather.');
+    else alert('⚠ Telegram respondió: '+(j.description||'error desconocido'));
   }catch(e){
-    const failedFetch=/failed to fetch|networkerror|load failed/i.test(e.message||'');
-    if(failedFetch)alert('⚠ No se pudo contactar la Edge Function «notify-telegram».\n\nCausa más probable: la función NO está desplegada o tiene "Verify JWT" ACTIVADO.\n\nSolución (Supabase → Edge Functions):\n1. Despliega la función «notify-telegram» (código en supabase/functions/notify-telegram).\n2. En sus Settings, DESACTIVA "Verify JWT".\n3. Ejecuta el SQL sql/04_telegram.sql si aún no lo hiciste.\n4. Vuelve a probar.');
-    else alert('⚠ No se pudo enviar: '+e.message);
+    alert('⚠ No se pudo enviar: '+(e.message||e)+'\n\nVerifica tu conexión a internet. (El envío ya no depende de ninguna Edge Function.)');
   }
   if(btn)btn.innerHTML=t0;
 }

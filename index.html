@@ -2432,7 +2432,7 @@ const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // DB & CONFIG — datos en memoria, sincronizados con Supabase
 // =====================================================================
 let DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-let CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5};
+let CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5,brutosRetencion:30};
 let SESSION=null;   // { id, email, role, name, initials, workspace_id, negocio_name, logo_data }
 let WORKSPACE=null; // alias de SESSION para compatibilidad con código existente
 let notifTab='active';
@@ -3105,7 +3105,7 @@ async function doRegister(){
     negocio_name:negocio,
     logo_data:'',
     db_data:{pedidos:[],asesores:[],publicidad:[],gastos:[],deliveries:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:DEFAULT_WA},
-    cfg_data:{adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5}
+    cfg_data:{adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5,brutosRetencion:30}
   }).select().single();
   if(wsErr){
     showLoginLoading(false,'btn-register');
@@ -3167,7 +3167,7 @@ async function onSignedIn(user){
   WORKSPACE=SESSION;
 
   DB={pedidos:[],asesores:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5};
+  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5,brutosRetencion:30};
   if(ws.db_data)DB=ws.db_data;
   if(ws.cfg_data)CFG=Object.assign({...CFG},ws.cfg_data);
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
@@ -3347,7 +3347,7 @@ async function doNewPassword(){
 function bootSaWorkspace(w,saInfo){
   // Load workspace DB and CFG
   DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
-  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5};
+  CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5,brutosRetencion:30};
   if(w.db_data)DB=w.db_data;
   if(w.cfg_data)CFG=Object.assign({...CFG},w.cfg_data);
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
@@ -3518,7 +3518,8 @@ function updateSidebarLogo(){
     logoEl.style.boxShadow='none';
     updateFavicon(logoData);
   } else {
-    // Logo por defecto (archivo). El input de subida solo para admin.
+    // Logo por defecto (archivo oficial). El input de subida solo para admin.
+    updateFavicon('assets/logo-256.png');
     const defaultImg=document.getElementById('sidebar-logo-default-img');
     if(defaultImg){
       const ex=logoEl.querySelector('input[type=file]');
@@ -4267,6 +4268,9 @@ function renderBrutos(){
     <input id="bf-asignar-cant" type="number" min="1" placeholder="cant." style="width:74px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px">
     <button class="btn btn-primary btn-sm" onclick="repartirPool()">Asignar</button>
     <span style="flex:1"></span>
+    <span style="font-size:12px;color:var(--text3)" title="Los procesados (registrados/rechazados/perdidos) más antiguos que estos días se ocultan de la lista. Siguen contando para métricas.">Ocultar procesados ></span>
+    <input id="bf-retencion" type="number" min="0" value="${Number(CFG.brutosRetencion)||30}" onchange="setBrutosRetencion(this.value)" style="width:62px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px"><span style="font-size:12px;color:var(--text3)">días</span>
+    <button class="btn btn-ghost btn-sm" onclick="brutosPurgar()" title="Eliminar definitivamente de la base de datos los procesados más antiguos que el límite de días">${ic('trash',13)} Limpiar antiguos</button>
     <button class="btn btn-ghost btn-sm" onclick="openReglas()">${ic('link',13)} Reglas por producto</button>
   </div>`:''}
   <div id="brutos-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
@@ -4284,6 +4288,23 @@ function renderBrutos(){
 function brutosBuscarDebounced(){clearTimeout(_brutosDebTimer);_brutosDebTimer=setTimeout(()=>{BRUTOS.page=0;renderBrutosContent();},300);}
 function brutosFiltrarEstado(k){const sel=document.getElementById('bf-est');if(sel)sel.value=(BRUTOS.estado===k?'':k);BRUTOS.page=0;renderBrutosContent();}
 function brutosPag(d){BRUTOS.page=Math.max(0,BRUTOS.page+d);renderBrutosContent();}
+function setBrutosRetencion(v){const n=Math.max(0,parseInt(v)||0);CFG.brutosRetencion=n;save();BRUTOS.page=0;renderBrutosContent();}
+async function brutosPurgar(){
+  const ret=Number(CFG.brutosRetencion)||0;
+  if(ret<=0){alert('La retención está en 0 (sin límite). Sube el número de días antes de limpiar.');return;}
+  const cutoff=new Date(Date.now()-ret*86400000).toISOString();
+  const ws=SESSION.workspace_id;
+  // Cuántos se borrarían (solo procesados antiguos; los pendientes NUNCA se tocan)
+  const{count}=await _supabase.from('pedidos_brutos').select('id',{count:'exact',head:true})
+    .eq('workspace_id',ws).in('estado',['rechazado','registrado','perdido']).lt('updated_at',cutoff);
+  if(!count){alert('No hay procesados con más de '+ret+' días para limpiar.');return;}
+  if(!confirm(`Se eliminarán DEFINITIVAMENTE ${count} pedido(s) bruto(s) procesado(s) con más de ${ret} días.\n\n• Los pedidos confirmados (reales) NO se tocan: solo se borra su rastro en la cola de brutos.\n• Esto reduce el histórico de conversión de esos registros.\n\n¿Continuar?`))return;
+  const{error}=await _supabase.from('pedidos_brutos').delete()
+    .eq('workspace_id',ws).in('estado',['rechazado','registrado','perdido']).lt('updated_at',cutoff);
+  if(error){alert('No se pudo limpiar: '+error.message);return;}
+  refrescarBrutosUI();
+  alert('Listo: '+count+' bruto(s) procesado(s) eliminados.');
+}
 
 async function renderBrutosContent(){
   const ws=SESSION?.workspace_id; if(!ws)return;
@@ -4301,6 +4322,14 @@ async function renderBrutosContent(){
   }
   if(BRUTOS.asesor==='__pool__')query=query.is('asesor_id',null);
   else if(BRUTOS.asesor)query=query.eq('asesor_id',BRUTOS.asesor);
+  // Retención: en la vista "Todos" se ocultan los procesados (registrado/rechazado/perdido)
+  // más antiguos que CFG.brutosRetencion días. Siguen en la BD (cuentan para métricas);
+  // para verlos basta filtrar por ese estado. Esto evita que la lista crezca sin fin.
+  const _ret=Number(CFG.brutosRetencion)||0;
+  if(!BRUTOS.estado && _ret>0){
+    const _cutoff=new Date(Date.now()-_ret*86400000).toISOString();
+    query=query.or(`estado.not.in.(rechazado,registrado,perdido),updated_at.gte.${_cutoff}`);
+  }
   if(BRUTOS.q){const s=BRUTOS.q.replace(/[%,()]/g,' ');query=query.or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%,direccion.ilike.%${s}%,ciudad.ilike.%${s}%`);}
   query=query.order('created_at',{ascending:false}).range(from,to);
   let res;
@@ -4577,10 +4606,14 @@ function verBrutoHistorial(id){
 
 function brutoAccionesHtml(r){
   const est=brutoEstadoNorm(r.estado);
+  const tel=(r.celular||'').replace(/[^\d+]/g,''); const waNum=tel.replace(/\D/g,'');
+  const wa=waNum?`<a class="btn btn-ghost btn-sm" href="https://wa.me/${waNum}" target="_blank" rel="noopener" title="WhatsApp">${ic('message-circle',13)}</a>`:'';
+  const call=tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}" title="Llamar">${ic('phone',13)}</a>`:'';
+  const del=`<button class="btn btn-danger btn-sm" onclick="brutoEliminar(${r.id})" title="Eliminar definitivamente">${ic('trash',13)}</button>`;
   const hist=`<button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Ver historial">${ic('clock',13)}</button>`;
   if(est==='registrado'){
     const tag=r.pedido_numero?`<span style="font-size:12px;color:var(--green);font-weight:700;white-space:nowrap">${ic('check-circle',12)} #${r.pedido_numero}</span>`:`<span style="font-size:12px;color:var(--green)">Registrado</span>`;
-    return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${hist}</div>`;
+    return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${hist}${del}</div>`;
   }
   const reg=`<button class="btn btn-primary btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>`;
   let menu='';
@@ -4603,7 +4636,15 @@ function brutoAccionesHtml(r){
     if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
     else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
   }
-  return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${reg}${menu}${pool}${hist}</div>`;
+  return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${wa}${call}${reg}${menu}${pool}${hist}${del}</div>`;
+}
+
+async function brutoEliminar(id){
+  const b=_brutosCache[id]; if(!b)return;
+  if(!confirm(`¿Eliminar definitivamente el pedido bruto de ${b.nombre||'—'}?\nEsta acción no se puede deshacer.`))return;
+  const{error}=await _supabase.from('pedidos_brutos').delete().eq('id',id).eq('workspace_id',SESSION.workspace_id);
+  if(error){alert('No se pudo eliminar: '+error.message);return;}
+  refrescarBrutosUI();
 }
 
 // Refresca la UI de brutos según la página activa (Pedidos Brutos o Mi Día)
@@ -4776,6 +4817,13 @@ async function renderIntegraciones(){
   <div class="card" style="margin-bottom:14px">
     <div class="card-title">${ic('download',14)} Google Sheets</div>
     <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">1) Abre tu Sheet → <b>Extensiones → Apps Script</b>. 2) Pega este script. 3) Ejecuta <b>setupTriggers</b> ▶ y autoriza. 4) Verifica el mapeo de columnas (COL).</p>
+    <div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📋 Orden de columnas esperado (fila 1 = encabezados, los datos empiezan en la fila 2):</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;font-size:11.5px">
+        ${[['A','Fecha y hora','del lead'],['B','Nombre','del cliente'],['C','Celular','con o sin +51'],['D','Dirección',''],['E','Ciudad','/ distrito'],['F','Provincia','/ departamento'],['G','Producto','texto libre'],['H','Precio','número']].map(([c,t,s])=>`<div style="display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-weight:800;color:var(--accent);min-width:14px">${c}</span><span><b>${t}</b>${s?` <span style="color:var(--text3)">${s}</span>`:''}</span></div>`).join('')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">No importa cómo titules las columnas: lo que cuenta es el <b>orden</b> (A→H). Si tu hoja usa otro orden, ajusta el objeto <code>COL</code> dentro del script (1=A, 2=B…). Nombre y Celular no pueden ir ambos vacíos. Las filas duplicadas (mismo celular + producto + día) se ignoran solas.</div>
+    </div>
     <textarea id="intg-script" readonly style="width:100%;height:150px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto">${escB(script)}</textarea>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-script',this)">${ic('copy',13)} Copiar script</button>
@@ -4844,12 +4892,25 @@ async function intgGuardarTelegram(btn){
 }
 async function intgProbarTelegram(btn){
   if(!_intg)return; const t0=btn?btn.innerHTML:''; if(btn)btn.innerHTML='Enviando…';
+  // Guarda primero el token/chat ID que estén en pantalla (el test los lee de la BD).
+  const tk=(document.getElementById('intg-tg-token')?.value||'').trim();
+  const ch=(document.getElementById('intg-tg-chat')?.value||'').trim();
+  if(!tk||!ch){alert('Completa el Bot token y el Chat ID antes de probar.\n\n• Bot token: te lo da @BotFather al crear el bot.\n• Chat ID: es OBLIGATORIO; indica a QUIÉN enviar. Obtenlo escribiéndole a @userinfobot (tu ID personal) o agregando el bot a un grupo. Sin Chat ID, Telegram no sabe a dónde mandar el mensaje.');if(btn)btn.innerHTML=t0;return;}
+  await _supabase.from('integraciones').update({telegram_token:tk,telegram_chat_id:ch}).eq('workspace_id',SESSION.workspace_id);
+  if(_intg){_intg.telegram_token=tk;_intg.telegram_chat_id=ch;}
   try{
     const r=await fetch(NOTIFY_URL+'?token='+encodeURIComponent(_intg.token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});
     const j=await r.json().catch(()=>({}));
-    if(r.ok&&j.ok)alert('✓ Mensaje de prueba enviado a Telegram.');
-    else alert('⚠ '+(j.error||('HTTP '+r.status))+'\nGuarda primero el token/chat ID y verifica que la función notify-telegram esté desplegada.');
-  }catch(e){alert('⚠ No se pudo enviar: '+e.message);}
+    if(r.ok&&j.ok)alert('✓ Mensaje de prueba enviado a Telegram. Revisa tu chat.');
+    else if(r.status===400&&/no configurado/i.test(j.error||''))alert('⚠ Faltan datos: guarda el token y el Chat ID e inténtalo de nuevo.');
+    else if(j.error&&/chat not found|chat_id is empty|bad request/i.test(j.error))alert('⚠ Telegram rechazó el envío: «'+j.error+'».\n\nRevisa el Chat ID. Recuerda: debes ESCRIBIRLE primero al bot (o agregarlo al grupo) para que pueda enviarte mensajes.');
+    else if(j.error&&/unauthorized|not found/i.test(j.error))alert('⚠ Bot token inválido: «'+j.error+'». Verifícalo con @BotFather.');
+    else alert('⚠ '+(j.error||('HTTP '+r.status)));
+  }catch(e){
+    const failedFetch=/failed to fetch|networkerror|load failed/i.test(e.message||'');
+    if(failedFetch)alert('⚠ No se pudo contactar la Edge Function «notify-telegram».\n\nCausa más probable: la función NO está desplegada o tiene "Verify JWT" ACTIVADO.\n\nSolución (Supabase → Edge Functions):\n1. Despliega la función «notify-telegram» (código en supabase/functions/notify-telegram).\n2. En sus Settings, DESACTIVA "Verify JWT".\n3. Ejecuta el SQL sql/04_telegram.sql si aún no lo hiciste.\n4. Vuelve a probar.');
+    else alert('⚠ No se pudo enviar: '+e.message);
+  }
   if(btn)btn.innerHTML=t0;
 }
 
@@ -9723,7 +9784,7 @@ function renderConfig(){
       <div class="card-title">${ic('palette',13)} Personalización</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
         <div style="width:64px;height:64px;border-radius:12px;background:var(--surface3);border:2px dashed var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0" id="logo-preview-big">
-          ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--text3);display:inline-flex">'+ic('palette',24)+'</span>'}
+          ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<img src="assets/logo-256.png" title="Logo oficial de KONTROL (por defecto)" style="width:100%;height:100%;object-fit:contain;opacity:.85">'}
           <input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer">
         </div>
         <div style="flex:1">
@@ -9828,6 +9889,9 @@ async function renderUsuarios(){
     const wList=workers||[];
     // Sync asesores/vendedores with workspace workers automatically
     syncAsesoresConWorkers(wList);
+    // Conversión de brutos por vendedor (registrados / total trabajado)
+    let metMap={};
+    try{const{data:met}=await _supabase.rpc('brutos_metricas',{p_ws:SESSION.workspace_id});(met||[]).forEach(m=>{if(m.asesor_id)metMap[String(m.asesor_id)]={reg:Number(m.registrados),rech:Number(m.rechazados),tot:Number(m.total)};});}catch(_){}
     // Para cada worker, buscar su asesor vinculado y últimos pedidos
     const workersHtml=`
     <div class="card" style="margin-top:14px">
@@ -9862,6 +9926,9 @@ async function renderUsuarios(){
           const hace30=new Date();hace30.setDate(hace30.getDate()-30);
           const entMes=asesor?DB.pedidos.filter(p=>pedidoEsDeAsesor(p,asesor)&&p.estado==='entregado'&&p.fecha&&new Date(p.fecha+'T12:00:00')>=hace30).length:0;
           const initials=w.initials||w.name?.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()||'??';
+          const mm=asesor?metMap[String(asesor.id)]:null;
+          const convPct=mm&&mm.tot?Math.round(mm.reg/mm.tot*100):0;
+          const convColor=convPct>=(CFG.metaEf||60)?'var(--green)':(convPct>0?'var(--amber)':'var(--text3)');
           return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
               <div style="width:40px;height:40px;border-radius:50%;background:var(--blueL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);border:2px solid rgba(77,142,240,.2);flex-shrink:0;font-size:14px">${initials}</div>
@@ -9884,6 +9951,12 @@ async function renderUsuarios(){
                 <div style="font-size:10px;color:var(--text3)">🕐 Última act.</div>
                 <div style="font-size:11px;font-weight:700;color:var(--text2)">${ultimaAct?ultimaAct.slice(5):'Sin ped.'}</div>
               </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface3);border-radius:7px;margin-bottom:10px" title="Pedidos brutos que este vendedor convirtió en confirmados (registrados ÷ trabajados)">
+              <span style="font-size:11px;color:var(--text3)">🎯 Conversión brutos</span>
+              <span style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${convPct}%;background:${convColor}"></span></span>
+              <span style="font-size:13px;font-weight:800;font-family:var(--mono);color:${convColor}">${convPct}%</span>
+              <span style="font-size:10px;color:var(--text3)">${mm?`${mm.reg}/${mm.tot}`:'0/0'}</span>
             </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost btn-sm" style="flex:1" onclick="abrirModalTrabajador('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">✏️ Editar acceso</button>
@@ -10004,10 +10077,12 @@ function uploadLogo(event){
   reader.readAsDataURL(file);
 }
 
-function deleteLogo(){
-  if(!confirm('¿Quitar el logo?'))return;
+async function deleteLogo(){
+  if(!confirm('¿Quitar el logo? Se mostrará el logo oficial de KONTROL.'))return;
   if(SESSION){SESSION.logoData='';WORKSPACE=SESSION;}
-  _supabase.from('workspaces').update({logo_data:''}).eq('id',SESSION?.workspace_id);
+  const{error}=await _supabase.from('workspaces').update({logo_data:null}).eq('id',SESSION?.workspace_id);
+  if(error){alert('No se pudo quitar el logo: '+error.message);return;}
+  updateFavicon('assets/logo-256.png');   // resetea el favicon al oficial
   updateSidebarLogo();renderConfig();
 }
 

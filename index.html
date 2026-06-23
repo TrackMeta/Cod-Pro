@@ -10303,6 +10303,8 @@ function renderConfig(){
 // =====================================================================
 // USUARIOS + EQUIPO — Sección unificada (admin only)
 // =====================================================================
+let usuPer='mes',usuDia='',usuDesde='',usuHasta='';
+function setUsuFiltro(k,v){if(k==='per')usuPer=v;if(k==='dia')usuDia=v;if(k==='desde')usuDesde=v;if(k==='hasta')usuHasta=v;renderUsuarios();}
 async function renderUsuarios(){
   if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador del negocio.</div>');return;}
   setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo & Usuarios</div><div class="section-sub">Accesos y delivery · las métricas y la efectividad están en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer">Conversión</a></div></div></div>
@@ -10314,16 +10316,47 @@ async function renderUsuarios(){
     const cont=document.getElementById('usuarios-workers'); if(!cont)return;
     const wList=workers||[];
     syncAsesoresConWorkers(wList);
+    // Filtro de fechas para el desglose de pago
+    let filtro;
+    if(usuPer==='dia')filtro={tipo:'custom',desde:usuDia||hoy(),hasta:usuDia||hoy()};
+    else if(usuPer==='custom')filtro={tipo:'custom',desde:usuDesde||hoy(),hasta:usuHasta||hoy()};
+    else filtro=usuPer;
+    const perLbl=usuPer==='hoy'?'hoy':usuPer==='semana'?'7 días':usuPer==='mes'?'30 días':usuPer==='dia'?(usuDia||hoy()):usuPer==='custom'?`${usuDesde||'?'} → ${usuHasta||hoy()}`:'todo el historial';
+    const pedPer=filtrarPeriodo(DB.pedidos||[],filtro);
+    // Pago por trabajador = comisión por entregas (confirmados que se entregaron) + sueldo fijo
+    const pagoDe=a=>{
+      if(!a)return {ent:0,aLima:0,aProv:0,comLima:0,comProv:0,sueldo:0,total:0};
+      const ent=pedPer.filter(p=>pedidoEsDeAsesor(p,a)&&p.estado==='entregado');
+      const aLima=ent.filter(p=>p.zona==='lima').length, aProv=ent.filter(p=>p.zona==='provincia').length;
+      const comLima=aLima*(parseFloat(a.comLima)||0), comProv=aProv*(parseFloat(a.comProv)||0), sueldo=parseFloat(a.sueldo)||0;
+      return {ent:ent.length,aLima,aProv,comLima,comProv,sueldo,total:comLima+comProv+sueldo};
+    };
+    const totalEquipo=wList.reduce((s,w)=>{const a=DB.asesores.find(x=>x.workerId===w.id);return s+pagoDe(a).total;},0);
+    const filtroBar=`<div class="fbar" style="margin-bottom:12px;align-items:flex-end;gap:8px">
+      <div class="fg-filter"><label>Pago · período</label><select onchange="setUsuFiltro('per',this.value)">
+        <option value="hoy" ${usuPer==='hoy'?'selected':''}>Hoy</option>
+        <option value="semana" ${usuPer==='semana'?'selected':''}>7 días</option>
+        <option value="mes" ${usuPer==='mes'?'selected':''}>30 días</option>
+        <option value="todo" ${usuPer==='todo'?'selected':''}>Todo</option>
+        <option value="dia" ${usuPer==='dia'?'selected':''}>📅 Día específico</option>
+        <option value="custom" ${usuPer==='custom'?'selected':''}>↔️ Rango</option>
+      </select></div>
+      ${usuPer==='dia'?`<div class="fg-filter"><label>Día</label><input type="date" value="${usuDia||hoy()}" onchange="setUsuFiltro('dia',this.value)"></div>`:''}
+      ${usuPer==='custom'?`<div class="fg-filter"><label>Desde</label><input type="date" value="${usuDesde}" onchange="setUsuFiltro('desde',this.value)"></div><div class="fg-filter"><label>Hasta</label><input type="date" value="${usuHasta||hoy()}" onchange="setUsuFiltro('hasta',this.value)"></div>`:''}
+      <div style="flex:1"></div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Total a pagar al equipo · ${perLbl}</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--red)">${fmt(totalEquipo)}</div></div>
+    </div>`;
     const workersHtml=`
     <div class="card" style="margin-top:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div>
           <div class="card-title" style="margin:0">🔑 Accesos al workspace</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:3px">${wList.length+1} usuario(s) activo(s) · solo admins ven Finanzas, Config y Dashboard</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${wList.length+1} usuario(s) · pago calculado para: <b>${perLbl}</b></div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar trabajador</button>
       </div>
-      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text"><b>Trabajadores:</b> pueden registrar pedidos, cambiar estados e imprimir rótulos. No tienen acceso a Dashboard, Finanzas, Productos ni Configuración.</div></div>
+      ${filtroBar}
+      <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text"><b>Pago</b> = comisión por cada pedido <b>confirmado que se entregó</b> (Lima/Provincia según tarifa) + sueldo fijo. Edita tarifas con <b>💰 Comisiones</b>.</div></div>
 
       <!-- Admin (tú) -->
       <div style="padding:10px 14px;background:var(--accentL);border:1px solid rgba(45,255,100,.2);border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
@@ -10340,36 +10373,27 @@ async function renderUsuarios(){
       ${wList.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
         ${wList.map(w=>{
           const asesor=DB.asesores.find(a=>a.workerId===w.id);
-          // Últimas actividad: último pedido registrado por este worker
-          const wPeds=asesor?DB.pedidos.filter(p=>pedidoEsDeAsesor(p,asesor)).slice(-1):[];
-          const ultimaAct=wPeds[0]?.fecha||null;
-          // Entregas del mes (últimos 30 días)
-          const hace30=new Date();hace30.setDate(hace30.getDate()-30);
-          const entMes=asesor?DB.pedidos.filter(p=>pedidoEsDeAsesor(p,asesor)&&p.estado==='entregado'&&p.fecha&&new Date(p.fecha+'T12:00:00')>=hace30).length:0;
           const initials=w.initials||w.name?.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()||'??';
+          const pg=pagoDe(asesor);
+          const linePago=(l,v,c)=>`<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:2px 0"><span style="color:var(--text2)">${l}</span><b class="mono"${c?` style="color:${c}"`:''}>${fmt(v)}</b></div>`;
           return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
               <div style="width:40px;height:40px;border-radius:50%;background:var(--blueL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);border:2px solid rgba(77,142,240,.2);flex-shrink:0;font-size:14px">${initials}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-weight:700;font-size:13px">${w.name||'Sin nombre'}</div>
-                <div style="font-size:11px;color:var(--text3);margin-top:1px">${asesor?`Com: S/${asesor.comLima} Lima · S/${asesor.comProv} Prov`:'Sin perfil de asesor'}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:1px">${asesor?`Com: S/${asesor.comLima} Lima · S/${asesor.comProv} Prov · Fijo S/${asesor.sueldo||0}`:'Sin perfil de asesor'}</div>
               </div>
               <span class="bdg bdg-enviado" style="font-size:10px">Trabajador</span>
             </div>
-            <div style="display:flex;gap:6px;margin-bottom:10px">
-              <div style="flex:1;text-align:center;padding:6px 4px;background:var(--surface3);border-radius:7px">
-                <div style="font-size:10px;color:var(--text3)">📦 Ent. (30d)</div>
-                <div style="font-size:16px;font-weight:700;color:var(--green)">${entMes}</div>
-              </div>
-              <div style="flex:1;text-align:center;padding:6px 4px;background:var(--surface3);border-radius:7px">
-                <div style="font-size:10px;color:var(--text3)">💰 Sueldo fijo</div>
-                <div style="font-size:14px;font-weight:700;color:var(--amber)">S/${asesor?.sueldo||0}</div>
-              </div>
-              <div style="flex:1;text-align:center;padding:6px 4px;background:var(--surface3);border-radius:7px">
-                <div style="font-size:10px;color:var(--text3)">🕐 Última act.</div>
-                <div style="font-size:11px;font-weight:700;color:var(--text2)">${ultimaAct?ultimaAct.slice(5):'Sin ped.'}</div>
-              </div>
-            </div>
+            ${asesor?`
+            <div style="padding:9px 11px;background:var(--surface3);border-radius:8px;margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--text3);margin-bottom:6px"><span>📦 Confirmados entregados (${perLbl})</span><b style="color:var(--green);font-size:15px">${pg.ent}</b></div>
+              <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Lima: <b style="color:var(--text2)">${pg.aLima}</b> · Provincia: <b style="color:var(--text2)">${pg.aProv}</b></div>
+              ${linePago(`Comisión Lima · ${pg.aLima}×S/${asesor.comLima}`,pg.comLima)}
+              ${linePago(`Comisión Prov. · ${pg.aProv}×S/${asesor.comProv}`,pg.comProv)}
+              ${linePago('Sueldo fijo',pg.sueldo,'var(--amber)')}
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border)"><b style="font-size:12.5px">Total a pagar</b><b class="mono" style="color:var(--red);font-size:16px">${fmt(pg.total)}</b></div>
+            </div>`:`<div style="font-size:11px;color:var(--text3);padding:8px 0;margin-bottom:6px">Sin perfil de comisiones. Pulsa <b>💰 Comisiones</b> para configurar tarifas y sueldo.</div>`}
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost btn-sm" style="flex:1" onclick="abrirModalTrabajador('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">✏️ Editar acceso</button>
               ${asesor?`<button class="btn btn-ghost btn-sm" onclick="openModalAsesor(${asesor.id})">💰 Comisiones</button>`:''}

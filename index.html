@@ -27,7 +27,9 @@
 #pwa-splash.hidden{opacity:0;pointer-events:none}
 </style>
 <title>KONTROL</title>
-<link id="app-favicon" rel="icon" type="image/png" href="assets/logo-256.png">
+<link id="app-favicon" rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
 <script>
 // Override favicon with custom logo if saved
 (function(){const s=localStorage.getItem('cod_logo');if(s){const l=document.getElementById('app-favicon');if(l)l.href=s;}})();
@@ -38,12 +40,16 @@
 <script>
 (function(){
   try{
-    // Apple touch icon
-    const al=document.createElement('link');al.rel='apple-touch-icon';
-    al.href=document.getElementById('app-favicon')?.href||'';
+    // Apple touch icon (full-bleed, sin esquinas transparentes → iOS lo redondea limpio)
+    const al=document.createElement('link');al.rel='apple-touch-icon';al.setAttribute('sizes','180x180');
+    al.href='assets/icon-180.png';
     document.head.appendChild(al);
-    // Inline manifest as blob
-    const icons=[{src:document.getElementById('app-favicon')?.href||'',sizes:'512x512',type:'image/png',purpose:'any maskable'}];
+    // Inline manifest as blob — "any" muestra el logo completo; "maskable" full-bleed para home-screen
+    const icons=[
+      {src:'assets/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},
+      {src:'assets/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},
+      {src:'assets/icon-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}
+    ];
     const mf={name:'KONTROL',short_name:'KONTROL',description:'Gestión COD · Perú',start_url:'./',display:'standalone',orientation:'portrait-primary',background_color:'#071212',theme_color:'#071212',icons};
     const mfBlob=new Blob([JSON.stringify(mf)],{type:'application/json'});
     const mfLink=document.createElement('link');mfLink.rel='manifest';mfLink.href=URL.createObjectURL(mfBlob);
@@ -51,7 +57,7 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v2';
+const CACHE='cod-pro-v3';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
 self.addEventListener('fetch',e=>{

@@ -5299,7 +5299,7 @@ function renderPedidos(){
   <div class="fbar">
     <div class="fg-filter">
       <label>Buscar</label>
-      <input type="text" id="f-q" placeholder="Cliente, celular, producto..." oninput="renderPedidosContent()">
+      <input type="text" id="f-q" placeholder="Cliente, celular, DNI, producto..." oninput="renderPedidosContent()">
     </div>
     <div class="fg-filter">
       <label>Estado</label>
@@ -5372,7 +5372,7 @@ function renderPedidosContent(){
   } else {
     arr=filtrarPeriodo(arr,per);
   }
-  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.campana||'').toLowerCase().includes(q));
+  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.campana||'').toLowerCase().includes(q)||(p.dni||'').toLowerCase().includes(q));
   if(est)arr=arr.filter(p=>p.estado===est);
   if(zona)arr=arr.filter(p=>p.zona===zona);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
@@ -6456,7 +6456,7 @@ function renderLima(){
   <div class="fbar">
     <div class="fg-filter">
       <label>Buscar</label>
-      <input type="text" id="lima-q" placeholder="Cliente, celular, producto..." oninput="renderLimaContent()">
+      <input type="text" id="lima-q" placeholder="Cliente, celular, DNI, producto..." oninput="renderLimaContent()">
     </div>
     <div class="fg-filter">
       <label>Estado</label>
@@ -6515,7 +6515,7 @@ function renderLimaContent(){
   } else {
     arr=filtrarPeriodo(arr,per);
   }
-  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q));
+  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.dni||'').toLowerCase().includes(q));
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('lima-view');if(!v)return;
@@ -6526,7 +6526,7 @@ function renderLimaContent(){
   const datesL=Object.keys(byDateL).sort(function(a,b){return b.localeCompare(a);});
   let limaHtml='';
   if(!arr.length){
-    limaHtml='<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>';
+    limaHtml='<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Lima</td></tr>';
   } else {
     datesL.forEach(function(dia){
       const its=byDateL[dia];
@@ -6539,7 +6539,7 @@ function renderLimaContent(){
       if(cnt.enviado)bdg.push('<span style="color:var(--purple);'+sbL+'">'+ic('truck',12)+' '+cnt.enviado+'</span>');
       if(cnt.entregado)bdg.push('<span style="color:var(--blue);'+sbL+'">'+ic('package-check',12)+' '+cnt.entregado+'</span>');
       if(cnt.devuelto+cnt.rechazado)bdg.push('<span style="color:var(--red);'+sbL+'">'+ic('undo',12)+' '+(cnt.devuelto+cnt.rechazado)+'</span>');
-      limaHtml+='<tr class="ped-date-sep"><td colspan="11"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">'+ic('calendar',13)+' '+dia+'</b><span style="color:var(--text3);font-size:11px">&#183; '+its.length+' pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">'+bdg.join('<span style="color:var(--border2);margin:0 4px">|</span>')+'<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">'+fmt(total)+'</b></div></div></td></tr>';
+      limaHtml+='<tr class="ped-date-sep"><td colspan="12"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">'+ic('calendar',13)+' '+dia+'</b><span style="color:var(--text3);font-size:11px">&#183; '+its.length+' pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">'+bdg.join('<span style="color:var(--border2);margin:0 4px">|</span>')+'<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">'+fmt(total)+'</b></div></div></td></tr>';
       its.forEach(function(p){
         const cenvDev=['devuelto','rechazado'].includes(p.estado);
         const cenvColor=p.cenvCobrado===false?'var(--green)':'var(--red)';
@@ -6559,7 +6559,8 @@ function renderLimaContent(){
           +'<td data-label="#" class="mono" style="color:var(--text3)">#'+p.id+'</td>'
           +'<td data-label="F. Registro" style="font-size:11px;white-space:nowrap">'+fmtReg(p.fechaCreado)+'</td>'
           +'<td data-label="Cliente"><div style="font-weight:600;font-size:12.5px">'+p.nombre+'</div><div style="font-size:10.5px;color:var(--text3)">'+p.celular+'</div></td>'
-          +'<td data-label="Producto" style="font-size:12px">'+p.producto+' <span style="color:var(--text3)">\xD7'+p.cantidad+'</span></td>'
+          +'<td data-label="Producto" style="font-size:12px">'+pedidoProductoMain(p)+'</td>'
+          +'<td data-label="Upsell / Order Bump" style="font-size:12px">'+(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':'<span style="color:var(--text3)">—</span>';})()+'</td>'
           +'<td data-label="Distrito" style="color:var(--text2);font-size:12px">'+(p.dist||'-')+'</td>'
           +'<td data-label="F. Entrega" style="font-size:11.5px;color:'+felColor+';font-weight:'+felWeight+'">'+(p.fechaEntregaLima||'—')+'</td>'
           +'<td data-label="Precio" class="mono" style="font-weight:700">'+fmt(p.precio)+'</td>'
@@ -6593,7 +6594,7 @@ function renderLimaContent(){
       });
     });
   }
-  v.innerHTML='<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
+  v.innerHTML='<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Upsell / Order Bump</th><th>Dist.</th><th>F. Entrega</th><th>Precio</th><th>Delivery</th><th>C.Env\xEDo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+limaHtml+'</tbody></table></div>';
 }
 
 function openCourier(id){
@@ -6682,7 +6683,7 @@ function renderProvincia(){
   <div class="fbar">
     <div class="fg-filter">
       <label>Buscar</label>
-      <input type="text" id="prov-q" placeholder="Cliente, celular, provincia, # orden, código, clave..." oninput="renderProvinciaContent()">
+      <input type="text" id="prov-q" placeholder="Cliente, celular, DNI, provincia, # orden, código, clave..." oninput="renderProvinciaContent()">
     </div>
     <div class="fg-filter">
       <label>Estado</label>
@@ -6741,7 +6742,7 @@ function renderProvinciaContent(){
   } else {
     arr=filtrarPeriodo(arr,per);
   }
-  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.prov||'').toLowerCase().includes(q)||(p.numOrden||'').toLowerCase().includes(q)||(p.codigoEnvio||'').toLowerCase().includes(q)||(p.clave||'').toLowerCase().includes(q));
+  if(q)arr=arr.filter(p=>(p.nombre||'').toLowerCase().includes(q)||(p.celular||'').includes(q)||(p.producto||'').toLowerCase().includes(q)||(p.prov||'').toLowerCase().includes(q)||(p.numOrden||'').toLowerCase().includes(q)||(p.codigoEnvio||'').toLowerCase().includes(q)||(p.clave||'').toLowerCase().includes(q)||(p.dni||'').toLowerCase().includes(q));
   if(est)arr=arr.filter(p=>p.estado===est);
   arr.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)||b.id-a.id);
   const v=document.getElementById('prov-view');if(!v)return;
@@ -6762,7 +6763,7 @@ function renderProvinciaContent(){
       cnt.entregado?`<span style="color:var(--blue);${sbP}">${ic('package-check',12)} ${cnt.entregado}</span>`:'',
       (cnt.devuelto+cnt.rechazado)>0?`<span style="color:var(--red);${sbP}">${ic('undo',12)} ${cnt.devuelto+cnt.rechazado}</span>`:''
     ].filter(Boolean).join('<span style="color:var(--border2);margin:0 4px">|</span>');
-    const sepRow=`<tr class="ped-date-sep"><td colspan="13"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">${ic('calendar',13)} ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
+    const sepRow=`<tr class="ped-date-sep"><td colspan="14"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;display:inline-flex;align-items:center;gap:5px">${ic('calendar',13)} ${dia}</b><span style="color:var(--text3);font-size:11px">· ${its.length} pedido(s)</span></div><div style="display:flex;gap:8px;align-items:center">${badges}<b class="mono" style="color:var(--green);font-size:12px;margin-left:4px">${fmt(total)}</b>${adelantoTotal>0?`<span class="mono" style="color:var(--accent);font-size:11px">Adel. ${fmt(adelantoTotal)}</span>`:''}</div></div></td></tr>`;
     const rows=its.map(p=>{
       const entregado=p.estado==='entregado';
       const hD=new Date(hoy()+'T12:00:00');
@@ -6782,7 +6783,8 @@ function renderProvinciaContent(){
     <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}${urgente&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--red)">${diasT}d ⚠️</span>`:advertencia&&!entregado?`<br><span style="font-size:9px;font-weight:700;color:var(--amber)">${diasT}d</span>`:''}</td>
     <td data-label="F. Registro" style="font-size:11px;white-space:nowrap">${fmtReg(p.fechaCreado)}</td>
     <td data-label="Cliente"><div style="font-weight:600;font-size:12.5px">${p.nombre}</div><div style="font-size:10.5px;color:var(--text3)">${p.celular}</div></td>
-    <td data-label="Producto" style="font-size:12px">${p.producto} <span style="color:var(--text3)">×${p.cantidad}</span></td>
+    <td data-label="Producto" style="font-size:12px">${pedidoProductoMain(p)}</td>
+    <td data-label="Upsell / Order Bump" style="font-size:12px">${(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':'<span style="color:var(--text3)">—</span>';})()}</td>
     <td data-label="Provincia" style="color:var(--text2);font-size:12px">${p.prov||'-'}</td>
     <td data-label="Sede" style="color:var(--text2);font-size:11.5px">${p.sede||'-'}</td>
     <td data-label="Tracking" style="white-space:nowrap;background:${cellBg}">${trackingCell}</td>
@@ -6814,8 +6816,8 @@ function renderProvinciaContent(){
     </div></td>
   </tr>`;}).join('');
     return sepRow+rows;
-  }).join(''):`<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
-  v.innerHTML=`<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316"><span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Tracking</span></th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)"><span style="display:inline-flex;align-items:center;gap:4px">${ic('key',12)} Clave</span></th><th>Estado</th><th>Acciones</th></tr></thead>
+  }).join(''):`<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos Provincia</td></tr>`;
+  v.innerHTML=`<div class="tw ts tw-cards"><table><thead><tr><th>#</th><th>F. Registro</th><th>Cliente</th><th>Producto</th><th>Upsell / Order Bump</th><th>Prov.</th><th>Sede</th><th style="background:rgba(249,115,22,.15);color:#f97316"><span style="display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Tracking</span></th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th style="background:rgba(155,110,240,.15);color:var(--purple)"><span style="display:inline-flex;align-items:center;gap:4px">${ic('key',12)} Clave</span></th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${provBody}</tbody></table></div>`;
 }
 
@@ -7856,6 +7858,12 @@ function renderUpsells(){
       ${costoU>0?`
       <div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Costo</span><span class="fr-val" style="color:var(--red)">${fmt(costoU)}</span></div>
       <div class="fr" style="padding:5px 0"><span class="fr-label">${ic('sparkle',13)} Ganancia / u.</span><span class="fr-val" style="color:var(--accent)">${fmt(gananciaU)} <span style="font-size:10.5px;opacity:.7">(${margenU.toFixed(0)}%)</span></span></div>`:''}
+
+      ${(function(){
+        const pv=u.productoId?(DB.productos||[]).find(x=>x.id===u.productoId):null;
+        if(pv){const bajo=pv.stock<=(pv.stockMin||5);return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="display:inline-flex;align-items:center;gap:6px"><span style="color:${bajo?'var(--red)':'var(--text)'};font-weight:700">${pv.stock} u.</span><button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Gestionar stock de '${(pv.nombre||'').replace(/'/g,"")}' en Catálogo">${ic('pencil',11)} Stock</button></span></div><div style="font-size:10px;color:var(--text3);margin-top:-2px;margin-bottom:4px">Vinculado a: ${pv.nombre}</div>`;}
+        return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="font-size:11px;color:var(--text3)">Sin vínculo · <a onclick="openModalUpsell(${u.id})" style="color:var(--accent);cursor:pointer;text-decoration:underline">vincular producto</a></span></div>`;
+      })()}
 
       <div style="height:1px;background:var(--border);margin:10px 0"></div>
 

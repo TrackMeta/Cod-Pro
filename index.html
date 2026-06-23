@@ -4894,22 +4894,27 @@ async function intgGuardarTelegram(btn){
   if(_intg){_intg.telegram_token=tk;_intg.telegram_chat_id=ch;}
   if(btn){const t=btn.innerHTML;btn.innerHTML='✓ Guardado';setTimeout(()=>btn.innerHTML=t,1500);}
 }
+// Lee el chat_id del último mensaje que alguien le envió al bot (getUpdates).
+// Devuelve {id, quien} o null. Es lo mismo que hacen "por debajo" las apps que
+// "solo piden token": capturan el chat la primera vez que le escribes al bot.
+async function tgAutoChat(tk){
+  const r=await fetch('https://api.telegram.org/bot'+encodeURIComponent(tk)+'/getUpdates');
+  const j=await r.json().catch(()=>({}));
+  if(!j.ok){return {error:j.description||'token inválido'};}
+  const ups=j.result||[];
+  for(let i=ups.length-1;i>=0;i--){const u=ups[i];const m=u.message||u.edited_message||u.channel_post||u.my_chat_member;if(m&&m.chat){const c=m.chat;return {id:String(c.id),quien:c.title||[c.first_name,c.last_name].filter(Boolean).join(' ')||(c.username?'@'+c.username:'chat '+c.id)};}}
+  return null;
+}
 async function intgDetectarChatId(btn){
   const tk=(document.getElementById('intg-tg-token')?.value||'').trim();
   if(!tk){alert('Primero pega el Bot token (te lo da @BotFather).');return;}
   if(!confirm('Para detectar tu Chat ID:\n\n1. Abre Telegram y busca tu bot.\n2. Envíale cualquier mensaje (por ejemplo /start).\n3. Vuelve aquí y pulsa Aceptar.\n\n¿Ya le enviaste un mensaje al bot?'))return;
   const t0=btn?btn.innerHTML:''; if(btn)btn.innerHTML='Detectando…';
   try{
-    const r=await fetch('https://api.telegram.org/bot'+encodeURIComponent(tk)+'/getUpdates');
-    const j=await r.json().catch(()=>({}));
-    if(!j.ok){alert('⚠ Telegram: '+(j.description||'token inválido')+'\n\nVerifica el bot token con @BotFather.');if(btn)btn.innerHTML=t0;return;}
-    const ups=j.result||[];
-    let chat=null;
-    for(let i=ups.length-1;i>=0;i--){const u=ups[i];const m=u.message||u.edited_message||u.channel_post||u.my_chat_member;if(m&&m.chat){chat=m.chat;break;}}
-    if(!chat){alert('No encontré mensajes recientes.\n\n• Envíale un mensaje al bot (ej. /start) y vuelve a intentar.\n• Si el bot tiene un webhook configurado, Telegram no devuelve estos mensajes (este aviso no usa webhook, así que normalmente está bien).');if(btn)btn.innerHTML=t0;return;}
-    const inp=document.getElementById('intg-tg-chat'); if(inp)inp.value=String(chat.id);
-    const quien=chat.title||[chat.first_name,chat.last_name].filter(Boolean).join(' ')||(chat.username?'@'+chat.username:'chat '+chat.id);
-    alert('✓ Chat ID detectado: '+chat.id+'\nDestino: '+quien+'\n\nAhora pulsa "Guardar" y luego "Enviar prueba".');
+    const res=await tgAutoChat(tk);
+    if(res&&res.error){alert('⚠ Telegram: '+res.error+'\n\nVerifica el bot token con @BotFather.');}
+    else if(!res){alert('No encontré mensajes recientes.\n\n• Envíale un mensaje al bot (ej. /start) y vuelve a intentar.\n• Si el bot tiene un webhook configurado, Telegram no devuelve estos mensajes (este aviso no usa webhook, así que normalmente está bien).');}
+    else{const inp=document.getElementById('intg-tg-chat'); if(inp)inp.value=res.id; alert('✓ Chat ID detectado: '+res.id+'\nDestino: '+res.quien+'\n\nAhora pulsa "Guardar" y luego "Enviar prueba".');}
   }catch(e){alert('⚠ No se pudo consultar Telegram: '+(e.message||e));}
   if(btn)btn.innerHTML=t0;
 }
@@ -4917,8 +4922,16 @@ async function intgProbarTelegram(btn){
   if(!_intg)return; const t0=btn?btn.innerHTML:''; if(btn)btn.innerHTML='Enviando…';
   // Guarda primero el token/chat ID que estén en pantalla (el test los lee de la BD).
   const tk=(document.getElementById('intg-tg-token')?.value||'').trim();
-  const ch=(document.getElementById('intg-tg-chat')?.value||'').trim();
-  if(!tk||!ch){alert('Completa el Bot token y el Chat ID antes de probar.\n\n• Bot token: te lo da @BotFather al crear el bot.\n• Chat ID: es OBLIGATORIO; indica a QUIÉN enviar. Obtenlo escribiéndole a @userinfobot (tu ID personal) o agregando el bot a un grupo. Sin Chat ID, Telegram no sabe a dónde mandar el mensaje.');if(btn)btn.innerHTML=t0;return;}
+  let ch=(document.getElementById('intg-tg-chat')?.value||'').trim();
+  if(!tk){alert('Pega el Bot token (te lo da @BotFather) antes de probar.');if(btn)btn.innerHTML=t0;return;}
+  // Si no hay Chat ID, intenta capturarlo solo (igual que "Detectar"): requiere
+  // que ya le hayas escrito un mensaje al bot.
+  if(!ch){
+    try{const res=await tgAutoChat(tk);
+      if(res&&res.id){ch=res.id;const inp=document.getElementById('intg-tg-chat');if(inp)inp.value=ch;}
+    }catch(_){}
+  }
+  if(!ch){alert('Falta el Chat ID y no pude detectarlo.\n\nEscríbele cualquier mensaje a tu bot en Telegram (ej. /start) y vuelve a pulsar "Enviar prueba". Telegram obliga a que le hables al bot una vez antes de que pueda enviarte mensajes.');if(btn)btn.innerHTML=t0;return;}
   await _supabase.from('integraciones').update({telegram_token:tk,telegram_chat_id:ch}).eq('workspace_id',SESSION.workspace_id);
   if(_intg){_intg.telegram_token=tk;_intg.telegram_chat_id=ch;}
   try{

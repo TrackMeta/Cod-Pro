@@ -3227,6 +3227,8 @@ async function doLogout(){
   sessionStorage.removeItem('sa_viewing_ws');
   await _supabase.auth.signOut();
   SESSION=null;WORKSPACE=null;
+  // Limpia cachés por-negocio para que no se filtren si otro admin inicia sesión en esta pestaña
+  _intg=null;_syncToken=null;_tgCreds=undefined;_brutosCache={};_brutoEnRegistro=null;
   DB={pedidos:[],asesores:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';

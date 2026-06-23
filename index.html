@@ -57,7 +57,7 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v3';
+const CACHE='cod-pro-v4';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
 self.addEventListener('fetch',e=>{
@@ -894,12 +894,12 @@ td{padding:11px 14px;font-size:13px}
   LOGIN
 ====================================================== -->
 <!-- PWA Splash Screen -->
-<div id="pwa-splash"><img src="assets/logo-256.png" alt="KONTROL"><div class="splash-name">COD PRO</div><div class="splash-sub">Gestión COD · Perú</div></div>
+<div id="pwa-splash"><img src="assets/logo-512.png" alt="KONTROL"><div class="splash-name">KONTROL</div><div class="splash-sub">Gestión COD · Perú</div></div>
 
 <div id="login-screen">
   <div class="login-card">
     <div class="login-brand">
-      <div class="login-brand-icon" style="background:transparent;padding:0;box-shadow:none"><img src="assets/logo-256.png" style="width:46px;height:46px;object-fit:contain;border-radius:12px" alt="KONTROL"></div>
+      <div class="login-brand-icon" style="background:transparent;padding:0;box-shadow:none"><img src="assets/logo-512.png" style="width:46px;height:46px;object-fit:contain" alt="KONTROL"></div>
       <div class="login-brand-text">KON<span>TROL</span></div>
     </div>
     <div class="login-subtitle">Gestión COD · Perú</div>

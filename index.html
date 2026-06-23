@@ -5204,35 +5204,112 @@ async function intgProbarTelegram(btn){
 // =====================================================================
 // CONVERSIÓN — embudo de validación + ranking de vendedores (admin)
 // =====================================================================
+let convPer='todo',convDesde='',convHasta='';
+function setConvFiltro(k,v){if(k==='per')convPer=v;if(k==='desde')convDesde=v;if(k==='hasta')convHasta=v;renderConversion();}
 async function renderConversion(){
   if(!isAdmin()){setContent('<div class="abox abox-red"><span class="abox-icon">'+ic('x-circle',18)+'</span><div class="abox-text">Solo administradores.</div></div>');return;}
   const ws=SESSION?.workspace_id; if(!ws)return;
-  setContent(`<div class="section-header"><div><div class="section-title">Conversión</div><div class="section-sub">Embudo de validación y rendimiento por vendedor</div></div>
-    <div class="section-actions"><button class="btn btn-ghost btn-sm" onclick="renderConversion()">${ic('repeat',14)} Actualizar</button></div></div>
-    <div id="conv-funnel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
-    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('trophy',16)} Ranking de vendedores</div>
-    <div id="conv-ranking"><div style="padding:24px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
-  // Embudo (brutos_counts)
+  const filtro=convPer==='custom'?{tipo:'custom',desde:convDesde,hasta:convHasta||hoy()}:convPer;
+  const perLbl=convPer==='mes'?'30 días':convPer==='semana'?'7 días':convPer==='hoy'?'hoy':convPer==='custom'?`${convDesde||'?'} → ${convHasta||hoy()}`:'todo';
+  const th='padding:9px 11px;text-align:left;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap';
+  const td='padding:9px 11px;border-top:1px solid var(--border);font-size:13px';
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('trending-up',20)} Conversión & Rendimiento</div><div class="section-sub">Métricas del negocio, vendedores y couriers · entregas: ${perLbl}</div></div>
+    <div class="section-actions" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <div class="fg-filter"><label>Período (entregas)</label><select onchange="setConvFiltro('per',this.value)">
+        <option value="hoy" ${convPer==='hoy'?'selected':''}>Hoy</option>
+        <option value="semana" ${convPer==='semana'?'selected':''}>7 días</option>
+        <option value="mes" ${convPer==='mes'?'selected':''}>30 días</option>
+        <option value="todo" ${convPer==='todo'?'selected':''}>Todo</option>
+        <option value="custom" ${convPer==='custom'?'selected':''}>↔️ Rango</option>
+      </select></div>
+      ${convPer==='custom'?`<div class="fg-filter"><label>Desde</label><input type="date" value="${convDesde}" onchange="setConvFiltro('desde',this.value)"></div><div class="fg-filter"><label>Hasta</label><input type="date" value="${convHasta||hoy()}" onchange="setConvFiltro('hasta',this.value)"></div>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="renderConversion()">${ic('repeat',14)} Actualizar</button>
+    </div></div>
+    <div class="section-title" style="font-size:14px;margin:2px 0 8px;display:inline-flex;align-items:center;gap:6px">${ic('inbox',15)} Conversión global del negocio <span style="font-size:10.5px;color:var(--text3);font-weight:500;text-transform:none;letter-spacing:0">(brutos → confirmados, histórico)</span></div>
+    <div id="conv-global" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px"><div style="padding:14px;color:var(--text3)">Cargando…</div></div>
+    <div class="section-title" style="font-size:14px;margin:2px 0 8px;display:inline-flex;align-items:center;gap:6px">${ic('dashboard',15)} Efectividad por vendedor</div>
+    <div id="conv-vend"><div style="padding:20px;text-align:center;color:var(--text3)">Cargando…</div></div>
+    <div class="section-title" style="font-size:14px;margin:18px 0 8px;display:inline-flex;align-items:center;gap:6px">${ic('bike',15)} Efectividad de couriers <span style="font-size:10.5px;color:var(--text3);font-weight:500;text-transform:none;letter-spacing:0">(delivery Lima · período: ${perLbl})</span></div>
+    <div id="conv-courier"></div>`);
+
+  const todos=filtrarPeriodo(DB.pedidos||[],filtro);
+  const _avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:null;
+
+  // ── 1) Conversión global del negocio (brutos) ──
   let counts={};
   try{const{data}=await _supabase.rpc('brutos_counts',{p_ws:ws});(data||[]).forEach(r=>{counts[r.estado]=Number(r.n);});}catch(_){}
-  const total=Object.values(counts).reduce((s,v)=>s+v,0);
+  const totalB=Object.values(counts).reduce((s,v)=>s+v,0);
   const reg=counts.registrado||0, rech=counts.rechazado||0, perd=counts.perdido||0;
-  const pend=total-reg-rech-perd;
-  const card=(l,v,c)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:25px;font-weight:800;font-family:var(--mono);color:${c||'var(--text)'};margin-top:4px">${v}</div></div>`;
-  const f=document.getElementById('conv-funnel');
-  if(f)f.innerHTML=card('Brutos totales',total)+card('Confirmados',reg,'var(--green)')+card('Tasa confirmación',(total?Math.round(reg/total*100):0)+'%','var(--accent)')+card('Tasa rechazo',(total?Math.round(rech/total*100):0)+'%','var(--red)')+card('Pendientes',pend,'var(--amber)');
-  // Ranking (brutos_metricas)
-  const box=document.getElementById('conv-ranking'); if(!box)return;
-  let met=[];
-  try{const{data,error}=await _supabase.rpc('brutos_metricas',{p_ws:ws});if(error)throw error;met=data||[];}
-  catch(e){box.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar el ranking.<br><span style="color:var(--text3)">¿Ejecutaste <b>sql/03_metricas.sql</b>? · ${escB(e.message||e)}</span></div></div>`;return;}
-  const rows=met.filter(m=>m.asesor_id).map(m=>{const r=Number(m.registrados),tot=Number(m.total);return {nombre:brutoNombreAsesor(m.asesor_id),reg:r,rech:Number(m.rechazados),tot,ef:tot?Math.round(r/tot*100):0};}).sort((a,b)=>b.ef-a.ef||b.reg-a.reg);
-  if(!rows.length){box.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3)">Aún no hay pedidos asignados a vendedores.</div>';return;}
-  const th='padding:9px 11px;text-align:left;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em';
-  const td='padding:9px 11px;border-top:1px solid var(--border);font-size:13px';
-  box.innerHTML=`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse">
-    <thead><tr><th style="${th}">#</th><th style="${th}">Vendedor</th><th style="${th};text-align:right">Confirmados</th><th style="${th};text-align:right">Rechazados</th><th style="${th};text-align:right">Trabajados</th><th style="${th};text-align:right">Efectividad</th></tr></thead>
-    <tbody>${rows.map((r,i)=>`<tr><td style="${td};color:var(--text3)">${i+1}</td><td style="${td};font-weight:600">${r.nombre}</td><td style="${td};text-align:right;color:var(--green);font-family:var(--mono)">${r.reg}</td><td style="${td};text-align:right;color:var(--red);font-family:var(--mono)">${r.rech}</td><td style="${td};text-align:right;font-family:var(--mono)">${r.tot}</td><td style="${td};text-align:right;font-weight:700;font-family:var(--mono);color:var(--accent)">${r.ef}%</td></tr>`).join('')}</tbody></table></div>`;
+  const pend=totalB-reg-rech-perd;
+  // Métricas de brutos por vendedor + 1ª respuesta (muestra reciente)
+  let metMap={},respByAsesor={},respGlobal=[];
+  try{const{data:met}=await _supabase.rpc('brutos_metricas',{p_ws:ws});(met||[]).forEach(m=>{if(m.asesor_id)metMap[String(m.asesor_id)]={reg:Number(m.registrados),tot:Number(m.total)};});}catch(_){}
+  try{
+    const{data:sample}=await _supabase.from('pedidos_brutos').select('asesor_id,created_at,historial').eq('workspace_id',ws).order('created_at',{ascending:false}).limit(1500);
+    (sample||[]).forEach(b=>{const hist=Array.isArray(b.historial)?b.historial:[];const tom=hist.find(h=>h.accion==='tomado'||h.accion==='asignado');if(tom&&tom.ts&&b.created_at){const ms=new Date(tom.ts).getTime()-new Date(b.created_at).getTime();if(ms>=0&&ms<1000*60*60*24*14){respGlobal.push(ms);const aid=String(tom.asesor_id||b.asesor_id||'');if(aid)(respByAsesor[aid]=respByAsesor[aid]||[]).push(ms);}}});
+  }catch(_){}
+  const gResp=_avg(respGlobal);
+  const gcard=(l,v,c,sub)=>`<div style="flex:1;min-width:120px;padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:${c||'var(--text)'};margin-top:3px">${v}</div>${sub?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${sub}</div>`:''}</div>`;
+  const g=document.getElementById('conv-global');
+  if(g)g.innerHTML=gcard('Pedidos ingresados',totalB.toLocaleString('es-PE'))
+    +gcard('Confirmados',reg.toLocaleString('es-PE'),'var(--green)')
+    +gcard('Conversión global',(totalB?Math.round(reg/totalB*100):0)+'%','var(--accent)','confirmados ÷ ingresados')
+    +gcard('Tasa rechazo',(totalB?Math.round(rech/totalB*100):0)+'%','var(--red)')
+    +gcard('Pendientes',pend.toLocaleString('es-PE'),'var(--amber)')
+    +gcard('1ª respuesta prom.',gResp!=null?brutoFmtDur(gResp):'—','var(--amber)','tiempo en tomar el lead');
+
+  // ── 2) Efectividad por vendedor (2 métricas distintas) ──
+  const vbox=document.getElementById('conv-vend');
+  const vrows=(DB.asesores||[]).map(a=>{
+    const mm=metMap[String(a.id)]||{reg:0,tot:0};
+    const t2c=mm.tot?Math.round(mm.reg/mm.tot*100):0;                 // Brutos tomados → Confirmados
+    const aPeds=todos.filter(p=>pedidoEsDeAsesor(p,a));
+    const aEnt=aPeds.filter(p=>p.estado==='entregado');
+    const c2e=aPeds.length?Math.round(aEnt.length/aPeds.length*100):0; // Confirmados → Entregados
+    const aLima=aEnt.filter(p=>p.zona==='lima').length, aProv=aEnt.filter(p=>p.zona==='provincia').length;
+    const rb=respByAsesor[String(a.id)]; const resp=rb&&rb.length?_avg(rb):null;
+    return {nombre:a.nombre,tom:mm.tot,conf:mm.reg,t2c,ped:aPeds.length,ent:aEnt.length,c2e,aLima,aProv,resp};
+  }).filter(r=>r.tom>0||r.ped>0).sort((a,b)=>b.t2c-a.t2c||b.conf-a.conf);
+  const colr=p=>p>=(CFG.metaEf||60)?'var(--green)':(p>0?'var(--amber)':'var(--text3)');
+  if(vbox){
+    vbox.innerHTML=vrows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${th}">Vendedor</th>
+        <th style="${th};text-align:right" title="De los brutos que tomó, cuántos confirmó">Tomados→Conf.</th>
+        <th style="${th};text-align:right" title="De los pedidos que confirmó, cuántos se entregaron">Conf.→Entreg.</th>
+        <th style="${th};text-align:right">Entregas L/P</th>
+        <th style="${th};text-align:right">⏱ 1ª resp.</th></tr></thead>
+      <tbody>${vrows.map(r=>`<tr>
+        <td style="${td};font-weight:600">${escB(r.nombre)}</td>
+        <td style="${td};text-align:right"><b style="color:${colr(r.t2c)};font-family:var(--mono)">${r.t2c}%</b> <span style="color:var(--text3);font-size:11px">${r.conf}/${r.tom}</span></td>
+        <td style="${td};text-align:right"><b style="color:${colr(r.c2e)};font-family:var(--mono)">${r.c2e}%</b> <span style="color:var(--text3);font-size:11px">${r.ent}/${r.ped}</span></td>
+        <td style="${td};text-align:right;font-family:var(--mono)">${r.aLima} / ${r.aProv}</td>
+        <td style="${td};text-align:right;font-family:var(--mono);color:var(--text2)">${r.resp!=null?brutoFmtDur(r.resp):'—'}</td>
+      </tr>`).join('')}</tbody></table></div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:6px"><b>Tomados→Confirmados</b>: histórico de brutos (requiere <code>sql/03_metricas.sql</code>). <b>Confirmados→Entregados</b> y <b>Entregas</b>: período seleccionado.</div>`
+      :'<div class="card"><div style="padding:24px;text-align:center;color:var(--text3)">Sin actividad de vendedores todavía.</div></div>';
+  }
+
+  // ── 3) Efectividad de couriers (delivery Lima) ──
+  const cbox=document.getElementById('conv-courier');
+  const crows=(DB.deliveries||[]).map(d=>{
+    const dPeds=todos.filter(p=>p.courier===d.nombre);
+    const dEnt=dPeds.filter(p=>p.estado==='entregado').length;
+    const dDev=dPeds.filter(p=>p.estado==='devuelto').length;
+    const ef=dPeds.length?Math.round(dEnt/dPeds.length*100):0;
+    return {nombre:d.nombre,ped:dPeds.length,ent:dEnt,dev:dDev,ef};
+  }).sort((a,b)=>b.ef-a.ef);
+  if(cbox){
+    cbox.innerHTML=crows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${th}">Courier</th><th style="${th};text-align:right">Pedidos</th><th style="${th};text-align:right">Entregados</th><th style="${th};text-align:right">Devueltos</th><th style="${th};text-align:right">Efectividad</th></tr></thead>
+      <tbody>${crows.map(r=>`<tr>
+        <td style="${td};font-weight:600">${escB(r.nombre)}</td>
+        <td style="${td};text-align:right;font-family:var(--mono)">${r.ped}</td>
+        <td style="${td};text-align:right;font-family:var(--mono);color:var(--green)">${r.ent}</td>
+        <td style="${td};text-align:right;font-family:var(--mono);color:var(--red)">${r.dev}</td>
+        <td style="${td};text-align:right"><b style="font-family:var(--mono);color:${r.ef>=75?'var(--green)':r.ef>=50?'var(--amber)':'var(--red)'}">${r.ef}%</b></td>
+      </tr>`).join('')}</tbody></table></div>`
+      :'<div class="card"><div style="padding:24px;text-align:center;color:var(--text3)">Sin couriers registrados. Agrégalos en Equipo & Usuarios.</div></div>';
+  }
 }
 
 // =====================================================================
@@ -8401,7 +8478,7 @@ function setComFiltro(key,val){
   if(key==='per')comPer=val;
   if(key==='desde')comDesde=val;
   if(key==='hasta')comHasta=val;
-  renderComisiones();
+  renderUsuarios();
 }
 
 function renderComisiones(){
@@ -8600,12 +8677,12 @@ function guardarDelivery(){
   if(!d.nombre){alert('El nombre es obligatorio');return;}
   if(id){const idx=DB.deliveries.findIndex(x=>x.id===parseInt(id));DB.deliveries[idx]=d;}
   else DB.deliveries.push(d);
-  save();closeModal('modal-delivery');renderComisiones();
+  save();closeModal('modal-delivery');renderUsuarios();
 }
 function eliminarDelivery(id){
   if(!confirm('¿Eliminar este delivery?'))return;
   DB.deliveries=DB.deliveries.filter(x=>x.id!==id);
-  save();renderComisiones();
+  save();renderUsuarios();
 }
 
 function openModalAsesor(id){
@@ -8618,9 +8695,9 @@ function guardarAsesor(){
   const id=document.getElementById('a-id').value;
   const a={id:id?parseFloat(id):Math.floor(Date.now()+Math.random()*1000),nombre:document.getElementById('a-nombre').value,comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
   if(id){const idx=DB.asesores.findIndex(x=>String(x.id)===String(id));if(idx>=0){a.workerId=DB.asesores[idx].workerId;DB.asesores[idx]=a;}}else DB.asesores.push(a);
-  save();closeModal('modal-asesor');renderComisiones();
+  save();closeModal('modal-asesor');renderUsuarios();
 }
-function eliminarAsesor(id){if(!confirm('¿Eliminar?'))return;DB.asesores=DB.asesores.filter(x=>x.id!==id);save();renderComisiones();}
+function eliminarAsesor(id){if(!confirm('¿Eliminar?'))return;DB.asesores=DB.asesores.filter(x=>x.id!==id);save();renderUsuarios();}
 
 // =====================================================================
 // SHALOM
@@ -10228,50 +10305,15 @@ function renderConfig(){
 // =====================================================================
 async function renderUsuarios(){
   if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador del negocio.</div>');return;}
-  // Render equipo (deliveries + vendedores) sync first
-  renderComisiones();
-  // Then load and append workers section async
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo & Usuarios</div><div class="section-sub">Accesos y delivery · las métricas y la efectividad están en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer">Conversión</a></div></div></div>
+    <div id="usuarios-deliveries"></div>
+    <div id="usuarios-workers"><div style="padding:24px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
+  renderDeliveriesCard();
   try{
     const{data:workers}=await _supabase.from('user_profiles').select('*').eq('workspace_id',SESSION.workspace_id).neq('id',SESSION.id);
-    // Check we're still on this page
-    const ca=document.getElementById('content-area');
-    const stillHere=ca&&ca.querySelector('.section-title')?.textContent?.includes('Equipo');
-    if(!ca||!stillHere)return;
+    const cont=document.getElementById('usuarios-workers'); if(!cont)return;
     const wList=workers||[];
-    // Sync asesores/vendedores with workspace workers automatically
     syncAsesoresConWorkers(wList);
-    // Conversión de brutos por vendedor (registrados / total trabajado)
-    let metMap={};
-    try{const{data:met}=await _supabase.rpc('brutos_metricas',{p_ws:SESSION.workspace_id});(met||[]).forEach(m=>{if(m.asesor_id)metMap[String(m.asesor_id)]={reg:Number(m.registrados),rech:Number(m.rechazados),tot:Number(m.total)};});}catch(_){}
-    // Métricas GLOBALES (ingresados/confirmados/conversión) vía contadores
-    let gIng=0,gConf=0;
-    try{const{data:cnt}=await _supabase.rpc('brutos_counts',{p_ws:SESSION.workspace_id});(cnt||[]).forEach(c=>{gIng+=Number(c.n);if(c.estado==='registrado')gConf+=Number(c.n);});}catch(_){}
-    const gConv=gIng?Math.round(gConf/gIng*100):0;
-    // Tiempo de 1ª respuesta (muestra reciente, sin SQL nuevo): created_at → primer "tomado/asignado"
-    const _avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:null;
-    let respGlobal=[],respByAsesor={};
-    try{
-      const{data:sample}=await _supabase.from('pedidos_brutos').select('asesor_id,created_at,historial').eq('workspace_id',SESSION.workspace_id).order('created_at',{ascending:false}).limit(1500);
-      (sample||[]).forEach(b=>{
-        const hist=Array.isArray(b.historial)?b.historial:[];
-        const tom=hist.find(h=>h.accion==='tomado'||h.accion==='asignado');
-        if(tom&&tom.ts&&b.created_at){
-          const ms=new Date(tom.ts).getTime()-new Date(b.created_at).getTime();
-          if(ms>=0&&ms<1000*60*60*24*14){respGlobal.push(ms);const aid=String(tom.asesor_id||b.asesor_id||'');if(aid)(respByAsesor[aid]=respByAsesor[aid]||[]).push(ms);}
-        }
-      });
-    }catch(_){}
-    const gResp=_avg(respGlobal);
-    const gcard=(l,v,c)=>`<div style="flex:1;min-width:118px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:21px;font-weight:800;font-family:var(--mono);color:${c||'var(--text)'};margin-top:3px">${v}</div></div>`;
-    const globalHtml=`<div class="card" style="margin-top:14px"><div class="card-title">${ic('trending-up',13)} Conversión global del negocio</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-        ${gcard('Pedidos ingresados',gIng.toLocaleString('es-PE'))}
-        ${gcard('Confirmados',gConf.toLocaleString('es-PE'),'var(--green)')}
-        ${gcard('Conversión global',gConv+'%','var(--accent)')}
-        ${gcard('1ª respuesta prom.',gResp!=null?brutoFmtDur(gResp):'—','var(--amber)')}
-      </div>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">El tiempo de 1ª respuesta se calcula sobre la actividad reciente (últimos ${respGlobal.length} leads tomados).</div></div>`;
-    // Para cada worker, buscar su asesor vinculado y últimos pedidos
     const workersHtml=`
     <div class="card" style="margin-top:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
@@ -10305,11 +10347,6 @@ async function renderUsuarios(){
           const hace30=new Date();hace30.setDate(hace30.getDate()-30);
           const entMes=asesor?DB.pedidos.filter(p=>pedidoEsDeAsesor(p,asesor)&&p.estado==='entregado'&&p.fecha&&new Date(p.fecha+'T12:00:00')>=hace30).length:0;
           const initials=w.initials||w.name?.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()||'??';
-          const mm=asesor?metMap[String(asesor.id)]:null;
-          const convPct=mm&&mm.tot?Math.round(mm.reg/mm.tot*100):0;
-          const convColor=convPct>=(CFG.metaEf||60)?'var(--green)':(convPct>0?'var(--amber)':'var(--text3)');
-          const rb=asesor?respByAsesor[String(asesor.id)]:null;
-          const wResp=rb&&rb.length?_avg(rb):null;
           return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
               <div style="width:40px;height:40px;border-radius:50%;background:var(--blueL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);border:2px solid rgba(77,142,240,.2);flex-shrink:0;font-size:14px">${initials}</div>
@@ -10333,18 +10370,6 @@ async function renderUsuarios(){
                 <div style="font-size:11px;font-weight:700;color:var(--text2)">${ultimaAct?ultimaAct.slice(5):'Sin ped.'}</div>
               </div>
             </div>
-            <div style="padding:8px 10px;background:var(--surface3);border-radius:7px;margin-bottom:10px" title="Efectividad = pedidos confirmados ÷ pedidos tomados/trabajados por este vendedor">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:11px;color:var(--text3)">🎯 Efectividad</span>
-                <span style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${convPct}%;background:${convColor}"></span></span>
-                <span style="font-size:13px;font-weight:800;font-family:var(--mono);color:${convColor}">${convPct}%</span>
-              </div>
-              <div style="display:flex;gap:12px;margin-top:5px;font-size:10.5px;color:var(--text3)">
-                <span>Tomados: <b style="color:var(--text2)">${mm?mm.tot:0}</b></span>
-                <span>Confirmados: <b style="color:var(--green)">${mm?mm.reg:0}</b></span>
-                <span>⏱ 1ª resp.: <b style="color:var(--text2)">${wResp!=null?brutoFmtDur(wResp):'—'}</b></span>
-              </div>
-            </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost btn-sm" style="flex:1" onclick="abrirModalTrabajador('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">✏️ Editar acceso</button>
               ${asesor?`<button class="btn btn-ghost btn-sm" onclick="openModalAsesor(${asesor.id})">💰 Comisiones</button>`:''}
@@ -10359,13 +10384,34 @@ async function renderUsuarios(){
         <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar primer trabajador</button>
       </div>`}
     </div>`;
-    // Métricas globales: arriba del todo (debajo del encabezado) para que se vean primero
-    const hdr=ca.querySelector('.section-header');
-    if(hdr)hdr.insertAdjacentHTML('afterend',globalHtml); else ca.insertAdjacentHTML('afterbegin',globalHtml);
-    ca.insertAdjacentHTML('beforeend',workersHtml);
+    cont.innerHTML=workersHtml;
   }catch(e){
     console.warn('Workers load error:',e);
   }
+}
+
+// Tarjeta de gestión de deliveries (agregar/editar/eliminar). La efectividad va en Conversión.
+function renderDeliveriesCard(){
+  const el=document.getElementById('usuarios-deliveries'); if(!el)return;
+  if(!DB.deliveries)DB.deliveries=[];
+  el.innerHTML=`<div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+      <div class="card-title" style="margin:0">${ic('bike',13)} Deliveries (motorizados Lima)</div>
+      <button class="btn btn-primary btn-sm" onclick="openModalDelivery()">+ Agregar delivery</button>
+    </div>
+    ${DB.deliveries.length?`<div class="tw tw-cards"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Zona</th><th>Acciones</th></tr></thead><tbody>
+      ${DB.deliveries.map(d=>`<tr>
+        <td data-label="Nombre" style="font-weight:700">${escB(d.nombre)}</td>
+        <td data-label="Teléfono" class="mono" style="font-size:12px">${escB(d.tel||'—')}</td>
+        <td data-label="Zona" style="color:var(--text2);font-size:12px">${escB(d.zona||'Lima')}</td>
+        <td data-label="Acciones"><div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-xs" onclick="openModalDelivery(${d.id})">${ic('pencil',14)}</button>
+          <button class="btn btn-danger btn-xs" onclick="eliminarDelivery(${d.id})">${ic('trash',14)}</button>
+        </div></td>
+      </tr>`).join('')}
+    </tbody></table></div>`:`<div class="empty" style="padding:20px">Sin deliveries. Agrega tus motorizados para asignarlos a pedidos Lima.</div>`}
+    <div style="font-size:10.5px;color:var(--text3);margin-top:8px">La efectividad de cada courier la ves en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Conversión</a>.</div>
+  </div>`;
 }
 
 function abrirModalTrabajador(editUserId, editName){

@@ -2349,7 +2349,9 @@ td{padding:11px 14px;font-size:13px}
     <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option>Order Bump</option><option>Upsell</option><option>Cross-sell</option><option>Downsell</option></select></div>
     <div class="fg"><label>Precio de oferta S/ *</label><input type="number" id="up-precio" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Costo S/</label><input type="number" id="up-costo" placeholder="0" min="0" step="0.01"></div>
-    <div class="fg" style="grid-column:1/-1"><label>Producto del catálogo (para descontar stock) <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Sin vínculo (no toca stock) —</option></select></div>
+    <div class="fg"><label>Stock propio (unidades) <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><input type="number" id="up-stock" placeholder="vacío = sin control" min="0" step="1"></div>
+    <div class="fg"><label>Alerta stock mínimo</label><input type="number" id="up-stockmin" placeholder="5" min="0" step="1"></div>
+    <div class="fg" style="grid-column:1/-1"><label>…o compartir stock con un producto del catálogo <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Stock propio (arriba) —</option></select><div style="font-size:10px;color:var(--text3);margin-top:3px">Si vinculas un producto, el upsell descuenta del stock de ESE producto y se ignora el stock propio.</div></div>
     <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
   </div>
   <!-- Ofertas por cantidad -->
@@ -2509,6 +2511,23 @@ function entregadosDeVariante(prodId,varNombre){
     items.forEach(it=>{if(String(it.productoId)===String(prodId)&&(it.variante||'')===(varNombre||''))t+=parseInt(it.cantidad)||1;});
   });
   return t;
+}
+// Unidades de un upsell ya entregadas (líneas esUpsell en pedidos entregados)
+function upsellEntregados(upId){
+  let t=0;
+  (DB.pedidos||[]).forEach(p=>{
+    if(p.estado!=='entregado')return;
+    (p.items||[]).forEach(it=>{if(it.esUpsell&&String(it.upsellId)===String(upId))t+=parseInt(it.cantidad)||1;});
+  });
+  return t;
+}
+// Stock disponible de un upsell. Si comparte producto del catálogo → stock de ese
+// producto. Si tiene stock propio (stockBase) → base − entregados. null = sin control.
+function upsellDisponible(u){
+  if(!u)return null;
+  if(u.productoId){const pv=(DB.productos||[]).find(x=>x.id===u.productoId);return pv?(pv.stock||0):null;}
+  if(u.stockBase==null)return null;
+  return Math.max(0,u.stockBase-upsellEntregados(u.id));
 }
 // Recalcula prod.stock (y v.stock) = stockBase − entregados, para todos los productos.
 // El display sigue leyendo prod.stock; este solo lo mantiene exacto.
@@ -5697,7 +5716,11 @@ function editarPedido(id){
 
 function fillUpsellSelect(selId){
   const sel=document.getElementById('p-upsell-prod');
-  sel.innerHTML='<option value="">— Sin upsell —</option>'+DB.upsells.map(u=>`<option value="${u.id}" ${u.id==selId?'selected':''}>${u.nombre} — S/${u.precio}</option>`).join('');
+  sel.innerHTML='<option value="">— Sin upsell —</option>'+DB.upsells.map(u=>{
+    const disp=upsellDisponible(u);
+    const stk=disp==null?'':(disp<=0?' · AGOTADO':` · stock ${disp}`);
+    return `<option value="${u.id}" ${u.id==selId?'selected':''}>${u.nombre} — S/${u.precio}${stk}</option>`;
+  }).join('');
 }
 function fillVendedorSelect(selId){
   const sel=document.getElementById('p-vendedor');
@@ -5801,6 +5824,7 @@ async function guardarPedido(){
   // Combinar productos principales + upsell aceptado (cuenta igual que un producto)
   const baseItems=pedidoItems.filter(it=>!it.esUpsell);
   const upItem=itemUpsellActual();
+  if(upItem){const _u=(DB.upsells||[]).find(x=>String(x.id)===String(upItem.upsellId));const _d=upsellDisponible(_u);if(_d!=null&&_d<=0&&!id){if(!confirm('El upsell "'+upItem.nombre+'" está AGOTADO (stock 0).\n¿Registrar el pedido de todas formas?'))return;}}
   const allItems=upItem?baseItems.concat([upItem]):baseItems.slice();
   const totalPrecio=allItems.reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0);
   const totalCprod=allItems.reduce((s,it)=>(s+(parseFloat(it.cprod)||0)),0);
@@ -7860,9 +7884,12 @@ function renderUpsells(){
       <div class="fr" style="padding:5px 0"><span class="fr-label">${ic('sparkle',13)} Ganancia / u.</span><span class="fr-val" style="color:var(--accent)">${fmt(gananciaU)} <span style="font-size:10.5px;opacity:.7">(${margenU.toFixed(0)}%)</span></span></div>`:''}
 
       ${(function(){
+        const disp=upsellDisponible(u);
+        if(disp===null)return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="font-size:11px;color:var(--text3)">Sin control · <a onclick="openModalUpsell(${u.id})" style="color:var(--accent);cursor:pointer;text-decoration:underline">agregar stock</a></span></div>`;
+        const bajo=disp<=(u.stockMin||5);
         const pv=u.productoId?(DB.productos||[]).find(x=>x.id===u.productoId):null;
-        if(pv){const bajo=pv.stock<=(pv.stockMin||5);return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="display:inline-flex;align-items:center;gap:6px"><span style="color:${bajo?'var(--red)':'var(--text)'};font-weight:700">${pv.stock} u.</span><button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Gestionar stock de '${(pv.nombre||'').replace(/'/g,"")}' en Catálogo">${ic('pencil',11)} Stock</button></span></div><div style="font-size:10px;color:var(--text3);margin-top:-2px;margin-bottom:4px">Vinculado a: ${pv.nombre}</div>`;}
-        return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="font-size:11px;color:var(--text3)">Sin vínculo · <a onclick="openModalUpsell(${u.id})" style="color:var(--accent);cursor:pointer;text-decoration:underline">vincular producto</a></span></div>`;
+        const editBtn=pv?`<button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Stock compartido con ${(pv.nombre||'').replace(/"/g,'')}">${ic('pencil',11)}</button>`:`<button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})" title="Editar stock del upsell">${ic('pencil',11)}</button>`;
+        return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock${pv?' (compartido)':''}</span><span class="fr-val" style="display:inline-flex;align-items:center;gap:6px"><span style="color:${disp<=0?'var(--red)':bajo?'var(--amber)':'var(--text)'};font-weight:700">${disp} u.${disp<=0?' · AGOTADO':bajo?' · bajo':''}</span>${editBtn}</span></div>${pv?`<div style="font-size:10px;color:var(--text3);margin-top:-2px;margin-bottom:4px">Comparte stock con: ${pv.nombre}</div>`:''}`;
       })()}
 
       <div style="height:1px;background:var(--border);margin:10px 0"></div>
@@ -7933,10 +7960,14 @@ function openModalUpsell(id){
       document.getElementById('up-costo').value=u.costo||'';
       document.getElementById('up-desc').value=u.desc||'';
       if(vincSel)vincSel.value=u.productoId||'';
+      // Stock propio: mostrar el DISPONIBLE actual (base − entregados)
+      const dispEl=document.getElementById('up-stock');
+      if(dispEl)dispEl.value=(u.productoId||u.stockBase==null)?'':Math.max(0,u.stockBase-upsellEntregados(u.id));
+      const minEl=document.getElementById('up-stockmin'); if(minEl)minEl.value=u.stockMin!=null?u.stockMin:'';
       upsellOfertas=u.ofertas?JSON.parse(JSON.stringify(u.ofertas)):[];
     }
   } else {
-    ['up-nombre','up-desc'].forEach(i=>document.getElementById(i).value='');
+    ['up-nombre','up-desc','up-stock','up-stockmin'].forEach(i=>document.getElementById(i).value='');
     ['up-precio','up-costo'].forEach(i=>document.getElementById(i).value='');
     if(vincSel)vincSel.value='';
     upsellOfertas=[];
@@ -7956,9 +7987,14 @@ function guardarUpsell(){
     precio:parseFloat(document.getElementById('up-precio').value)||0,
     costo:parseFloat(document.getElementById('up-costo').value)||0,
     productoId:document.getElementById('up-prodvinc')?.value?parseInt(document.getElementById('up-prodvinc').value):null,
+    stockMin:parseInt(document.getElementById('up-stockmin').value)||5,
     desc:document.getElementById('up-desc').value.trim(),
     ofertas:(upsellOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad)
   };
+  // Stock propio (solo si no comparte producto): base = disponible ingresado + ya entregados
+  const stockRaw=document.getElementById('up-stock').value;
+  if(u.productoId||stockRaw===''||stockRaw==null){u.stockBase=null;}
+  else{u.stockBase=(parseInt(stockRaw)||0)+upsellEntregados(u.id);}
   if(id){const idx=DB.upsells.findIndex(x=>x.id===parseInt(id));DB.upsells[idx]=u;}
   else DB.upsells.push(u);
   save();closeModal('modal-upsell');renderUpsells();
@@ -10323,7 +10359,9 @@ async function renderUsuarios(){
         <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar primer trabajador</button>
       </div>`}
     </div>`;
-    ca.insertAdjacentHTML('beforeend',globalHtml);
+    // Métricas globales: arriba del todo (debajo del encabezado) para que se vean primero
+    const hdr=ca.querySelector('.section-header');
+    if(hdr)hdr.insertAdjacentHTML('afterend',globalHtml); else ca.insertAdjacentHTML('afterbegin',globalHtml);
     ca.insertAdjacentHTML('beforeend',workersHtml);
   }catch(e){
     console.warn('Workers load error:',e);

@@ -48,7 +48,7 @@
     const icons=[
       {src:'assets/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},
       {src:'assets/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},
-      {src:'assets/icon-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}
+      {src:'assets/icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}
     ];
     const mf={name:'KONTROL',short_name:'KONTROL',description:'Gestión COD · Perú',start_url:'./',display:'standalone',orientation:'portrait-primary',background_color:'#071212',theme_color:'#071212',icons};
     const mfBlob=new Blob([JSON.stringify(mf)],{type:'application/json'});
@@ -57,7 +57,7 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v4';
+const CACHE='cod-pro-v5';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
 self.addEventListener('fetch',e=>{

@@ -10159,6 +10159,34 @@ async function renderUsuarios(){
     // Conversión de brutos por vendedor (registrados / total trabajado)
     let metMap={};
     try{const{data:met}=await _supabase.rpc('brutos_metricas',{p_ws:SESSION.workspace_id});(met||[]).forEach(m=>{if(m.asesor_id)metMap[String(m.asesor_id)]={reg:Number(m.registrados),rech:Number(m.rechazados),tot:Number(m.total)};});}catch(_){}
+    // Métricas GLOBALES (ingresados/confirmados/conversión) vía contadores
+    let gIng=0,gConf=0;
+    try{const{data:cnt}=await _supabase.rpc('brutos_counts',{p_ws:SESSION.workspace_id});(cnt||[]).forEach(c=>{gIng+=Number(c.n);if(c.estado==='registrado')gConf+=Number(c.n);});}catch(_){}
+    const gConv=gIng?Math.round(gConf/gIng*100):0;
+    // Tiempo de 1ª respuesta (muestra reciente, sin SQL nuevo): created_at → primer "tomado/asignado"
+    const _avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:null;
+    let respGlobal=[],respByAsesor={};
+    try{
+      const{data:sample}=await _supabase.from('pedidos_brutos').select('asesor_id,created_at,historial').eq('workspace_id',SESSION.workspace_id).order('created_at',{ascending:false}).limit(1500);
+      (sample||[]).forEach(b=>{
+        const hist=Array.isArray(b.historial)?b.historial:[];
+        const tom=hist.find(h=>h.accion==='tomado'||h.accion==='asignado');
+        if(tom&&tom.ts&&b.created_at){
+          const ms=new Date(tom.ts).getTime()-new Date(b.created_at).getTime();
+          if(ms>=0&&ms<1000*60*60*24*14){respGlobal.push(ms);const aid=String(tom.asesor_id||b.asesor_id||'');if(aid)(respByAsesor[aid]=respByAsesor[aid]||[]).push(ms);}
+        }
+      });
+    }catch(_){}
+    const gResp=_avg(respGlobal);
+    const gcard=(l,v,c)=>`<div style="flex:1;min-width:118px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:21px;font-weight:800;font-family:var(--mono);color:${c||'var(--text)'};margin-top:3px">${v}</div></div>`;
+    const globalHtml=`<div class="card" style="margin-top:14px"><div class="card-title">${ic('trending-up',13)} Conversión global del negocio</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        ${gcard('Pedidos ingresados',gIng.toLocaleString('es-PE'))}
+        ${gcard('Confirmados',gConf.toLocaleString('es-PE'),'var(--green)')}
+        ${gcard('Conversión global',gConv+'%','var(--accent)')}
+        ${gcard('1ª respuesta prom.',gResp!=null?brutoFmtDur(gResp):'—','var(--amber)')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">El tiempo de 1ª respuesta se calcula sobre la actividad reciente (últimos ${respGlobal.length} leads tomados).</div></div>`;
     // Para cada worker, buscar su asesor vinculado y últimos pedidos
     const workersHtml=`
     <div class="card" style="margin-top:14px">
@@ -10196,6 +10224,8 @@ async function renderUsuarios(){
           const mm=asesor?metMap[String(asesor.id)]:null;
           const convPct=mm&&mm.tot?Math.round(mm.reg/mm.tot*100):0;
           const convColor=convPct>=(CFG.metaEf||60)?'var(--green)':(convPct>0?'var(--amber)':'var(--text3)');
+          const rb=asesor?respByAsesor[String(asesor.id)]:null;
+          const wResp=rb&&rb.length?_avg(rb):null;
           return `<div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
               <div style="width:40px;height:40px;border-radius:50%;background:var(--blueL);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);border:2px solid rgba(77,142,240,.2);flex-shrink:0;font-size:14px">${initials}</div>
@@ -10219,11 +10249,17 @@ async function renderUsuarios(){
                 <div style="font-size:11px;font-weight:700;color:var(--text2)">${ultimaAct?ultimaAct.slice(5):'Sin ped.'}</div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface3);border-radius:7px;margin-bottom:10px" title="Pedidos brutos que este vendedor convirtió en confirmados (registrados ÷ trabajados)">
-              <span style="font-size:11px;color:var(--text3)">🎯 Conversión brutos</span>
-              <span style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${convPct}%;background:${convColor}"></span></span>
-              <span style="font-size:13px;font-weight:800;font-family:var(--mono);color:${convColor}">${convPct}%</span>
-              <span style="font-size:10px;color:var(--text3)">${mm?`${mm.reg}/${mm.tot}`:'0/0'}</span>
+            <div style="padding:8px 10px;background:var(--surface3);border-radius:7px;margin-bottom:10px" title="Efectividad = pedidos confirmados ÷ pedidos tomados/trabajados por este vendedor">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:11px;color:var(--text3)">🎯 Efectividad</span>
+                <span style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${convPct}%;background:${convColor}"></span></span>
+                <span style="font-size:13px;font-weight:800;font-family:var(--mono);color:${convColor}">${convPct}%</span>
+              </div>
+              <div style="display:flex;gap:12px;margin-top:5px;font-size:10.5px;color:var(--text3)">
+                <span>Tomados: <b style="color:var(--text2)">${mm?mm.tot:0}</b></span>
+                <span>Confirmados: <b style="color:var(--green)">${mm?mm.reg:0}</b></span>
+                <span>⏱ 1ª resp.: <b style="color:var(--text2)">${wResp!=null?brutoFmtDur(wResp):'—'}</b></span>
+              </div>
             </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost btn-sm" style="flex:1" onclick="abrirModalTrabajador('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">✏️ Editar acceso</button>
@@ -10239,6 +10275,7 @@ async function renderUsuarios(){
         <button class="btn btn-primary btn-sm" onclick="abrirModalTrabajador()">+ Agregar primer trabajador</button>
       </div>`}
     </div>`;
+    ca.insertAdjacentHTML('beforeend',globalHtml);
     ca.insertAdjacentHTML('beforeend',workersHtml);
   }catch(e){
     console.warn('Workers load error:',e);

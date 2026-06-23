@@ -4232,7 +4232,8 @@ function renderEfChart(p,ent){
 // PEDIDOS BRUTOS — capa previa de validación (query-driven, tabla aparte)
 // NO afecta stock / finanzas / métricas / liquidaciones.
 // =====================================================================
-let BRUTOS={page:0,size:25,q:'',estado:'',asesor:''};
+let BRUTOS={page:0,size:25,q:'',estado:'',asesor:'',sort:'desc'};
+let _miDiaSort='asc'; // 'asc' = más antiguos primero (orden de llegada), 'desc' = recientes primero
 let _brutosDebTimer=null;
 let _brutosCache={};       // {id: row} de la página actual (para acciones)
 let _brutoEnRegistro=null; // bruto que se está convirtiendo a pedido
@@ -4246,7 +4247,8 @@ const BRUTO_ESTADOS={
   perdido:{label:'Perdido',color:'var(--text3)',ic:'undo'}
 };
 const BRUTO_ORDEN=['por_contactar','rechazado','registrado','perdido'];
-const BRUTO_ACCION_LBL={tomado:'Tomado',devuelto_al_pool:'Devuelto al pool',no_contesta:'No contestó (llamada)',no_responde_wa:'No respondió WhatsApp',reintento:'Intento de llamada',rechazado:'Rechazado',registrado:'Registrado (venta cerrada)',perdido:'Marcado como perdido',reactivar:'Reactivado'};
+const BRUTO_ACCION_LBL={tomado:'Tomado',devuelto_al_pool:'Devuelto al pool',asignado:'Asignado por admin',no_contesta:'No contestó (llamada)',no_responde_wa:'No respondió WhatsApp',reintento:'Intento de llamada',rechazado:'Rechazado',registrado:'Registrado (venta cerrada)',perdido:'Marcado como perdido',reactivar:'Reactivado',whatsapp:'Mensaje de WhatsApp'};
+const BRUTO_MOTIVOS=['Cliente no responde','Número incorrecto','Zona no atendida','Falta de información','Otro motivo'];
 const BRUTO_TINT={por_contactar:{bg:'rgba(245,158,11,.08)',bd:'var(--amber)'},rechazado:{bg:'rgba(239,68,68,.10)',bd:'var(--red)'},registrado:{bg:'rgba(34,197,94,.10)',bd:'var(--green)'},perdido:{bg:'rgba(148,163,184,.08)',bd:'var(--text3)'}};
 function brutoEstadoNorm(e){return (e==='rechazado'||e==='registrado'||e==='perdido')?e:'por_contactar';}
 
@@ -4281,6 +4283,7 @@ function renderBrutos(){
     <div class="fg-filter"><label>Buscar</label><input type="text" id="bf-q" placeholder="Nombre, celular, producto..." oninput="brutosBuscarDebounced()"></div>
     <div class="fg-filter"><label>Estado</label><select id="bf-est" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option>${estadoOpts}</select></div>
     <div class="fg-filter"><label>Asesor</label><select id="bf-asesor" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option><option value="__pool__">— En el pool</option>${asesoresOpts}</select></div>
+    <div class="fg-filter"><label>Orden</label><select id="bf-sort" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="desc">Recientes primero</option><option value="asc">Antiguos primero</option></select></div>
   </div>
   <div id="brutos-bulkbar" style="display:none"></div>
   <div id="brutos-view"></div>
@@ -4372,6 +4375,7 @@ async function renderBrutosContent(){
   BRUTOS.q=(document.getElementById('bf-q')?.value||'').trim();
   BRUTOS.estado=document.getElementById('bf-est')?.value||'';
   BRUTOS.asesor=document.getElementById('bf-asesor')?.value||'';
+  BRUTOS.sort=document.getElementById('bf-sort')?.value||'desc';
   const view=document.getElementById('brutos-view'); if(!view)return;
   view.innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div>`;
   brutosRenderChips(ws);
@@ -4392,7 +4396,7 @@ async function renderBrutosContent(){
     query=query.or(`estado.not.in.(rechazado,registrado,perdido),updated_at.gte.${_cutoff}`);
   }
   if(BRUTOS.q){const s=BRUTOS.q.replace(/[%,()]/g,' ');query=query.or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%,direccion.ilike.%${s}%,ciudad.ilike.%${s}%`);}
-  query=query.order('created_at',{ascending:false}).range(from,to);
+  query=query.order('created_at',{ascending:BRUTOS.sort==='asc'}).range(from,to);
   let res;
   try{res=await query;}catch(e){res={error:e};}
   const cntEl=document.getElementById('brutos-count');
@@ -4420,7 +4424,7 @@ function brutosTabla(rows){
   const th='padding:9px 11px;text-align:left;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap';
   const head=`<tr>
     <th style="${th};width:30px;text-align:center"><input type="checkbox" id="bruto-chk-all" onclick="brutoToggleAll(this)" title="Seleccionar todos" style="cursor:pointer"></th>
-    <th style="${th}">Fecha</th><th style="${th}">Cliente</th><th style="${th}">Celular</th>
+    <th style="${th}">Ingreso</th><th style="${th}">Cliente</th><th style="${th}">Celular</th>
     <th style="${th}">Producto</th><th style="${th};text-align:right">Precio</th>
     <th style="${th}">Ubicación</th><th style="${th}">Asesor</th><th style="${th}">Estado</th><th style="${th};text-align:right">Acción</th></tr>`;
   const td='padding:9px 11px;border-top:1px solid var(--border);font-size:13px;vertical-align:top';
@@ -4436,7 +4440,7 @@ function brutosTabla(rows){
     const cont=(nc||wa)?`<div style="display:flex;gap:9px;margin-top:4px;font-size:10px;color:var(--text3)">${nc?`<span title="No contestó">${ic('phone-off',11)} ×${nc}</span>`:''}${wa?`<span title="No respondió WhatsApp">${ic('message-circle',11)} ×${wa}</span>`:''}</div>`:'';
     return `<tr style="background:${t.bg}" data-bruto-row="${r.id}">
       <td style="${td};text-align:center;border-left:3px solid ${t.bd}"><input type="checkbox" class="bruto-chk" data-id="${r.id}" onclick="brutoToggleSel(${r.id},this)" style="cursor:pointer"></td>
-      <td style="${td};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap">${brutoFmtFecha(r.fecha_hora||r.created_at)}</td>
+      <td style="${td};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap" title="Ingreso al sistema">${brutoFmtFecha(r.created_at||r.fecha_hora)}</td>
       <td style="${td};font-weight:600">${escB(r.nombre)||'—'}</td>
       <td style="${td};font-family:var(--mono);font-size:12px">${escB(r.celular)||'—'}</td>
       <td style="${td};max-width:240px">${escB(r.producto_raw)||'—'}</td>
@@ -4563,15 +4567,71 @@ async function marcarBrutoRegistrado(b,numeroPedido){
   refrescarBrutosUI();
 }
 
-async function brutoSetAsignacion(b,asesorId,accion){
+async function brutoSetAsignacion(b,asesorId,accion,extra){
   const hist=Array.isArray(b.historial)?b.historial.slice():[];
-  hist.push({accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
+  hist.push(Object.assign({accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()},extra||{}));
   const{error}=await _supabase.from('pedidos_brutos').update({asesor_id:asesorId,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('No se pudo actualizar: '+error.message);return;}
   refrescarBrutosUI();
 }
 function tomarBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;brutoSetAsignacion(b,miAsesorId(),'tomado');}
-function devolverBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm('¿Devolver este pedido al pool?'))return;brutoSetAsignacion(b,null,'devuelto_al_pool');}
+// Devolver al pool exige un motivo (queda en el historial para auditoría)
+function devolverBruto(id){
+  const b=_brutosCache[id]; if(!b)return;
+  let ov=document.getElementById('bruto-dev-ov');
+  if(!ov){ov=document.createElement('div');ov.id='bruto-dev-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  const opts=BRUTO_MOTIVOS.map(m=>`<option value="${escB(m)}">${escB(m)}</option>`).join('');
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:400px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:800;font-size:15px">Devolver al pool</div><button onclick="document.getElementById('bruto-dev-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${escB(b.nombre||'—')} · ${escB(b.celular||'')}</div>
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Motivo (obligatorio)</label>
+    <select id="bruto-dev-motivo" style="width:100%;margin-top:6px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">${opts}</select>
+    <input id="bruto-dev-nota" placeholder="Detalle opcional…" style="width:100%;margin-top:8px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bruto-dev-ov').remove()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="devolverBrutoConfirmar(${id})">Devolver al pool</button>
+    </div></div>`;
+}
+function devolverBrutoConfirmar(id){
+  const b=_brutosCache[id]; if(!b)return;
+  const motivo=document.getElementById('bruto-dev-motivo')?.value||'';
+  const nota=(document.getElementById('bruto-dev-nota')?.value||'').trim();
+  if(!motivo){alert('Elige un motivo.');return;}
+  const ov=document.getElementById('bruto-dev-ov'); if(ov)ov.remove();
+  brutoSetAsignacion(b,null,'devuelto_al_pool',{motivo,nota});
+}
+
+// ── Plantillas de WhatsApp en Brutos / Mi Día ──
+// Reutiliza DB.waTmpls (configurables en "Plantillas WA"), rellenando los datos
+// del lead bruto. Abre WhatsApp con el mensaje ya completado.
+function brutoPseudoPedido(b){
+  const zona=b.zona||detectarZonaBruto(b);
+  return {nombre:b.nombre||'',celular:b.celular||'',producto:b.producto_raw||'',precio:b.precio||0,cantidad:1,
+    dist: zona==='lima'?(b.ciudad||''):'', prov: zona==='provincia'?(limpiarProvincia(b.provincia_raw||b.ciudad)||''):'', zona};
+}
+function brutoWA(id){
+  const b=_brutosCache[id]; if(!b){return;}
+  const p=brutoPseudoPedido(b);
+  const tmpls=(DB.waTmpls||[]).filter(t=>!t.zona||t.zona==='ambos'||t.zona===p.zona);
+  let ov=document.getElementById('bruto-wa-ov');
+  if(!ov){ov=document.createElement('div');ov.id='bruto-wa-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  const lista=tmpls.length?tmpls.map(t=>`<button onclick="brutoWAEnviar(${id},${t.id})" style="display:block;width:100%;text-align:left;background:var(--surface3);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;color:var(--text)"><div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">${t.imagen?ic('image',12):ic('message-circle',12)} ${escB(t.nombre)}</div><div style="font-size:11px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escB(waFillVars(t.body,p).slice(0,90))}</div></button>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0">Sin plantillas para esta zona. Crea unas en <b>Plantillas WA</b>.</div>';
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:440px;width:100%;max-height:75vh;overflow:auto;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-weight:800;font-size:15px">${ic('message-circle',16)} WhatsApp — ${escB(b.nombre||'—')}</div><button onclick="document.getElementById('bruto-wa-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${escB(b.celular||'')} · ${escB(b.producto_raw||'')}</div>
+    ${lista}
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="brutoWAEnviar(${id},0)">${ic('external-link',13)} Abrir WhatsApp sin plantilla</button>
+  </div>`;
+}
+function brutoWAEnviar(id,tmplId){
+  const b=_brutosCache[id]; if(!b)return;
+  const p=brutoPseudoPedido(b);
+  const ov=document.getElementById('bruto-wa-ov'); if(ov)ov.remove();
+  // registra el contacto en el historial (no bloquea el envío)
+  brutoSetAsignacion(b,b.asesor_id||null,'whatsapp',tmplId?{tmpl:tmplId}:undefined);
+  if(tmplId){enviarWATmplObj(tmplId,p);}
+  else{window.open(waUrlDe(p,''),'_blank');}
+}
 
 // Admin: reasignar un bruto por fila
 function asignarBrutoSel(id,sel){
@@ -4651,33 +4711,94 @@ async function brutoAccion(id,tipo){
 }
 function brutoAccionSel(id,sel){const v=sel.value;sel.value='';if(!v)return;if(v==='rechazado'&&!confirm('¿Marcar este pedido como Rechazado?'))return;if(v==='perdido'&&!confirm('¿Marcar como Perdido? Saldrá de la cola activa (luego puedes Reactivarlo).'))return;brutoAccion(id,v);}
 
+function brutoFmtDur(ms){
+  if(ms==null||ms<0)return '';
+  const min=Math.round(ms/60000);
+  if(min<60)return min+' min';
+  const h=Math.floor(min/60),m=min%60;
+  if(h<24)return h+'h'+(m?' '+m+'min':'');
+  const d=Math.floor(h/24); return d+'d '+(h%24)+'h';
+}
+// Tiempo de 1ª respuesta = desde que entró el lead hasta el primer "tomado/asignado"
+function brutoPrimeraRespuesta(b){
+  const hist=Array.isArray(b.historial)?b.historial:[];
+  const entrada=new Date(b.created_at||b.fecha_hora||0).getTime();
+  const tomado=hist.find(h=>h.accion==='tomado'||h.accion==='asignado');
+  if(!tomado||!tomado.ts||!entrada)return null;
+  return {ms:new Date(tomado.ts).getTime()-entrada,quien:tomado.asesor_nombre||''};
+}
 function verBrutoHistorial(id){
   const b=_brutosCache[id]; if(!b)return;
   const hist=Array.isArray(b.historial)?b.historial:[];
+  const pr=brutoPrimeraRespuesta(b);
+  const prHtml=pr?`<div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:12px;font-size:12px"><span style="color:var(--text3)">⏱ 1ª respuesta:</span> <b>${brutoFmtDur(pr.ms)}</b>${pr.quien?` <span style="color:var(--text3)">· ${escB(pr.quien)}</span>`:''}</div>`:'';
   const rows=hist.length?hist.slice().reverse().map(h=>{
     const lbl=BRUTO_ACCION_LBL[h.accion]||h.accion;
     const t=h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:92px;white-space:nowrap">${t}</span><div><div style="font-weight:600;font-size:13px">${escB(lbl)}${h.intento?` · intento ${h.intento}`:''}</div>${h.asesor_nombre?`<div style="font-size:11px;color:var(--text3)">${escB(h.asesor_nombre)}</div>`:''}</div></div>`;
+    const extra=[h.motivo?escB(h.motivo):'',h.nota?escB(h.nota):''].filter(Boolean).join(' — ');
+    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:92px;white-space:nowrap">${t}</span><div><div style="font-weight:600;font-size:13px">${escB(lbl)}${h.intento?` · intento ${h.intento}`:''}</div>${h.asesor_nombre?`<div style="font-size:11px;color:var(--text3)">${escB(h.asesor_nombre)}</div>`:''}${extra?`<div style="font-size:11.5px;color:var(--amber);margin-top:2px">${extra}</div>`:''}</div></div>`;
   }).join(''):'<div style="color:var(--text3);padding:16px 0;text-align:center">Sin movimientos todavía.</div>';
   let ov=document.getElementById('bruto-hist-ov');
   if(!ov){ov=document.createElement('div');ov.id='bruto-hist-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
   ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:440px;width:100%;max-height:80vh;overflow:auto;padding:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-weight:800;font-size:15px">Historial — ${escB(b.nombre||'—')}</div><button onclick="document.getElementById('bruto-hist-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${escB(b.celular||'')}${b.producto_raw?' · '+escB(b.producto_raw):''}</div>
-    ${rows}
+    ${prHtml}${rows}
+  </div>`;
+}
+
+// Detalle completo del lead (todos los campos que llegan de Sheets/Shopify/manual)
+function verBrutoDetalle(id){
+  const b=_brutosCache[id]; if(!b)return;
+  const zona=b.zona||detectarZonaBruto(b);
+  const ingreso=b.created_at?new Date(b.created_at).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const lead=b.fecha_hora?new Date(b.fecha_hora).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  const asesor=b.asesor_id?brutoNombreAsesor(b.asesor_id):'— En el pool';
+  const est=BRUTO_ESTADOS[brutoEstadoNorm(b.estado)];
+  const row=(l,v,strong)=>v?`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="min-width:108px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em">${l}</span><span style="flex:1;font-size:13px;${strong?'font-weight:700':''}">${escB(v)}</span></div>`:'';
+  // Campos crudos extra de la integración (raw jsonb) que no tienen columna propia
+  let extraRaw='';
+  if(b.raw&&typeof b.raw==='object'){
+    extraRaw=Object.entries(b.raw).filter(([k,v])=>v!=null&&v!==''&&k!=='shopify_name').map(([k,v])=>row(escB(k),typeof v==='object'?JSON.stringify(v):String(v))).join('');
+  }
+  let ov=document.getElementById('bruto-det-ov');
+  if(!ov){ov=document.createElement('div');ov.id='bruto-det-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:50px 20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:480px;width:100%;max-height:82vh;overflow:auto;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div><div style="font-weight:800;font-size:16px">${escB(b.nombre||'—')}</div><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${est.color};margin-top:4px">${ic(est.ic,12)} ${est.label}</span></div>
+      <button onclick="document.getElementById('bruto-det-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    ${row('Celular',b.celular,true)}
+    ${row('Producto',b.producto_raw,true)}
+    ${row('Precio',b.precio!=null?fmt(b.precio):'')}
+    ${row('Dirección',b.direccion)}
+    ${row('Ciudad / Distrito',b.ciudad)}
+    ${row('Provincia / Depto',b.provincia_raw)}
+    ${row('Zona detectada',zona==='provincia'?'Provincia':'Lima')}
+    ${row('Asesor',asesor)}
+    ${row('Order ID',b.order_id)}
+    ${row('Ingreso al sistema',ingreso,true)}
+    ${lead?row('Fecha del lead',lead):''}
+    ${extraRaw?`<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 2px">Datos extra de la integración</div>${extraRaw}`:''}
+    <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
+      ${brutoEstadoNorm(b.estado)!=='registrado'?`<button class="btn btn-primary btn-sm" onclick="document.getElementById('bruto-det-ov').remove();registrarBruto(${id})">${ic('check-circle',13)} Registrar</button>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bruto-det-ov').remove();brutoWA(${id})">${ic('message-circle',13)} WhatsApp</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bruto-det-ov').remove();verBrutoHistorial(${id})">${ic('clock',13)} Historial</button>
+    </div>
   </div>`;
 }
 
 function brutoAccionesHtml(r){
   const est=brutoEstadoNorm(r.estado);
   const tel=(r.celular||'').replace(/[^\d+]/g,''); const waNum=tel.replace(/\D/g,'');
-  const wa=waNum?`<a class="btn btn-ghost btn-sm" href="https://wa.me/${waNum}" target="_blank" rel="noopener" title="WhatsApp">${ic('message-circle',13)}</a>`:'';
+  const wa=waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id})" title="WhatsApp (plantillas)">${ic('message-circle',13)}</button>`:'';
   const call=tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}" title="Llamar">${ic('phone',13)}</a>`:'';
+  const det=`<button class="btn btn-ghost btn-sm" onclick="verBrutoDetalle(${r.id})" title="Ver datos completos del lead">${ic('eye',13)}</button>`;
   const del=`<button class="btn btn-danger btn-sm" onclick="brutoEliminar(${r.id})" title="Eliminar definitivamente">${ic('trash',13)}</button>`;
   const hist=`<button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Ver historial">${ic('clock',13)}</button>`;
   if(est==='registrado'){
     const tag=r.pedido_numero?`<span style="font-size:12px;color:var(--green);font-weight:700;white-space:nowrap">${ic('check-circle',12)} #${r.pedido_numero}</span>`:`<span style="font-size:12px;color:var(--green)">Registrado</span>`;
-    return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${hist}${del}</div>`;
+    return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${det}${hist}${del}</div>`;
   }
   const reg=`<button class="btn btn-primary btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>`;
   let menu='';
@@ -4700,7 +4821,7 @@ function brutoAccionesHtml(r){
     if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
     else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
   }
-  return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${wa}${call}${reg}${menu}${pool}${hist}${del}</div>`;
+  return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${wa}${call}${reg}${menu}${pool}${det}${hist}${del}</div>`;
 }
 
 async function brutoEliminar(id){
@@ -4722,13 +4843,15 @@ async function renderMiDia(){
   const mineId=miAsesorId();
   const fecha=new Date().toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'});
   setContent(`<div class="section-header"><div><div class="section-title">Mi Día</div><div class="section-sub" style="text-transform:capitalize">${fecha}</div></div>
-    <div class="section-actions"><button class="btn btn-ghost btn-sm" onclick="renderMiDia()">${ic('repeat',14)} Actualizar</button></div></div>
+    <div class="section-actions"><button class="btn btn-ghost btn-sm" onclick="toggleMiDiaSort()">${ic('repeat',14)} ${_miDiaSort==='asc'?'Antiguos primero':'Recientes primero'}</button><button class="btn btn-ghost btn-sm" onclick="renderMiDia()">${ic('repeat',14)} Actualizar</button></div></div>
     <div id="midia-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
     <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('inbox',16)} Por contactar${isAdmin()?'':' <span style="font-size:12px;color:var(--text3);font-weight:500">(mías + pool)</span>'}</div>
     <div id="midia-cola"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
   miDiaResumen(ws,mineId);
   miDiaCola(ws,mineId);
 }
+
+function toggleMiDiaSort(){_miDiaSort=_miDiaSort==='asc'?'desc':'asc';renderMiDia();}
 
 async function miDiaResumen(ws,mineId){
   const el=document.getElementById('midia-resumen'); if(!el)return;
@@ -4751,7 +4874,7 @@ async function miDiaCola(ws,mineId){
   const el=document.getElementById('midia-cola'); if(!el)return;
   let q=_supabase.from('pedidos_brutos').select('*').eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
   if(!isAdmin())q=q.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
-  q=q.order('created_at',{ascending:true}).limit(60);
+  q=q.order('created_at',{ascending:_miDiaSort==='asc'}).limit(60);
   let res; try{res=await q;}catch(e){res={error:e};}
   if(res.error){el.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar la cola.<br><span style="color:var(--text3)">${escB(res.error.message||res.error)}</span></div></div>`;return;}
   const rows=res.data||[];
@@ -4767,26 +4890,33 @@ function miDiaCard(r){
   const tel=(r.celular||'').replace(/[^\d+]/g,'');
   const waNum=tel.replace(/\D/g,'');
   const pool=!r.asesor_id;
+  const mine=String(r.asesor_id||'')===String(miAsesorId());
+  const dir=escB(r.direccion||'');
   const loc=escB([r.ciudad,r.provincia_raw].filter(Boolean).join(' · '))||'';
-  return `<div class="card" style="padding:14px;border-left:3px solid var(--amber)">
+  const ingreso=r.created_at?new Date(r.created_at).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  return `<div class="card" style="padding:14px;border-left:3px solid ${pool?'var(--accent)':'var(--amber)'}">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-      <div style="font-weight:700;font-size:14px">${escB(r.nombre)||'—'}${pool?' <span style="font-size:10px;color:var(--text3);font-weight:600">· pool</span>':''}</div>
-      <button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Historial">${ic('clock',13)}</button>
+      <div style="font-weight:700;font-size:14px">${escB(r.nombre)||'—'}${pool?' <span style="font-size:10px;color:var(--accent);font-weight:700">· POOL</span>':''}</div>
+      <button class="btn btn-ghost btn-sm" onclick="verBrutoDetalle(${r.id})" title="Datos completos del lead">${ic('eye',13)}</button>
     </div>
     <div style="font-size:12px;color:var(--text2);margin-top:2px;font-family:var(--mono)">${escB(r.celular)||''}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:5px">${escB(r.producto_raw)||'—'}${r.precio!=null?` · <b>${fmt(r.precio)}</b>`:''}</div>
-    ${loc?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${loc}</div>`:''}
+    ${dir?`<div style="font-size:11.5px;color:var(--text2);margin-top:4px">📍 ${dir}</div>`:''}
+    ${loc?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${loc}</div>`:''}
+    ${ingreso?`<div style="font-size:10.5px;color:var(--text3);margin-top:4px">🕐 Ingresó: ${ingreso}</div>`:''}
     ${(nc||wa)?`<div style="display:flex;gap:11px;margin-top:6px;font-size:11px;color:var(--text3)">${nc?`<span>${ic('phone-off',12)} ×${nc}</span>`:''}${wa?`<span>${ic('message-circle',12)} ×${wa}</span>`:''}</div>`:''}
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px">
-      ${waNum?`<a class="btn btn-ghost btn-sm" href="https://wa.me/${waNum}" target="_blank" rel="noopener">${ic('message-circle',13)} WA</a>`:''}
+    ${pool?`<button class="btn btn-primary" style="width:100%;margin-top:11px;font-weight:700" onclick="tomarBruto(${r.id})">✋ Tomar pedido</button>`:''}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:${pool?'8px':'11px'}">
+      ${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id})">${ic('message-circle',13)} WA</button>`:''}
       ${tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}">${ic('phone',13)} Llamar</a>`:''}
-      ${pool?`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`:''}
+      ${mine?`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool (con motivo)">${ic('undo',13)} Devolver</button>`:''}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-      <button class="btn btn-primary btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>
+      <button class="btn ${pool?'btn-ghost':'btn-primary'} btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>
       <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_contesta')" title="No contesta">📞</button>
       <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_responde_wa')" title="No responde WA">💬</button>
       <button class="btn btn-ghost btn-sm" onclick="if(confirm('¿Marcar como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazado">❌</button>
+      <button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Historial">${ic('clock',13)}</button>
     </div>
   </div>`;
 }
@@ -6963,7 +7093,13 @@ function waUrlDe(p,text){
 }
 // Enviar plantilla (con imagen → API nativa de compartir; fallback: descarga img + abre texto)
 function enviarWATmpl(tmplId,pedidoId){
-  const t=(DB.waTmpls||[]).find(x=>x.id===tmplId);const p=DB.pedidos.find(x=>x.id===pedidoId);
+  const p=DB.pedidos.find(x=>x.id===pedidoId);
+  if(!p)return;
+  enviarWATmplObj(tmplId,p);
+}
+// Envía una plantilla a un objeto pedido-like (sirve para pedidos reales y brutos)
+function enviarWATmplObj(tmplId,p){
+  const t=(DB.waTmpls||[]).find(x=>x.id===tmplId);
   if(!t||!p)return;
   const text=waFillVars(t.body,p);
   const waUrl=waUrlDe(p,text);

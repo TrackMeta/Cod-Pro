@@ -4267,9 +4267,9 @@ function renderEfChart(p,ent){
 // NO afecta stock / finanzas / métricas / liquidaciones.
 // =====================================================================
 let BRUTOS={page:0,size:25,q:'',estado:'',asesor:'',sort:'desc',per:'todos'};
-let _miDiaSort='asc'; // 'asc' = más antiguos primero (orden de llegada), 'desc' = recientes primero
+let _miDiaSort='desc'; // 'asc' = más antiguos primero (orden de llegada), 'desc' = recientes primero
 let _miDiaPer='todos';   // período seleccionado en Mi Día
-let _miDiaVista='cards'; // 'cards' | 'lista'
+let _miDiaVista='lista'; // 'cards' | 'lista'
 // ── Períodos rápidos compartidos (Brutos / Mi Día) ──
 const PERIODO_OPTS=[['hoy','Hoy'],['ayer','Ayer'],['3d','Últimos 3 días'],['7d','Últimos 7 días'],['30d','Últimos 30 días'],['todos','Todos']];
 function periodoLabel(per){const o=PERIODO_OPTS.find(x=>x[0]===per);return o?o[1]:'Todos';}

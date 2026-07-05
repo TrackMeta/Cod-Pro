@@ -2397,6 +2397,12 @@ td{padding:11px 14px;font-size:13px}
   <input type="hidden" id="a-id">
   <div class="form-grid">
     <div class="fg" style="grid-column:1/-1"><label>Nombre</label><input type="text" id="a-nombre"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Color identificador</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="color" id="a-color" value="#3B82F6" style="width:44px;height:34px;border:1px solid var(--border2);border-radius:8px;background:var(--surface3);cursor:pointer;padding:2px">
+        <div id="a-color-presets" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+    </div>
     <div class="fg"><label>Com. Lima S/</label><input type="number" id="a-lima" value="1" step="0.5"></div>
     <div class="fg"><label>Com. Provincia S/</label><input type="number" id="a-prov" value="2" step="0.5"></div>
     <div class="fg"><label>Sueldo fijo S/</label><input type="number" id="a-sueldo" value="0"></div>
@@ -4258,8 +4264,25 @@ function renderEfChart(p,ent){
 // PEDIDOS BRUTOS — capa previa de validación (query-driven, tabla aparte)
 // NO afecta stock / finanzas / métricas / liquidaciones.
 // =====================================================================
-let BRUTOS={page:0,size:25,q:'',estado:'',asesor:'',sort:'desc'};
+let BRUTOS={page:0,size:25,q:'',estado:'',asesor:'',sort:'desc',per:'todos'};
 let _miDiaSort='asc'; // 'asc' = más antiguos primero (orden de llegada), 'desc' = recientes primero
+let _miDiaPer='todos';   // período seleccionado en Mi Día
+let _miDiaVista='cards'; // 'cards' | 'lista'
+// ── Períodos rápidos compartidos (Brutos / Mi Día) ──
+const PERIODO_OPTS=[['hoy','Hoy'],['ayer','Ayer'],['3d','Últimos 3 días'],['7d','Últimos 7 días'],['30d','Últimos 30 días'],['todos','Todos']];
+function periodoLabel(per){const o=PERIODO_OPTS.find(x=>x[0]===per);return o?o[1]:'Todos';}
+function periodoRango(per){
+  const now=new Date();const s=new Date();s.setHours(0,0,0,0);
+  if(per==='hoy')return{desde:s.toISOString(),hasta:null};
+  if(per==='ayer'){const d=new Date(s);d.setDate(d.getDate()-1);return{desde:d.toISOString(),hasta:s.toISOString()};}
+  if(per==='3d'){const d=new Date(s);d.setDate(d.getDate()-2);return{desde:d.toISOString(),hasta:null};}
+  if(per==='7d'){const d=new Date(s);d.setDate(d.getDate()-6);return{desde:d.toISOString(),hasta:null};}
+  if(per==='30d'){const d=new Date(s);d.setDate(d.getDate()-29);return{desde:d.toISOString(),hasta:null};}
+  return{desde:null,hasta:null};
+}
+function periodoSelectHtml(id,val,onchange){return `<select id="${id}" onchange="${onchange}" class="dash-per-select" title="Período">${PERIODO_OPTS.map(([v,l])=>`<option value="${v}" ${v===val?'selected':''}>${l}</option>`).join('')}</select>`;}
+// Aplica el rango de un período a una query de Supabase sobre una columna de fecha
+function periodoAplicar(q,per,col){const r=periodoRango(per);if(r.desde)q=q.gte(col,r.desde);if(r.hasta)q=q.lt(col,r.hasta);return q;}
 let _brutosDebTimer=null;
 let _brutosCache={};       // {id: row} de la página actual (para acciones)
 let _brutoEnRegistro=null; // bruto que se está convirtiendo a pedido
@@ -4280,7 +4303,7 @@ function brutoEstadoNorm(e){return (e==='rechazado'||e==='registrado'||e==='perd
 
 function escB(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function brutoFmtFecha(iso){if(!iso)return '—';const d=new Date(iso);if(isNaN(d))return '—';return d.toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});}
-function brutoNombreAsesor(id){const a=(DB.asesores||[]).find(x=>String(x.id)===String(id));return a?escB(a.nombre):'#'+escB(id);}
+function brutoNombreAsesor(id){return escB(asesorMeta(id).nombre);}
 
 function renderBrutos(){
   if(!isAdmin()){showPage('miDia');return;} // Pedidos Brutos es solo para admin; el trabajador opera desde Mi Día
@@ -4295,7 +4318,7 @@ function renderBrutos(){
   <div class="abox" style="background:var(--surface3);border:1px solid var(--border);margin-bottom:12px"><span class="abox-icon">${ic('inbox',18)}</span><div class="abox-text">Cola previa de validación. Estos pedidos <b>no</b> afectan stock, finanzas ni métricas hasta que se registran.</div></div>
   ${isAdmin()?`<div class="card" style="padding:10px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
     <span style="font-size:12px;color:var(--text3);font-weight:600">Repartir del pool:</span>
-    <select id="bf-asignar-asesor" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px"><option value="">Vendedor…</option>${asesoresOpts}</select>
+    <select id="bf-asignar-asesor" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px"><option value="">Vendedor…</option><option value="admin">Administrador</option>${asesoresOpts}</select>
     <input id="bf-asignar-cant" type="number" min="1" placeholder="cant." style="width:74px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px">
     <button class="btn btn-primary btn-sm" onclick="repartirPool()">Asignar</button>
     <span style="flex:1"></span>
@@ -4309,6 +4332,7 @@ function renderBrutos(){
     <div class="fg-filter"><label>Buscar</label><input type="text" id="bf-q" placeholder="Nombre, celular, producto..." oninput="brutosBuscarDebounced()"></div>
     <div class="fg-filter"><label>Estado</label><select id="bf-est" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option>${estadoOpts}</select></div>
     <div class="fg-filter"><label>Asesor</label><select id="bf-asesor" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="">Todos</option><option value="__pool__">— En el pool</option>${asesoresOpts}</select></div>
+    <div class="fg-filter"><label>Período</label><select id="bf-per" onchange="BRUTOS.page=0;renderBrutosContent()">${PERIODO_OPTS.map(([v,l])=>`<option value="${v}" ${v===(BRUTOS.per||'todos')?'selected':''}>${l}</option>`).join('')}</select></div>
     <div class="fg-filter"><label>Orden</label><select id="bf-sort" onchange="BRUTOS.page=0;renderBrutosContent()"><option value="desc">Recientes primero</option><option value="asc">Antiguos primero</option></select></div>
   </div>
   <div id="brutos-bulkbar" style="display:none"></div>
@@ -4402,6 +4426,7 @@ async function renderBrutosContent(){
   BRUTOS.estado=document.getElementById('bf-est')?.value||'';
   BRUTOS.asesor=document.getElementById('bf-asesor')?.value||'';
   BRUTOS.sort=document.getElementById('bf-sort')?.value||'desc';
+  BRUTOS.per=document.getElementById('bf-per')?.value||'todos';
   const view=document.getElementById('brutos-view'); if(!view)return;
   view.innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div>`;
   brutosRenderChips(ws);
@@ -4422,6 +4447,7 @@ async function renderBrutosContent(){
     query=query.or(`estado.not.in.(rechazado,registrado,perdido),updated_at.gte.${_cutoff}`);
   }
   if(BRUTOS.q){const s=BRUTOS.q.replace(/[%,()]/g,' ');query=query.or(`nombre.ilike.%${s}%,celular.ilike.%${s}%,producto_raw.ilike.%${s}%,direccion.ilike.%${s}%,ciudad.ilike.%${s}%`);}
+  query=periodoAplicar(query,BRUTOS.per,'created_at');
   query=query.order('created_at',{ascending:BRUTOS.sort==='asc'}).range(from,to);
   let res;
   try{res=await query;}catch(e){res={error:e};}
@@ -4434,7 +4460,7 @@ async function renderBrutosContent(){
     return;
   }
   const total=res.count||0;
-  if(cntEl)cntEl.textContent=total+' bruto(s)';
+  if(cntEl)cntEl.textContent=total+' bruto(s)'+(BRUTOS.per&&BRUTOS.per!=='todos'?' · '+periodoLabel(BRUTOS.per):'');
   const data=res.data||[];
   _brutosCache={}; data.forEach(r=>{_brutosCache[r.id]=r;});
   _brutosSel=new Set(); updateBrutosBulkBar();
@@ -4517,7 +4543,21 @@ async function updateBrutosBadge(){
 
 // ── Conversión bruto → pedido + gestión de pool (Paso 2) ──
 function brutoNorm(s){return (s==null?'':String(s)).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
-function miAsesorId(){const a=(DB.asesores||[]).find(x=>String(x.workerId)===String(SESSION?.id));return a?String(a.id):(SESSION?.id?String(SESSION.id):null);}
+const ADMIN_ASESOR_ID='admin';
+const ASESOR_COLORS=['#3B82F6','#f59e0b','#10b981','#8b5cf6','#ec4899','#06b6d4','#ef4444','#84cc16','#f97316','#14b8a6'];
+function asesorColorByIndex(i){return ASESOR_COLORS[((i%ASESOR_COLORS.length)+ASESOR_COLORS.length)%ASESOR_COLORS.length];}
+// Nombre + color de un asesor_id (maneja pool=null y el sentinel 'admin')
+function asesorMeta(id){
+  if(id==null||id===''||id==='__pool__')return {nombre:'En el pool',color:'#94a3b8',pool:true};
+  if(String(id)===ADMIN_ASESOR_ID)return {nombre:'Administrador',color:CFG.adminColor||'#64748b',admin:true};
+  const list=DB.asesores||[];
+  const idx=list.findIndex(x=>String(x.id)===String(id));
+  if(idx<0)return {nombre:'#'+id,color:'#94a3b8'};
+  const a=list[idx];
+  return {nombre:a.nombre||('#'+id),color:a.color||asesorColorByIndex(idx)};
+}
+function asesorColor(id){return asesorMeta(id).color;}
+function miAsesorId(){if(isAdmin())return ADMIN_ASESOR_ID;const a=(DB.asesores||[]).find(x=>String(x.workerId)===String(SESSION?.id));return a?String(a.id):(SESSION?.id?String(SESSION.id):null);}
 function detectarZonaBruto(b){
   const t=brutoNorm((b.ciudad||'')+' '+(b.provincia_raw||''));
   if(/\blima\b/.test(t)||/\bcallao\b/.test(t))return 'lima';
@@ -4825,7 +4865,7 @@ function brutoAccionesHtml(r){
   const mineId=miAsesorId();
   let pool='';
   if(isAdmin()){
-    pool=`<select onchange="asignarBrutoSel(${r.id},this)" class="btn btn-ghost btn-sm" style="cursor:pointer" title="Asignar a vendedor"><option value="__pool__" ${!r.asesor_id?'selected':''}>— Pool</option>${(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}" ${String(r.asesor_id)===String(a.id)?'selected':''}>${escB(a.nombre)}</option>`).join('')}</select>`;
+    pool=`<select onchange="asignarBrutoSel(${r.id},this)" class="btn btn-ghost btn-sm" style="cursor:pointer" title="Asignar a vendedor"><option value="__pool__" ${!r.asesor_id?'selected':''}>— Pool</option><option value="admin" ${String(r.asesor_id)==='admin'?'selected':''}>Administrador</option>${(DB.asesores||[]).map(a=>`<option value="${escB(a.id)}" ${String(r.asesor_id)===String(a.id)?'selected':''}>${escB(a.nombre)}</option>`).join('')}</select>`;
   } else {
     if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
     else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
@@ -4851,82 +4891,125 @@ async function renderMiDia(){
   const ws=SESSION?.workspace_id; if(!ws)return;
   const mineId=miAsesorId();
   const fecha=new Date().toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long'});
+  const vistaToggle=`<div class="tgrp">
+    <button class="tbtn ${_miDiaVista==='cards'?'active':''}" style="display:inline-flex;align-items:center;gap:5px" onclick="setMiDiaVista('cards')">${ic('grid',14)} Tarjetas</button>
+    <button class="tbtn ${_miDiaVista==='lista'?'active':''}" style="display:inline-flex;align-items:center;gap:5px" onclick="setMiDiaVista('lista')">${ic('list',14)} Lista</button>
+  </div>`;
   setContent(`<div class="section-header"><div><div class="section-title">Mi Día</div><div class="section-sub" style="text-transform:capitalize">${fecha}</div></div>
-    <div class="section-actions"><button class="btn btn-ghost btn-sm" onclick="toggleMiDiaSort()">${ic('repeat',14)} ${_miDiaSort==='asc'?'Antiguos primero':'Recientes primero'}</button><button class="btn btn-ghost btn-sm" onclick="renderMiDia()">${ic('repeat',14)} Actualizar</button></div></div>
+    <div class="section-actions" style="flex-wrap:wrap;gap:8px">${vistaToggle}${periodoSelectHtml('midia-per',_miDiaPer,'setMiDiaPer(this.value)')}<button class="btn btn-ghost btn-sm" onclick="toggleMiDiaSort()">${ic('repeat',14)} ${_miDiaSort==='asc'?'Antiguos primero':'Recientes primero'}</button><button class="btn btn-ghost btn-sm" onclick="renderMiDia()">${ic('repeat',14)} Actualizar</button></div></div>
     <div id="midia-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
-    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('inbox',16)} Por contactar${isAdmin()?'':' <span style="font-size:12px;color:var(--text3);font-weight:500">(mías + pool)</span>'}</div>
+    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('inbox',16)} Por contactar <span style="font-size:12px;color:var(--text3);font-weight:500">· ${escB(periodoLabel(_miDiaPer))}${isAdmin()?'':' · mías + pool'}</span></div>
     <div id="midia-cola"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
   miDiaResumen(ws,mineId);
   miDiaCola(ws,mineId);
 }
 
 function toggleMiDiaSort(){_miDiaSort=_miDiaSort==='asc'?'desc':'asc';renderMiDia();}
+function setMiDiaVista(v){_miDiaVista=v;renderMiDia();}
+function setMiDiaPer(v){_miDiaPer=v;renderMiDia();}
 
 async function miDiaResumen(ws,mineId){
   const el=document.getElementById('midia-resumen'); if(!el)return;
-  const d=new Date(); d.setHours(0,0,0,0); const startISO=d.toISOString();
-  const baseHoy=est=>{let q=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).eq('estado',est).gte('updated_at',startISO);if(!isAdmin())q=q.eq('asesor_id',mineId);return q;};
-  let reg=0,rech=0,pend=0;
+  const per=_miDiaPer;
+  const baseEst=(est,col)=>{let q=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).eq('estado',est);q=periodoAplicar(q,per,col||'updated_at');if(!isAdmin())q=q.eq('asesor_id',mineId);return q;};
+  let reg=0,rech=0,pend=0,total=0;
   try{
-    const r1=await baseHoy('registrado'); reg=r1.count||0;
-    const r2=await baseHoy('rechazado'); rech=r2.count||0;
+    const r1=await baseEst('registrado'); reg=r1.count||0;
+    const r2=await baseEst('rechazado'); rech=r2.count||0;
+    // Total ingresados en el período (por fecha de creación)
+    let qt=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws);
+    qt=periodoAplicar(qt,per,'created_at');
+    if(!isAdmin())qt=qt.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
+    const rt=await qt; total=rt.count||0;
+    // Pendientes (estado actual, no depende del período)
     let q3=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
     if(!isAdmin())q3=q3.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
     const r3=await q3; pend=r3.count||0;
   }catch(_){}
   const gest=reg+rech; const conv=gest?Math.round(reg/gest*100):0;
   const card=(label,val,color)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
-  el.innerHTML=card('Pendientes',pend,'var(--amber)')+card('Confirmados hoy',reg,'var(--green)')+card('Rechazados hoy',rech,'var(--red)')+card('Conversión hoy',conv+'%','var(--accent)');
+  el.innerHTML=card('Total período',total,'var(--accent)')+card('Pendientes',pend,'var(--amber)')+card('Confirmados',reg,'var(--green)')+card('Rechazados',rech,'var(--red)')+card('Conversión',conv+'%','var(--blue)');
 }
 
 async function miDiaCola(ws,mineId){
   const el=document.getElementById('midia-cola'); if(!el)return;
   let q=_supabase.from('pedidos_brutos').select('*').eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
   if(!isAdmin())q=q.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
-  q=q.order('created_at',{ascending:_miDiaSort==='asc'}).limit(60);
+  q=periodoAplicar(q,_miDiaPer,'created_at');
+  q=q.order('created_at',{ascending:_miDiaSort==='asc'}).limit(120);
   let res; try{res=await q;}catch(e){res={error:e};}
   if(res.error){el.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudo cargar la cola.<br><span style="color:var(--text3)">${escB(res.error.message||res.error)}</span></div></div>`;return;}
   const rows=res.data||[];
   rows.forEach(r=>{_brutosCache[r.id]=r;});
-  if(!rows.length){el.innerHTML=`<div style="padding:44px;text-align:center;color:var(--text3)">${ic('check-circle',32)}<div style="margin-top:10px;font-size:14px">¡Sin pendientes! Todo contactado 🎉</div></div>`;return;}
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${rows.map(miDiaCard).join('')}</div>`;
+  if(!rows.length){el.innerHTML=`<div style="padding:44px;text-align:center;color:var(--text3)">${ic('check-circle',32)}<div style="margin-top:10px;font-size:14px">Sin pendientes en este período 🎉</div></div>`;return;}
+  if(_miDiaVista==='lista'){
+    el.innerHTML=`<div class="tw tw-cards"><table><thead><tr><th>Cliente</th><th>Asignado</th><th>Producto</th><th>Ingreso</th><th style="text-align:right">Acciones</th></tr></thead><tbody>${rows.map(miDiaRow).join('')}</tbody></table></div>`;
+  }else{
+    el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${rows.map(miDiaCard).join('')}</div>`;
+  }
+}
+// Info + acciones compartidas por tarjeta y lista
+function miDiaAsesorChip(r){
+  const pool=!r.asesor_id;
+  const mine=String(r.asesor_id||'')===String(miAsesorId());
+  if(pool)return `<span style="font-size:10px;color:#94a3b8;font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('inbox',11)} POOL</span>`;
+  const meta=asesorMeta(r.asesor_id);
+  return `<span style="font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;background:${meta.color}22;color:${meta.color};padding:2px 8px;border-radius:20px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(meta.nombre)}${mine?' (tú)':''}</span>`;
+}
+function miDiaAccionesHtml(r){
+  const tel=(r.celular||'').replace(/[^\d+]/g,'');
+  const waNum=tel.replace(/\D/g,'');
+  const pool=!r.asesor_id;
+  const mine=String(r.asesor_id||'')===String(miAsesorId());
+  return `${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id},'midia')" title="WhatsApp">${ic('message-circle',13)}</button>`:''}
+    ${tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}" title="Llamar">${ic('phone',13)}</a>`:''}
+    ${pool?`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})" title="Tomar pedido">✋ Tomar</button>`:''}
+    ${mine?`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`:''}
+    <button class="btn ${pool?'btn-ghost':'btn-primary'} btn-sm" onclick="registrarBruto(${r.id})" title="Registrar">${ic('check-circle',13)}</button>
+    <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_contesta')" title="No contesta">📞</button>
+    <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_responde_wa')" title="No responde WA">💬</button>
+    <button class="btn btn-ghost btn-sm" onclick="if(confirm('¿Marcar como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazado">❌</button>
+    <button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Historial">${ic('clock',13)}</button>
+    <button class="btn btn-ghost btn-sm" onclick="verBrutoDetalle(${r.id})" title="Datos completos">${ic('eye',13)}</button>`;
+}
+function miDiaRow(r){
+  const pool=!r.asesor_id;
+  const barColor=pool?'#94a3b8':asesorMeta(r.asesor_id).color;
+  const h=Array.isArray(r.historial)?r.historial:[];
+  const nc=h.filter(x=>x.accion==='no_contesta').length;
+  const waC=h.filter(x=>x.accion==='no_responde_wa').length;
+  const ingreso=r.created_at?new Date(r.created_at).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  return `<tr style="border-left:4px solid ${barColor}">
+    <td data-label="Cliente"><div style="font-weight:700">${escB(r.nombre)||'—'}</div><div style="font-size:11.5px;color:var(--text3);font-family:var(--mono)">${escB(r.celular)||''}</div>${(nc||waC)?`<div style="font-size:10.5px;color:var(--text3);margin-top:2px">${nc?`📞×${nc} `:''}${waC?`💬×${waC}`:''}</div>`:''}</td>
+    <td data-label="Asignado">${miDiaAsesorChip(r)}</td>
+    <td data-label="Producto"><div style="font-size:12.5px">${escB(r.producto_raw)||'—'}</div>${r.precio!=null?`<div style="font-size:11.5px;color:var(--text2)"><b>${fmt(r.precio)}</b></div>`:''}</td>
+    <td data-label="Ingreso"><span style="font-size:11.5px;color:var(--text3)">${ingreso}</span></td>
+    <td data-label="Acciones"><div class="act-grp" style="justify-content:flex-end">${miDiaAccionesHtml(r)}</div></td>
+  </tr>`;
 }
 
 function miDiaCard(r){
   const h=Array.isArray(r.historial)?r.historial:[];
   const nc=h.filter(x=>x.accion==='no_contesta').length;
   const wa=h.filter(x=>x.accion==='no_responde_wa').length;
-  const tel=(r.celular||'').replace(/[^\d+]/g,'');
-  const waNum=tel.replace(/\D/g,'');
   const pool=!r.asesor_id;
-  const mine=String(r.asesor_id||'')===String(miAsesorId());
+  const barColor=pool?'#94a3b8':asesorMeta(r.asesor_id).color;
   const dir=escB(r.direccion||'');
   const loc=escB([r.ciudad,r.provincia_raw].filter(Boolean).join(' · '))||'';
   const ingreso=r.created_at?new Date(r.created_at).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-  return `<div class="card" style="padding:14px;border-left:3px solid ${pool?'var(--accent)':'var(--amber)'}">
+  return `<div class="card" style="padding:14px;border-left:4px solid ${barColor}">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-      <div style="font-weight:700;font-size:14px">${escB(r.nombre)||'—'}${pool?' <span style="font-size:10px;color:var(--accent);font-weight:700">· POOL</span>':''}</div>
+      <div style="font-weight:700;font-size:14px">${escB(r.nombre)||'—'}</div>
       <button class="btn btn-ghost btn-sm" onclick="verBrutoDetalle(${r.id})" title="Datos completos del lead">${ic('eye',13)}</button>
     </div>
-    <div style="font-size:12px;color:var(--text2);margin-top:2px;font-family:var(--mono)">${escB(r.celular)||''}</div>
+    <div style="margin-top:5px">${miDiaAsesorChip(r)}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:4px;font-family:var(--mono)">${escB(r.celular)||''}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:5px">${escB(r.producto_raw)||'—'}${r.precio!=null?` · <b>${fmt(r.precio)}</b>`:''}</div>
     ${dir?`<div style="font-size:11.5px;color:var(--text2);margin-top:4px">📍 ${dir}</div>`:''}
     ${loc?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${loc}</div>`:''}
     ${ingreso?`<div style="font-size:10.5px;color:var(--text3);margin-top:4px">🕐 Ingresó: ${ingreso}</div>`:''}
     ${(nc||wa)?`<div style="display:flex;gap:11px;margin-top:6px;font-size:11px;color:var(--text3)">${nc?`<span>${ic('phone-off',12)} ×${nc}</span>`:''}${wa?`<span>${ic('message-circle',12)} ×${wa}</span>`:''}</div>`:''}
-    ${pool?`<button class="btn btn-primary" style="width:100%;margin-top:11px;font-weight:700" onclick="tomarBruto(${r.id})">✋ Tomar pedido</button>`:''}
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:${pool?'8px':'11px'}">
-      ${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id},'midia')">${ic('message-circle',13)} WA</button>`:''}
-      ${tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}">${ic('phone',13)} Llamar</a>`:''}
-      ${mine?`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool (con motivo)">${ic('undo',13)} Devolver</button>`:''}
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-      <button class="btn ${pool?'btn-ghost':'btn-primary'} btn-sm" onclick="registrarBruto(${r.id})">${ic('check-circle',13)} Registrar</button>
-      <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_contesta')" title="No contesta">📞</button>
-      <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_responde_wa')" title="No responde WA">💬</button>
-      <button class="btn btn-ghost btn-sm" onclick="if(confirm('¿Marcar como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazado">❌</button>
-      <button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Historial">${ic('clock',13)}</button>
-    </div>
+    <div class="act-grp" style="margin-top:11px">${miDiaAccionesHtml(r)}</div>
   </div>`;
 }
 
@@ -8722,15 +8805,20 @@ function eliminarDelivery(id){
   save();renderUsuarios();
 }
 
+function renderAsesorColorPresets(){
+  const c=document.getElementById('a-color-presets');if(!c)return;
+  c.innerHTML=ASESOR_COLORS.map(col=>`<div onclick="document.getElementById('a-color').value='${col}'" title="${col}" style="width:22px;height:22px;border-radius:50%;background:${col};cursor:pointer;border:2px solid transparent;transition:transform .12s" onmouseover="this.style.transform='scale(1.18)'" onmouseout="this.style.transform=''"></div>`).join('');
+}
 function openModalAsesor(id){
   document.getElementById('a-id').value=id||'';
-  if(id){const a=DB.asesores.find(x=>String(x.id)===String(id));if(a){document.getElementById('a-nombre').value=a.nombre;document.getElementById('a-lima').value=a.comLima;document.getElementById('a-prov').value=a.comProv;document.getElementById('a-sueldo').value=a.sueldo;document.getElementById('a-dia').value=a.pagoDia;}}
-  else{document.getElementById('a-nombre').value='';document.getElementById('a-lima').value=CFG.comLima||1;document.getElementById('a-prov').value=CFG.comProv||2;document.getElementById('a-sueldo').value=0;document.getElementById('a-dia').value=40;}
+  if(id){const a=DB.asesores.find(x=>String(x.id)===String(id));if(a){document.getElementById('a-nombre').value=a.nombre;document.getElementById('a-lima').value=a.comLima;document.getElementById('a-prov').value=a.comProv;document.getElementById('a-sueldo').value=a.sueldo;document.getElementById('a-dia').value=a.pagoDia;document.getElementById('a-color').value=a.color||asesorColorByIndex(DB.asesores.findIndex(x=>String(x.id)===String(id)));}}
+  else{document.getElementById('a-nombre').value='';document.getElementById('a-lima').value=CFG.comLima||1;document.getElementById('a-prov').value=CFG.comProv||2;document.getElementById('a-sueldo').value=0;document.getElementById('a-dia').value=40;document.getElementById('a-color').value=asesorColorByIndex(DB.asesores.length);}
+  renderAsesorColorPresets();
   document.getElementById('modal-asesor').classList.add('open');
 }
 function guardarAsesor(){
   const id=document.getElementById('a-id').value;
-  const a={id:id?parseFloat(id):Math.floor(Date.now()+Math.random()*1000),nombre:document.getElementById('a-nombre').value,comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
+  const a={id:id?parseFloat(id):Math.floor(Date.now()+Math.random()*1000),nombre:document.getElementById('a-nombre').value,color:document.getElementById('a-color').value||'#3B82F6',comLima:parseFloat(document.getElementById('a-lima').value)||1,comProv:parseFloat(document.getElementById('a-prov').value)||2,sueldo:parseFloat(document.getElementById('a-sueldo').value)||0,pagoDia:parseFloat(document.getElementById('a-dia').value)||40};
   if(id){const idx=DB.asesores.findIndex(x=>String(x.id)===String(id));if(idx>=0){a.workerId=DB.asesores[idx].workerId;DB.asesores[idx]=a;}}else DB.asesores.push(a);
   save();closeModal('modal-asesor');renderUsuarios();
 }

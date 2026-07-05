@@ -4973,10 +4973,10 @@ function miDiaAccionesHtml(r){
   const waNum=tel.replace(/\D/g,'');
   const pool=!r.asesor_id;
   const mine=String(r.asesor_id||'')===String(miAsesorId());
-  return `${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id},'midia')" title="WhatsApp">${ic('message-circle',13)}</button>`:''}
+  return `${pool?`<button class="btn btn-sm" onclick="tomarBruto(${r.id})" title="Tomar pedido" style="background:var(--accent);color:#fff;font-weight:800;box-shadow:0 0 0 1px var(--accent),0 2px 10px rgba(59,130,246,.35)">✋ Tomar pedido</button>`:''}
+    ${mine?`<button class="btn btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool" style="background:rgba(245,158,11,.16);color:var(--amber);font-weight:800;border:1.5px solid var(--amber)">${ic('undo',13)} Devolver al pool</button>`:''}
+    ${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id},'midia')" title="WhatsApp">${ic('message-circle',13)}</button>`:''}
     ${tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}" title="Llamar">${ic('phone',13)}</a>`:''}
-    ${pool?`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})" title="Tomar pedido">✋ Tomar</button>`:''}
-    ${mine?`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`:''}
     <button class="btn ${pool?'btn-ghost':'btn-primary'} btn-sm" onclick="registrarBruto(${r.id})" title="Registrar">${ic('check-circle',13)}</button>
     <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_contesta')" title="No contesta">📞</button>
     <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'no_responde_wa')" title="No responde WA">💬</button>

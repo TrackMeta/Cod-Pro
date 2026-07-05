@@ -103,12 +103,23 @@ Deno.serve(async (req) => {
     let brutos: any[] = [];
     if (src === "shopify") {
       const raw = await req.text();
-      if (intg.shopify_secret) {
-        const ok = await verifyShopify(intg.shopify_secret, raw, req.headers.get("x-shopify-hmac-sha256") || "");
-        if (!ok) return json({ error: "HMAC inválido" }, 401);
+      // Lista de secretos: tiendas múltiples (shopify_tiendas) + legado (shopify_secret)
+      const tiendas = Array.isArray(intg.shopify_tiendas) ? intg.shopify_tiendas : [];
+      const secrets: { nombre: string; secret: string }[] = [];
+      for (const t of tiendas) if (t && t.secret) secrets.push({ nombre: (t.nombre || "").toString(), secret: String(t.secret) });
+      if (intg.shopify_secret && !secrets.some((s) => s.secret === intg.shopify_secret)) secrets.push({ nombre: "", secret: String(intg.shopify_secret) });
+      let matched: { nombre: string; secret: string } | null = null;
+      if (secrets.length) {
+        const hmac = req.headers.get("x-shopify-hmac-sha256") || "";
+        for (const s of secrets) { if (await verifyShopify(s.secret, raw, hmac)) { matched = s; break; } }
+        if (!matched) return json({ error: "HMAC inválido" }, 401);
       }
       const o = JSON.parse(raw || "{}");
-      brutos = [mapShopify(o, ws)];
+      const b = mapShopify(o, ws);
+      const dom = req.headers.get("x-shopify-shop-domain") || "";
+      const tiendaNombre = (matched && matched.nombre) || dom || "";
+      if (tiendaNombre) b.raw = { ...(b.raw || {}), tienda: tiendaNombre };
+      brutos = [b];
     } else {
       const body = await req.json().catch(() => ({}));
       const rows = Array.isArray(body.rows) ? body.rows : [];

@@ -5152,17 +5152,20 @@ async function renderIntegraciones(){
   </div>
 
   <div class="card">
-    <div class="card-title">${ic('store',14)} Shopify (incluye Releasit y EasySell)</div>
-    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">En tu Shopify: <b>Configuración → Notificaciones → Webhooks</b> → crear webhook <b>"Creación de pedido"</b> (formato JSON) con esta URL:</p>
+    <div class="card-title">${ic('store',14)} Shopify · múltiples tiendas (incluye Releasit y EasySell)</div>
+    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">En cada tienda Shopify: <b>Configuración → Notificaciones → Webhooks</b> → crear webhook <b>"Creación de pedido"</b> (formato JSON) con <b>esta misma URL</b> (es igual para todas tus tiendas):</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input id="intg-shopurl" readonly value="${escB(shopUrl)}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
       <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-shopurl',this)">${ic('copy',13)} Copiar URL</button>
     </div>
-    <p style="font-size:13px;color:var(--text2);margin:12px 0 6px">Shopify te muestra un <b>secreto de webhook</b>. Pégalo aquí para validar que los pedidos vienen de Shopify (opcional pero recomendado):</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="intg-shopify-secret" type="text" placeholder="Secreto del webhook de Shopify" value="${escB(row.shopify_secret||'')}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
-      <button class="btn btn-primary btn-sm" onclick="intgGuardarSecret(this)">${ic('save',13)} Guardar</button>
+    <p style="font-size:13px;color:var(--text2);margin:14px 0 6px">Agrega cada tienda con el <b>secreto de webhook</b> que te muestra Shopify. Cada tienda valida sus pedidos con su propio secreto:</p>
+    <div id="intg-shopify-tiendas" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--border);padding-top:12px">
+      <input id="intg-tienda-nombre" type="text" placeholder="Nombre de la tienda (ej: Bebocha)" style="flex:1;min-width:160px;font-size:12.5px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
+      <input id="intg-tienda-secret" type="text" placeholder="Secreto del webhook (shpss_...)" style="flex:1.4;min-width:200px;font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
+      <button class="btn btn-primary btn-sm" onclick="intgAgregarTienda(this)">${ic('plus',13)} Agregar tienda</button>
     </div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:8px">El secreto es opcional pero recomendado: sin él, no se puede verificar que los pedidos vengan realmente de tu Shopify. Cada pedido queda etiquetado con el nombre de la tienda de origen.</div>
   </div>
 
   <div class="card" style="margin-top:14px">
@@ -5181,6 +5184,52 @@ async function renderIntegraciones(){
       </div>
     </div>
   </div>`;
+  intgRenderTiendas();
+}
+
+// ── Shopify: gestión de múltiples tiendas ──
+function intgRenderTiendas(){
+  const el=document.getElementById('intg-shopify-tiendas'); if(!el)return;
+  let tiendas=Array.isArray(_intg?.shopify_tiendas)?_intg.shopify_tiendas:[];
+  // Migración visual del secreto legado si aún no está en la lista
+  if(!tiendas.length && _intg?.shopify_secret){tiendas=[{id:Date.now(),nombre:'Tienda principal',secret:_intg.shopify_secret}];_intg.shopify_tiendas=tiendas;}
+  if(!tiendas.length){el.innerHTML=`<div style="font-size:12.5px;color:var(--text3);padding:8px 0">Aún no agregaste tiendas. Agrega la primera abajo.</div>`;return;}
+  el.innerHTML=tiendas.map(t=>{
+    const secShort=t.secret?(String(t.secret).slice(0,6)+'…'+String(t.secret).slice(-4)):'sin secreto';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--surface3);border:1px solid var(--border);border-radius:9px;margin-bottom:7px">
+      <span style="width:30px;height:30px;border-radius:7px;background:var(--accentL);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ic('store',15)}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escB(t.nombre||'Tienda')}</div><div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${escB(secShort)}</div></div>
+      <button class="btn btn-danger btn-xs" onclick="intgEliminarTienda(${t.id})" title="Eliminar tienda">${ic('trash',13)}</button>
+    </div>`;
+  }).join('');
+}
+async function intgGuardarTiendas(){
+  const arr=Array.isArray(_intg.shopify_tiendas)?_intg.shopify_tiendas:[];
+  // Mantener shopify_secret = primer secreto (compat si la Edge Function aún no se actualiza)
+  const legacy=arr.length?(arr[0].secret||null):null;
+  const{error}=await _supabase.from('integraciones').update({shopify_tiendas:arr,shopify_secret:legacy,shopify_activo:arr.length>0}).eq('workspace_id',SESSION.workspace_id);
+  return error;
+}
+async function intgAgregarTienda(btn){
+  const nombre=(document.getElementById('intg-tienda-nombre')?.value||'').trim();
+  const secret=(document.getElementById('intg-tienda-secret')?.value||'').trim();
+  if(!nombre){alert('Ponle un nombre a la tienda.');return;}
+  if(!Array.isArray(_intg.shopify_tiendas))_intg.shopify_tiendas=[];
+  _intg.shopify_tiendas.push({id:Date.now(),nombre,secret:secret||''});
+  const err=await intgGuardarTiendas();
+  if(err){alert('Error: '+err.message+'\n¿Ejecutaste sql/06_shopify_multi.sql?');_intg.shopify_tiendas.pop();return;}
+  const n=document.getElementById('intg-tienda-nombre');if(n)n.value='';
+  const s=document.getElementById('intg-tienda-secret');if(s)s.value='';
+  intgRenderTiendas();
+}
+async function intgEliminarTienda(id){
+  if(!Array.isArray(_intg.shopify_tiendas))return;
+  if(!confirm('¿Eliminar esta tienda? Dejará de recibir pedidos verificados.'))return;
+  const prev=_intg.shopify_tiendas.slice();
+  _intg.shopify_tiendas=_intg.shopify_tiendas.filter(t=>String(t.id)!==String(id));
+  const err=await intgGuardarTiendas();
+  if(err){alert('Error: '+err.message);_intg.shopify_tiendas=prev;return;}
+  intgRenderTiendas();
 }
 
 function intgCopiar(elId,btn){

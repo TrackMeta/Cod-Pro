@@ -4635,28 +4635,11 @@ function brutoPseudoPedido(b){
   return {nombre:b.nombre||'',celular:b.celular||'',producto:b.producto_raw||'',precio:b.precio||0,cantidad:1,
     dist: zona==='lima'?(b.ciudad||''):'', prov: zona==='provincia'?(limpiarProvincia(b.provincia_raw||b.ciudad)||''):'', zona};
 }
-function brutoWA(id){
+function brutoWA(id,ctx){
   const b=_brutosCache[id]; if(!b){return;}
   const p=brutoPseudoPedido(b);
-  const tmpls=(DB.waTmpls||[]).filter(t=>!t.zona||t.zona==='ambos'||t.zona===p.zona);
-  let ov=document.getElementById('bruto-wa-ov');
-  if(!ov){ov=document.createElement('div');ov.id='bruto-wa-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
-  const lista=tmpls.length?tmpls.map(t=>`<button onclick="brutoWAEnviar(${id},${t.id})" style="display:block;width:100%;text-align:left;background:var(--surface3);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;color:var(--text)"><div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">${t.imagen?ic('image',12):ic('message-circle',12)} ${escB(t.nombre)}</div><div style="font-size:11px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escB(waFillVars(t.body,p).slice(0,90))}</div></button>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0">Sin plantillas para esta zona. Crea unas en <b>Plantillas WA</b>.</div>';
-  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:440px;width:100%;max-height:75vh;overflow:auto;padding:18px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-weight:800;font-size:15px">${ic('message-circle',16)} WhatsApp — ${escB(b.nombre||'—')}</div><button onclick="document.getElementById('bruto-wa-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${escB(b.celular||'')} · ${escB(b.producto_raw||'')}</div>
-    ${lista}
-    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="brutoWAEnviar(${id},0)">${ic('external-link',13)} Abrir WhatsApp sin plantilla</button>
-  </div>`;
-}
-function brutoWAEnviar(id,tmplId){
-  const b=_brutosCache[id]; if(!b)return;
-  const p=brutoPseudoPedido(b);
-  const ov=document.getElementById('bruto-wa-ov'); if(ov)ov.remove();
-  // registra el contacto en el historial (no bloquea el envío)
-  brutoSetAsignacion(b,b.asesor_id||null,'whatsapp',tmplId?{tmpl:tmplId}:undefined);
-  if(tmplId){enviarWATmplObj(tmplId,p);}
-  else{window.open(waUrlDe(p,''),'_blank');}
+  _waModalBrutoId=id;
+  openWAModal(p, ctx||'brutos');
 }
 
 // Admin: reasignar un bruto por fila
@@ -4933,7 +4916,7 @@ function miDiaCard(r){
     ${(nc||wa)?`<div style="display:flex;gap:11px;margin-top:6px;font-size:11px;color:var(--text3)">${nc?`<span>${ic('phone-off',12)} ×${nc}</span>`:''}${wa?`<span>${ic('message-circle',12)} ×${wa}</span>`:''}</div>`:''}
     ${pool?`<button class="btn btn-primary" style="width:100%;margin-top:11px;font-weight:700" onclick="tomarBruto(${r.id})">✋ Tomar pedido</button>`:''}
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:${pool?'8px':'11px'}">
-      ${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id})">${ic('message-circle',13)} WA</button>`:''}
+      ${waNum?`<button class="btn btn-ghost btn-sm" onclick="brutoWA(${r.id},'midia')">${ic('message-circle',13)} WA</button>`:''}
       ${tel?`<a class="btn btn-ghost btn-sm" href="tel:${tel}">${ic('phone',13)} Llamar</a>`:''}
       ${mine?`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool (con motivo)">${ic('undo',13)} Devolver</button>`:''}
     </div>
@@ -5549,6 +5532,7 @@ function renderPedidosContent(){
     <td data-label="Pendiente" class="mono" style="color:var(--text2)">${p.zona==='provincia'?fmt(p.pendiente||0):'-'}</td>
     <td data-label="Estado">${badge(p.estado)}</td>
     <td data-label="Acciones"><div class="act-grp">
+      <button class="act act-wa" onclick="abrirMensajeWA(${p.id},'pedidos')" title="Enviar mensaje WhatsApp">${ic('send',15)}</button>
       <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
       <button class="act" onclick="editarPedido(${p.id})" title="Editar">${ic('pencil',15)}</button>
       <button class="act" onclick="renderHistorial(${p.id})" title="Historial">${ic('clock',15)}</button>
@@ -6686,7 +6670,7 @@ function renderLimaContent(){
         }
         limaHtml+='<td data-label="Acciones"><div class="act-grp">'
           +liqBtn
-          +'<button class="act act-wa" onclick="abrirMensajeWA('+p.id+')" title="Enviar mensaje WhatsApp">'+ic('send',15)+'</button>'
+          +'<button class="act act-wa" onclick="abrirMensajeWA('+p.id+',\'lima\')" title="Enviar mensaje WhatsApp">'+ic('send',15)+'</button>'
           +'<button class="act act-money" onclick="verResumenPedido('+p.id+')" title="Resumen financiero">'+ic('dollar-circle',15)+'</button>'
           +'<button class="act" onclick="editarPedido('+p.id+')" title="Editar">'+ic('pencil',15)+'</button>'
           +'<button class="act" onclick="renderHistorial('+p.id+')" title="Historial">'+ic('clock',15)+'</button>'
@@ -6910,7 +6894,7 @@ function renderProvinciaContent(){
       ${p.motivoDevolucion?`<div style="font-size:10px;color:var(--red);margin-top:2px">${p.motivoDevolucion}</div>`:''}
     </td>
     <td data-label="Acciones"><div class="act-grp">
-      <button class="act act-wa" onclick="abrirMensajeWA(${p.id})" title="Enviar mensaje WhatsApp">${ic('send',15)}</button>
+      <button class="act act-wa" onclick="abrirMensajeWA(${p.id},'provincia')" title="Enviar mensaje WhatsApp">${ic('send',15)}</button>
       <button class="act act-money" onclick="verResumenPedido(${p.id})" title="Resumen financiero">${ic('dollar-circle',15)}</button>
       <button class="act" onclick="editarPedido(${p.id})" title="Editar pedido">${ic('pencil',15)}</button>
       <button class="act" onclick="renderHistorial(${p.id})" title="Historial">${ic('clock',15)}</button>
@@ -7274,7 +7258,7 @@ async function cargarImagenWA(input){
   const f=input.files&&input.files[0];if(!f)return;
   if(!/^image\//.test(f.type)){alert('Selecciona una imagen.');return;}
   if(f.size>10*1024*1024){alert('Imagen muy grande (máx 10MB).');return;}
-  try{window.waEditImg=await _comprimirImagen(f,700,0.62);renderWaImgPreview();}
+  try{window.waEditImg=await _comprimirImagen(f,1280,0.9);renderWaImgPreview();}
   catch(e){alert('No se pudo procesar la imagen.');}
 }
 function quitarImagenWA(){window.waEditImg=null;renderWaImgPreview();}
@@ -7286,44 +7270,97 @@ function renderWaImgPreview(){
     el.innerHTML=`<label style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:1px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:12px;color:var(--text2)">${ic('upload',14)} Subir imagen<input type="file" accept="image/*" onchange="cargarImagenWA(this)" style="display:none"></label>`;
   }
 }
-function abrirMensajeWA(id){
+// ── Zonas/contextos donde una plantilla WA está disponible ──
+const WA_ZONAS=[
+  {id:'lima',label:'🏙️ Lima'},
+  {id:'provincia',label:'📦 Provincia'},
+  {id:'brutos',label:'📥 Pedidos Brutos'},
+  {id:'midia',label:'☀️ Mi Día'},
+  {id:'pedidos',label:'🧾 Pedidos'}
+];
+function waZonaLabel(id){return (WA_ZONAS.find(z=>z.id===id)||{}).label||id;}
+// Normaliza las zonas de una plantilla (compat con modelo viejo t.zona: lima/provincia/ambos)
+function waZonasDe(t){
+  if(Array.isArray(t.zonas)&&t.zonas.length)return t.zonas;
+  const z=t.zona;
+  if(!z||z==='ambos'||z==='todos')return WA_ZONAS.map(x=>x.id);
+  return [z];
+}
+function waTmplsPara(ctx){return (DB.waTmpls||[]).filter(t=>waZonasDe(t).includes(ctx));}
+
+let _waModalBrutoId=null;
+// Abre el modal de mensajes para un pedido real
+function abrirMensajeWA(id,ctx){
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
+  _waModalBrutoId=null;
+  openWAModal(p, ctx||'pedidos');
+}
+// Modal genérico (sirve para pedidos reales y brutos vía objeto pedido-like)
+function openWAModal(p, ctx){
+  const ex=document.getElementById('modal-mensaje-wa');if(ex)ex.remove();
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-mensaje-wa';
   mod.innerHTML=`<div class="modal" style="max-width:580px">
     <div class="modal-h">
-      <div class="modal-title">${ic('send',18)} Mensaje a ${p.nombre}</div>
+      <div class="modal-title">${ic('send',18)} Mensaje a ${escB(p.nombre||'—')}</div>
       <div class="mc" onclick="document.getElementById('modal-mensaje-wa').remove()">×</div>
     </div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Selecciona una plantilla y copia / abre WhatsApp. <a href="#" onclick="document.getElementById('modal-mensaje-wa').remove();showPage('whatsapp',document.querySelector('.nav-item[onclick*=whatsapp]'));return false" style="color:var(--accent)">${ic('pencil',12)} Editar plantillas</a></div>
-    <div id="msgwa-ped-id" style="display:none">${p.id}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Copia el texto y/o la imagen, luego abre WhatsApp. <a href="#" onclick="document.getElementById('modal-mensaje-wa').remove();showPage('whatsapp',document.querySelector('.nav-item[onclick*=whatsapp]'));return false" style="color:var(--accent)">${ic('pencil',12)} Editar plantillas</a></div>
     <div id="msgwa-list" style="max-height:64vh;overflow-y:auto;padding-right:4px"></div>
   </div>`;
   document.body.appendChild(mod);
-  renderMensajeWALista(p);
+  renderMensajeWALista(p, ctx);
 }
 
-function renderMensajeWALista(p){
+function renderMensajeWALista(p, ctx){
   const list=document.getElementById('msgwa-list');if(!list)return;
-  const tmpls=(DB.waTmpls||[]).filter(t=>!t.zona||t.zona==='ambos'||t.zona===p.zona);
+  const tmpls=waTmplsPara(ctx||'pedidos');
+  const phone=p.celular?p.celular.replace(/\D/g,''):'';
   list.innerHTML=tmpls.map(t=>{
     const filled=waFillVars(t.body,p);
-    const phone=p.celular?p.celular.replace(/\D/g,''):'';
     const waUrl=waUrlDe(p,filled);
     const b64=btoa(unescape(encodeURIComponent(filled)));
+    const urlB64=btoa(unescape(encodeURIComponent(waUrl)));
     const imgHtml=t.imagen?`<img src="${t.imagen}" style="max-width:100%;max-height:170px;border-radius:8px;border:1px solid var(--border2);margin:8px 0;display:block">`:'';
-    const sendBtn=t.imagen
-      ? `<button class="btn btn-xs" style="background:#25D366;color:#fff" onclick="enviarWATmpl(${t.id},${p.id})">${ic('send',13)} Enviar imagen + texto</button>`
-      : `<a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+p.celular+')':''}</a>`;
+    const copyImgBtn=t.imagen?`<button class="btn btn-ghost btn-xs" onclick="copiarWAImagen('${t.id}',this)">🖼️ Copiar imagen</button>`:'';
     return `<div class="wa-tmpl" style="margin-bottom:10px">
-      <div class="wa-tmpl-title" style="margin-bottom:6px;display:inline-flex;align-items:center;gap:5px">${ic('message-circle',13)} ${t.nombre}</div>
+      <div class="wa-tmpl-title" style="margin-bottom:6px;display:inline-flex;align-items:center;gap:5px">${ic('message-circle',13)} ${escB(t.nombre)}</div>
       ${imgHtml}
       <div class="wa-tmpl-body" style="color:var(--text);font-size:13px;line-height:1.55">${filled.replace(/\n/g,'<br>')}</div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-xs" onclick="copiarWA('${b64}',this)">📋 Copiar</button>
-        ${sendBtn}
+        <button class="btn btn-ghost btn-xs" onclick="copiarWA('${b64}',this)">📋 Copiar texto</button>
+        ${copyImgBtn}
+        <button class="btn btn-xs" style="background:#25D366;color:#fff" onclick="waAbrir('${urlB64}')">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+escB(p.celular)+')':''}</button>
       </div>
     </div>`;
-  }).join('')||`<div class="empty" style="padding:30px">Sin plantillas para esta zona (${p.zona==='lima'?'Lima':'Provincia'}). Crea o edita en "Plantillas WA".</div>`;
+  }).join('')||`<div class="empty" style="padding:30px">Sin plantillas para "${waZonaLabel(ctx||'pedidos')}". Crea o edita en "Plantillas WA" y marca esta zona.</div>`;
+}
+// Abre WhatsApp; si el modal proviene de un bruto, registra el contacto en el historial
+function waAbrir(urlB64){
+  let url='';try{url=decodeURIComponent(escape(atob(urlB64)));}catch(e){return;}
+  if(_waModalBrutoId!=null){const b=_brutosCache[_waModalBrutoId];if(b){brutoSetAsignacion(b,b.asesor_id||null,'whatsapp');}}
+  window.open(url,'_blank');
+}
+// Copia la imagen de una plantilla al portapapeles (PNG, sin recompresión adicional)
+async function copiarWAImagen(tid,btn){
+  const t=(DB.waTmpls||[]).find(x=>String(x.id)===String(tid));
+  if(!t||!t.imagen)return;
+  const o=btn.textContent;
+  try{
+    const blob=await _dataURLtoPngBlob(t.imagen);
+    await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+    btn.textContent='✅ Imagen copiada';btn.style.color='var(--green)';
+    setTimeout(()=>{btn.textContent=o;btn.style.color='';},2000);
+  }catch(e){
+    try{const a=document.createElement('a');a.href=t.imagen;a.download='imagen.png';document.body.appendChild(a);a.click();a.remove();}catch(_){}
+    alert('Tu navegador no permite copiar imágenes al portapapeles.\nLa descargué para que la adjuntes manualmente en WhatsApp.');
+  }
+}
+function _dataURLtoPngBlob(dataurl){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);c.toBlob(b=>b?res(b):rej(new Error('blob')),'image/png');};
+    img.onerror=rej;img.src=dataurl;
+  });
 }
 
 // =====================================================================
@@ -9798,12 +9835,13 @@ function renderWATmpls(){
     const phone=ped?.celular?ped.celular.replace(/\D/g,''):'';
     const waUrl=phone?`https://wa.me/${phone.startsWith('51')?phone:'51'+phone}?text=${encodeURIComponent(filled)}`:`https://wa.me/?text=${encodeURIComponent(filled)}`;
     const b64=btoa(unescape(encodeURIComponent(filled)));
-    const zb={lima:['🏙️ Lima','var(--blueL)','var(--blue)'],provincia:['📦 Provincia','var(--accentL)','var(--accent)'],ambos:['🔁 Ambos','var(--surface3)','var(--text2)']}[t.zona||'ambos'];
-    const zonaBadge=`<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:${zb[1]};color:${zb[2]};white-space:nowrap">${zb[0]}</span>`;
+    const zs=waZonasDe(t);
+    const zonaBadge=(zs.length>=WA_ZONAS.length)
+      ?`<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--surface3);color:var(--text2);white-space:nowrap">🌐 Todas</span>`
+      :zs.map(z=>`<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--accentL);color:var(--accent);white-space:nowrap">${waZonaLabel(z)}</span>`).join(' ');
     const imgHtml=t.imagen?`<img src="${t.imagen}" style="max-width:130px;max-height:100px;border-radius:8px;border:1px solid var(--border2);margin:6px 0;display:block">`:'';
-    const sendBtn=t.imagen
-      ?(ped?`<button class="btn btn-xs" style="background:#25D366;color:#fff" onclick="enviarWATmpl(${t.id},${ped.id})">${ic('send',13)} Enviar imagen + texto</button>`:`<span style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:4px">${ic('send',12)} Incluye imagen (selecciona un pedido para enviar)</span>`)
-      :`<a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+ped.celular+')':''}</a>`;
+    const copyImgBtn=t.imagen?`<button class="btn btn-ghost btn-xs" onclick="copiarWAImagen('${t.id}',this)">🖼️ Copiar imagen</button>`:'';
+    const sendBtn=`<a href="${waUrl}" target="_blank" class="btn btn-xs" style="background:#25D366;color:#fff">${ic('message-circle',13)} Abrir WhatsApp${phone?' ('+ped.celular+')':''}</a>`;
     return `<div class="wa-tmpl">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
         <div class="wa-tmpl-title" style="display:inline-flex;align-items:center;gap:6px">${ic('message-circle',13)} ${t.nombre} ${zonaBadge}</div>
@@ -9816,6 +9854,7 @@ function renderWATmpls(){
       <div class="wa-tmpl-body" style="color:var(--text);font-size:13px;line-height:1.6">${filled.replace(/\n/g,'<br>')}</div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-xs" onclick="copiarWA('${b64}',this)">📋 Copiar texto</button>
+        ${copyImgBtn}
         ${sendBtn}
       </div>
     </div>`;
@@ -9837,19 +9876,18 @@ function openModalWA(id){
   waEditId=id||null;
   const t=id?DB.waTmpls.find(x=>x.id===id):null;
   window.waEditImg=t&&t.imagen?t.imagen:null;
-  const zona=t&&t.zona?t.zona:'ambos';
+  const zonasSel=t?waZonasDe(t):WA_ZONAS.map(z=>z.id);
   const varsList=['{nombre}','{celular}','{producto}','{cantidad}','{precio}','{fecha}','{distrito}','{fechaEntregaLima}','{sede}','{clave}','{numOrden}','{codigoEnvio}','{fechaDespacho}','{fechaAgencia}','{diasDespacho}','{diasAgencia}','{adelanto}','{pendiente}','{mi_numero}'];
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-wa-tmp';
   mod.innerHTML=`<div class="modal" style="max-width:540px">
     <div class="modal-h"><div class="modal-title">${t?ic('pencil',18)+' Editar plantilla':ic('message-circle',18)+' Nueva plantilla'}</div><div class="mc" onclick="document.getElementById('modal-wa-tmp').remove()">×</div></div>
     <div class="form-grid">
       <div class="fg"><label>Nombre de la plantilla</label><input type="text" id="wa-n" value="${t?t.nombre.replace(/"/g,'&quot;'):''}" placeholder="Ej: Confirmación Lima"></div>
-      <div class="fg"><label>¿Para qué zona?</label>
-        <select id="wa-zona">
-          <option value="ambos" ${zona==='ambos'?'selected':''}>🔁 Ambos (Lima y Provincia)</option>
-          <option value="lima" ${zona==='lima'?'selected':''}>🏙️ Solo Lima</option>
-          <option value="provincia" ${zona==='provincia'?'selected':''}>📦 Solo Provincia</option>
-        </select>
+      <div class="fg" style="grid-column:1/-1"><label>¿En qué zonas estará disponible?</label>
+        <div id="wa-zonas" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px">
+          ${WA_ZONAS.map(z=>`<label style="display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;padding:7px 11px;cursor:pointer;font-size:12.5px;user-select:none"><input type="checkbox" class="wa-zona-cb" value="${z.id}" ${zonasSel.includes(z.id)?'checked':''} style="accent-color:var(--accent);width:15px;height:15px">${z.label}</label>`).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:5px">La plantilla aparecerá en las secciones marcadas. Si no marcas ninguna, estará disponible en todas.</div>
       </div>
       <div class="fg" style="grid-column:1/-1">
         <label>Mensaje <span style="font-size:10px;color:var(--text3);font-weight:400">(puedes usar *negrita*, _cursiva_ y variables)</span></label>
@@ -9878,11 +9916,12 @@ function openModalWA(id){
 function guardarWA(){
   const n=document.getElementById('wa-n').value.trim();
   const b=document.getElementById('wa-b').value.trim();
-  const zona=document.getElementById('wa-zona')?.value||'ambos';
+  let zonas=Array.from(document.querySelectorAll('.wa-zona-cb:checked')).map(cb=>cb.value);
+  if(!zonas.length)zonas=WA_ZONAS.map(z=>z.id);
   const imagen=window.waEditImg||null;
   if(!n||!b)return alert('Completa nombre y mensaje.');
-  if(waEditId){const t=DB.waTmpls.find(x=>x.id===waEditId);if(t){t.nombre=n;t.body=b;t.zona=zona;t.imagen=imagen;}}
-  else{const maxId=DB.waTmpls.length?Math.max(...DB.waTmpls.map(t=>t.id)):0;DB.waTmpls.push({id:maxId+1,nombre:n,body:b,zona,imagen});}
+  if(waEditId){const t=DB.waTmpls.find(x=>x.id===waEditId);if(t){t.nombre=n;t.body=b;t.zonas=zonas;delete t.zona;t.imagen=imagen;}}
+  else{const maxId=DB.waTmpls.length?Math.max(...DB.waTmpls.map(t=>t.id)):0;DB.waTmpls.push({id:maxId+1,nombre:n,body:b,zonas,imagen});}
   window.waEditImg=null;
   save();document.getElementById('modal-wa-tmp').remove();renderWATmpls();
 }

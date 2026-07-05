@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="KONTROL">
-<meta name="theme-color" content="#071212">
+<meta name="theme-color" content="#0B0F17">
 <style>
 /* PWA Splash screen while loading */
 #pwa-splash{
-  position:fixed;inset:0;background:#071212;
+  position:fixed;inset:0;background:#0B0F17;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   z-index:9999;transition:opacity .4s ease;
 }
@@ -27,9 +27,9 @@
 #pwa-splash.hidden{opacity:0;pointer-events:none}
 </style>
 <title>KONTROL</title>
-<link id="app-favicon" rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=7">
-<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png?v=7">
-<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png?v=7">
+<link id="app-favicon" rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=8">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png?v=8">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png?v=8">
 <script>
 // Override favicon with custom logo if saved
 (function(){const s=localStorage.getItem('cod_logo');if(s){const l=document.getElementById('app-favicon');if(l)l.href=s;}})();
@@ -42,22 +42,22 @@
   try{
     // Apple touch icon (full-bleed, sin esquinas transparentes → iOS lo redondea limpio)
     const al=document.createElement('link');al.rel='apple-touch-icon';al.setAttribute('sizes','180x180');
-    al.href='assets/icon-180.png?v=7';
+    al.href='assets/icon-180.png?v=8';
     document.head.appendChild(al);
     // Inline manifest as blob — "any" muestra el logo completo; "maskable" full-bleed para home-screen
     const icons=[
-      {src:'assets/icon-192.png?v=7',sizes:'192x192',type:'image/png',purpose:'any'},
-      {src:'assets/icon-512.png?v=7',sizes:'512x512',type:'image/png',purpose:'any'},
-      {src:'assets/icon-maskable-512.png?v=7',sizes:'512x512',type:'image/png',purpose:'maskable'}
+      {src:'assets/icon-192.png?v=8',sizes:'192x192',type:'image/png',purpose:'any'},
+      {src:'assets/icon-512.png?v=8',sizes:'512x512',type:'image/png',purpose:'any'},
+      {src:'assets/icon-maskable-512.png?v=8',sizes:'512x512',type:'image/png',purpose:'maskable'}
     ];
-    const mf={name:'KONTROL',short_name:'KONTROL',description:'Gestión COD · Perú',start_url:'./',display:'standalone',orientation:'portrait-primary',background_color:'#071212',theme_color:'#071212',icons};
+    const mf={name:'KONTROL',short_name:'KONTROL',description:'Gestión COD · Perú',start_url:'./',display:'standalone',orientation:'portrait-primary',background_color:'#0B0F17',theme_color:'#0B0F17',icons};
     const mfBlob=new Blob([JSON.stringify(mf)],{type:'application/json'});
     const mfLink=document.createElement('link');mfLink.rel='manifest';mfLink.href=URL.createObjectURL(mfBlob);
     document.head.appendChild(mfLink);
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v6';
+const CACHE='cod-pro-v7';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
 self.addEventListener('fetch',e=>{
@@ -87,26 +87,26 @@ self.addEventListener('fetch',e=>{
    Mobile-first · Better contrast · Cleaner UI
 ═══════════════════════════════════════════════ */
 [data-theme="dark"]{
-  --bg:#071212;--surface:#0D1A1A;--surface2:#112020;--surface3:#132323;--surface4:#1b2e2d;
+  --bg:#0B0F17;--surface:#121722;--surface2:#171D2A;--surface3:#1E2532;--surface4:#29313F;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.10);--border3:rgba(255,255,255,.16);
-  --text:#FFFFFF;--text2:#A4B2B2;--text3:#708080;--text4:#44504D;
-  --card-bg:#0D1A1A;
+  --text:#FFFFFF;--text2:#AAB2C0;--text3:#727A88;--text4:#454C58;
+  --card-bg:#121722;
   --shadow:0 1px 4px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.35);
   --shadow2:0 2px 12px rgba(0,0,0,.6),0 24px 64px rgba(0,0,0,.45);
   --card-glow:0 0 0 1px var(--border),var(--shadow);
 }
 [data-theme="light"]{
-  --bg:#F5FAF8;--surface:#FFFFFF;--surface2:#F0F7F4;--surface3:#EAF3EF;--surface4:#DDEAE4;
-  --border:#DDEAE4;--border2:#CFE0D8;--border3:#B7C7C0;
-  --text:#102020;--text2:#506060;--text3:#7A8A8A;--text4:#B7C7C0;
+  --bg:#F6F7F9;--surface:#FFFFFF;--surface2:#F1F3F6;--surface3:#EAEDF1;--surface4:#DEE2E8;
+  --border:#E4E7EC;--border2:#D5DAE1;--border3:#BAC1CC;
+  --text:#141A22;--text2:#525A66;--text3:#7C838F;--text4:#B4BAC4;
   --card-bg:#FFFFFF;
   --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 14px rgba(0,0,0,.07);
   --shadow2:0 4px 20px rgba(0,0,0,.12),0 20px 50px rgba(0,0,0,.09);
   --card-glow:0 0 0 1px var(--border),var(--shadow);
 }
 :root{
-  --accent:#2DFF64;--accent2:#22F058;--accentL:rgba(45,255,100,.12);--accentL2:rgba(45,255,100,.07);
-  --green:#2DFF64;--greenD:#18D94A;--greenL:rgba(45,255,100,.12);
+  --accent:#3B82F6;--accent2:#5B9BF8;--accentL:rgba(59,130,246,.12);--accentL2:rgba(59,130,246,.07);
+  --green:#22C55E;--greenD:#16A34A;--greenL:rgba(34,197,94,.12);
   --red:#FF4D4F;--redD:#e23b3d;--redL:rgba(255,77,79,.12);
   --blue:#3B82F6;--blueD:#2563eb;--blueL:rgba(59,130,246,.12);
   --purple:#9b6ef0;--purpleD:#7a4ed4;--purpleL:rgba(155,110,240,.12);
@@ -133,7 +133,7 @@ input,select,textarea,button{font-family:var(--font)}
 #login-screen::after{content:'';position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(77,142,240,.06) 0%,transparent 70%);bottom:-80px;left:-80px;pointer-events:none;z-index:0}
 .login-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r4);padding:44px 40px;width:100%;max-width:400px;box-shadow:var(--shadow2);position:relative;z-index:1}
 .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:36px;justify-content:center}
-.login-brand-icon{width:46px;height:46px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#071212;box-shadow:0 0 22px rgba(45,255,100,.35)}
+.login-brand-icon{width:46px;height:46px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;box-shadow:0 0 22px rgba(59,130,246,.35)}
 .login-brand-text{font-size:24px;font-weight:800;letter-spacing:-.8px}
 .login-brand-text span{color:var(--accent)}
 .login-subtitle{text-align:center;font-size:12px;color:var(--text3);margin-top:-24px;margin-bottom:28px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
@@ -146,7 +146,7 @@ input,select,textarea,button{font-family:var(--font)}
 /* ── SIDEBAR ────────────────────────────────── */
 .sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:transform .25s}
 .sidebar-brand{padding:20px 16px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sidebar-logo{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#071212;font-size:13px;flex-shrink:0;box-shadow:0 0 14px rgba(45,255,100,.35)}
+.sidebar-logo{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:13px;flex-shrink:0;box-shadow:0 0 14px rgba(59,130,246,.35)}
 .sidebar-name{font-weight:800;font-size:14px;letter-spacing:-.4px}
 .sidebar-name span{color:var(--accent)}
 .sidebar-version{font-size:10px;color:var(--text3);margin-top:1px;font-weight:500}
@@ -156,7 +156,7 @@ input,select,textarea,button{font-family:var(--font)}
 .nav-item + .nav-section{border-top:1px solid var(--border);margin-top:14px;padding-top:16px}
 .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .12s;margin-bottom:1px;position:relative;user-select:none}
 .nav-item:hover{background:var(--surface3);color:var(--text)}
-.nav-item.active{background:var(--accentL);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px rgba(45,255,100,.12),0 0 14px rgba(45,255,100,.08)}
+.nav-item.active{background:var(--accentL);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px rgba(59,130,246,.12),0 0 14px rgba(59,130,246,.08)}
 .nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--accent);border-radius:0 3px 3px 0}
 .nav-item .ico{font-size:15px;width:18px;text-align:center;flex-shrink:0;opacity:.85}
 .nav-item.active .ico{opacity:1}
@@ -165,7 +165,7 @@ input,select,textarea,button{font-family:var(--font)}
 .sidebar-bottom{padding:10px;border-top:1px solid var(--border)}
 .user-card{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r);background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all .12s}
 .user-card:hover{background:var(--surface3)}
-.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--accentL);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--accent);flex-shrink:0;border:1.5px solid rgba(45,255,100,.25)}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--accentL);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--accent);flex-shrink:0;border:1.5px solid rgba(59,130,246,.25)}
 .user-info{flex:1;min-width:0}
 .user-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .user-role{font-size:10.5px;color:var(--text3);text-transform:capitalize}
@@ -277,7 +277,7 @@ input,select,textarea,button{font-family:var(--font)}
 
 /* ── BUTTONS ─────────────────────────────────── */
 .btn{border:none;border-radius:var(--r);padding:7px 14px;font-size:12.5px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .12s;font-family:var(--font);line-height:1;white-space:nowrap;letter-spacing:-.1px}
-.btn-primary{background:var(--accent);color:#071212;font-weight:700;box-shadow:0 0 20px rgba(45,255,100,.20)}.btn-primary:hover{background:var(--accent2);box-shadow:0 0 26px rgba(45,255,100,.32);transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff;font-weight:700;box-shadow:0 0 20px rgba(59,130,246,.20)}.btn-primary:hover{background:var(--accent2);box-shadow:0 0 26px rgba(59,130,246,.32);transform:translateY(-1px)}
 .btn-success{background:var(--greenD);color:#fff}.btn-success:hover{background:var(--green)}
 .btn-danger{background:var(--redD);color:#fff}.btn-danger:hover{background:var(--red)}
 .btn-ghost{background:var(--surface3);color:var(--text2);border:1px solid var(--border2)}.btn-ghost:hover{color:var(--text);border-color:var(--border3);background:var(--surface4)}
@@ -412,7 +412,7 @@ tbody tr:hover td{background:var(--accentL2)}
 .abox{border-radius:var(--r);padding:10px 13px;font-size:12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:9px;line-height:1.5}
 .abox-icon{font-size:13px;flex-shrink:0;margin-top:1px}
 .abox-text{flex:1}
-.abox-orange{background:var(--accentL);border:1px solid rgba(45,255,100,.2);color:var(--accent)}
+.abox-orange{background:var(--accentL);border:1px solid rgba(59,130,246,.2);color:var(--accent)}
 .abox-red{background:var(--redL);border:1px solid rgba(240,68,68,.2);color:var(--red)}
 .abox-green{background:var(--greenL);border:1px solid rgba(22,199,106,.2);color:var(--green)}
 .abox-blue{background:var(--blueL);border:1px solid rgba(77,142,240,.2);color:var(--blue)}
@@ -549,7 +549,7 @@ tbody tr:hover td{background:var(--accentL2)}
 }
 .fg-filter select:hover:not(:focus),.fg-filter input:hover:not(:focus){border-color:var(--border3)}
 .fg-filter select:focus,.fg-filter input:focus{
-  border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,255,100,.1)
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.1)
 }
 .fg-filter select option{background:var(--surface2);color:var(--text)}
 .fg-filter input[type=text]{
@@ -562,8 +562,8 @@ tbody tr:hover td{background:var(--accentL2)}
 /* filtro activo — se aplica con JS cuando valor ≠ default */
 .fg-filter select.f-on{border-color:var(--accent);background-color:var(--accentL);color:var(--accent);font-weight:600}
 .fg-filter input.f-on{border-color:var(--accent);background-color:var(--accentL)}
-[data-theme="light"] .fg-filter select.f-on{background-color:rgba(45,255,100,.07)}
-[data-theme="light"] .fg-filter input.f-on{background-color:rgba(45,255,100,.07)}
+[data-theme="light"] .fg-filter select.f-on{background-color:rgba(59,130,246,.07)}
+[data-theme="light"] .fg-filter input.f-on{background-color:rgba(59,130,246,.07)}
 .fbar-sep{width:1px;background:var(--border);height:28px;align-self:center;margin:0 4px}
 /* luz — fondo fbar un poco más marcado */
 [data-theme="light"] .fbar{background:var(--surface3);border-color:var(--border2)}
@@ -599,7 +599,7 @@ td{padding:11px 14px;font-size:13px}
 .btn{font-size:13px;padding:8px 15px;border-radius:9px}
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn-xs{padding:4px 9px;font-size:11.5px}
-.btn-primary{box-shadow:0 3px 10px rgba(45,255,100,.35)}
+.btn-primary{box-shadow:0 3px 10px rgba(59,130,246,.35)}
 
 /* ── TOP BAR HAMBURGER ──────────────────────── */
 .topbar{padding:0 16px}
@@ -879,7 +879,7 @@ td{padding:11px 14px;font-size:13px}
 
 /* ── REALTIME INDICATOR ───────────────────────────────────────── */
 @keyframes rtPulse{0%,100%{opacity:1}50%{opacity:.3}}
-#rt-indicator{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600;padding:3px 8px;border-radius:20px;background:var(--greenL);border:1px solid rgba(45,255,100,.25);box-shadow:0 0 12px rgba(45,255,100,.15);cursor:default;transition:all .3s}
+#rt-indicator{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600;padding:3px 8px;border-radius:20px;background:var(--greenL);border:1px solid rgba(59,130,246,.25);box-shadow:0 0 12px rgba(59,130,246,.15);cursor:default;transition:all .3s}
 #rt-indicator.rt-off{color:var(--text3);background:var(--surface3);border-color:var(--border);box-shadow:none}
 #rt-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:rtPulse 2.5s infinite;flex-shrink:0;transition:background .3s}
 #rt-indicator.rt-off #rt-dot{background:var(--text3);animation:none}
@@ -894,12 +894,12 @@ td{padding:11px 14px;font-size:13px}
   LOGIN
 ====================================================== -->
 <!-- PWA Splash Screen -->
-<div id="pwa-splash"><img src="assets/logo-512.png?v=7" alt="KONTROL"><div class="splash-name">KONTROL</div><div class="splash-sub">Gestión COD · Perú</div></div>
+<div id="pwa-splash"><img src="assets/logo-512.png?v=8" alt="KONTROL"><div class="splash-name">KONTROL</div><div class="splash-sub">Gestión COD · Perú</div></div>
 
 <div id="login-screen">
   <div class="login-card">
     <div class="login-brand">
-      <div class="login-brand-icon" style="background:transparent;padding:0;box-shadow:none"><img src="assets/logo-512.png?v=7" style="width:46px;height:46px;object-fit:contain" alt="KONTROL"></div>
+      <div class="login-brand-icon" style="background:transparent;padding:0;box-shadow:none"><img src="assets/logo-512.png?v=8" style="width:46px;height:46px;object-fit:contain" alt="KONTROL"></div>
       <div class="login-brand-text">KON<span>TROL</span></div>
     </div>
     <div class="login-subtitle">Gestión COD · Perú</div>
@@ -967,7 +967,7 @@ td{padding:11px 14px;font-size:13px}
     <div class="sidebar" id="sidebar">
       <div class="sidebar-brand">
         <div class="sidebar-logo logo-upload-wrap" id="sidebar-logo-el" style="display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0;background:transparent;box-shadow:none;border-radius:8px">
-          <img src="assets/logo-256.png?v=7" id="sidebar-logo-default-img" style="width:30px;height:30px;object-fit:contain;border-radius:8px;display:block" alt="KONTROL">
+          <img src="assets/logo-256.png?v=8" id="sidebar-logo-default-img" style="width:30px;height:30px;object-fit:contain;border-radius:8px;display:block" alt="KONTROL">
         </div>
         <div>
           <div class="sidebar-name">KON<span>TROL</span></div>
@@ -2785,7 +2785,7 @@ function renderDashboardCharts(trendData){
       labels:trendData.map(d=>d.dow),
       datasets:[
         {label:'Entregas',data:trendData.map(d=>d.ent),
-         backgroundColor:trendData.map(d=>d.dia===today?'rgba(45,255,100,.9)':'rgba(34,197,94,.75)'),
+         backgroundColor:trendData.map(d=>d.dia===today?'rgba(59,130,246,.9)':'rgba(34,197,94,.75)'),
          borderRadius:4,borderSkipped:false},
         {label:'Devoluciones',data:trendData.map(d=>d.dev),
          backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,borderSkipped:false}
@@ -3547,14 +3547,14 @@ function updateSidebarLogo(){
     updateFavicon(logoData);
   } else {
     // Logo por defecto (archivo oficial). El input de subida solo para admin.
-    updateFavicon('assets/logo-256.png?v=7');
+    updateFavicon('assets/logo-256.png?v=8');
     const defaultImg=document.getElementById('sidebar-logo-default-img');
     if(defaultImg){
       const ex=logoEl.querySelector('input[type=file]');
       if(admin&&!ex){const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=uploadLogo;inp.style.cssText='position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%';logoEl.appendChild(inp);}
       else if(!admin&&ex){ex.remove();}
     } else {
-      logoEl.innerHTML=`<img src="assets/logo-256.png?v=7" style="width:30px;height:30px;object-fit:contain;border-radius:8px" alt="KONTROL">${inputHtml}`;
+      logoEl.innerHTML=`<img src="assets/logo-256.png?v=8" style="width:30px;height:30px;object-fit:contain;border-radius:8px" alt="KONTROL">${inputHtml}`;
       logoEl.style.background='transparent';
     }
   }
@@ -3588,7 +3588,7 @@ function applyAccentColor(hex){
 function loadAccentColor(){
   const c=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''));
   if(c)applyAccentColor(c);
-  else applyAccentColor('#2DFF64'); // initialize --print-accent with default
+  else applyAccentColor('#3B82F6'); // initialize --print-accent with default
 }
 function setAccentColor(hex){applyAccentColor(hex);if(SESSION)localStorage.setItem('cod_accent_'+SESSION.workspace_id,hex);}
 
@@ -10081,7 +10081,7 @@ function importarPedidos(rows,map){
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         ${lima>0?`<div style="padding:8px 14px;background:rgba(59,130,246,.12);border-radius:8px;border:1px solid rgba(59,130,246,.2)"><div style="font-size:11px;color:var(--blue);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('building',12)} Lima</div><div style="font-size:18px;font-weight:800;color:var(--blue)">${lima}</div></div>`:''}
-        ${prov>0?`<div style="padding:8px 14px;background:var(--accentL);border-radius:8px;border:1px solid rgba(45,255,100,.2)"><div style="font-size:11px;color:var(--accent);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Provincia</div><div style="font-size:18px;font-weight:800;color:var(--accent)">${prov}</div></div>`:''}
+        ${prov>0?`<div style="padding:8px 14px;background:var(--accentL);border-radius:8px;border:1px solid rgba(59,130,246,.2)"><div style="font-size:11px;color:var(--accent);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('package',12)} Provincia</div><div style="font-size:18px;font-weight:800;color:var(--accent)">${prov}</div></div>`:''}
         ${conCprod>0?`<div style="padding:8px 14px;background:var(--surface3);border-radius:8px;border:1px solid var(--border)"><div style="font-size:11px;color:var(--text3);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('wallet',12)} Con costo prod.</div><div style="font-size:18px;font-weight:800">${conCprod}</div></div>`:''}
       </div>
       ${conCprod<ok?`<div style="font-size:11px;color:var(--amber);margin-bottom:10px;display:flex;align-items:center;gap:5px">${ic('alert-triangle',13)} ${ok-conCprod} pedido(s) sin costo de producto detectado (no encontrado en catálogo). Edítalos después.</div>`:''}
@@ -10102,7 +10102,7 @@ function renderConfig(){
   if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador.</div>');return;}
   const wsLogo=SESSION?.logoData||'';
   const wsName=SESSION?.negocioName||'';
-  const accentColor=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''))||'#2DFF64';
+  const accentColor=localStorage.getItem('cod_accent_'+(SESSION?.workspace_id||''))||'#3B82F6';
   const backups=getBackups();
   const ultimo=backups[0];
   const html=`
@@ -10212,7 +10212,7 @@ function renderConfig(){
       <div class="card-title">${ic('palette',13)} Personalización</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
         <div style="width:64px;height:64px;border-radius:12px;background:var(--surface3);border:2px dashed var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0" id="logo-preview-big">
-          ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<img src="assets/logo-256.png?v=7" title="Logo oficial de KONTROL (por defecto)" style="width:100%;height:100%;object-fit:contain;opacity:.85">'}
+          ${wsLogo?`<img src="${wsLogo}" style="width:100%;height:100%;object-fit:cover">`:'<img src="assets/logo-256.png?v=8" title="Logo oficial de KONTROL (por defecto)" style="width:100%;height:100%;object-fit:contain;opacity:.85">'}
           <input type="file" accept="image/*" onchange="uploadLogo(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer">
         </div>
         <div style="flex:1">
@@ -10235,7 +10235,7 @@ function renderConfig(){
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <input type="color" value="${accentColor}" onchange="setAccentColor(this.value)" style="width:38px;height:32px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;background:var(--surface3);padding:2px">
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
-            ${['#2DFF64','#6366f1','#0ea5e9','#10b981','#f43f5e','#8b5cf6','#f59e0b','#ec4899'].map(c=>`<div onclick="setAccentColor('${c}')" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===accentColor?'var(--text)':'transparent'};transition:all .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''"></div>`).join('')}
+            ${['#3B82F6','#64748b','#6366f1','#0ea5e9','#14b8a6','#8b5cf6','#f59e0b','#f43f5e'].map(c=>`<div onclick="setAccentColor('${c}')" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===accentColor?'var(--text)':'transparent'};transition:all .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''"></div>`).join('')}
           </div>
         </div>
       </div>
@@ -10359,7 +10359,7 @@ async function renderUsuarios(){
       <div class="abox abox-blue" style="margin-bottom:14px"><span class="abox-icon">ℹ️</span><div class="abox-text"><b>Pago</b> = comisión por cada pedido <b>confirmado que se entregó</b> (Lima/Provincia según tarifa) + sueldo fijo. Edita tarifas con <b>💰 Comisiones</b>.</div></div>
 
       <!-- Admin (tú) -->
-      <div style="padding:10px 14px;background:var(--accentL);border:1px solid rgba(45,255,100,.2);border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="padding:10px 14px;background:var(--accentL);border:1px solid rgba(59,130,246,.2);border-radius:10px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
         <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex-shrink:0;font-size:14px">${SESSION?.initials||'AD'}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${SESSION.name}</div>
@@ -10542,7 +10542,7 @@ async function deleteLogo(){
   if(SESSION){SESSION.logoData='';WORKSPACE=SESSION;}
   const{error}=await _supabase.from('workspaces').update({logo_data:null}).eq('id',SESSION?.workspace_id);
   if(error){alert('No se pudo quitar el logo: '+error.message);return;}
-  updateFavicon('assets/logo-256.png?v=7');   // resetea el favicon al oficial
+  updateFavicon('assets/logo-256.png?v=8');   // resetea el favicon al oficial
   updateSidebarLogo();renderConfig();
 }
 

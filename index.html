@@ -2305,6 +2305,7 @@ td{padding:11px 14px;font-size:13px}
     <div class="fg"><label>Modalidad</label><select id="pr-mod"><option value="stock">Stock propio</option><option value="aliclick">Aliclick</option></select></div>
     <div class="fg"><label>Precio venta S/</label><input type="number" id="pr-precio" placeholder="0"></div>
     <div class="fg"><label>Costo S/</label><input type="number" id="pr-costo" placeholder="0"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Imagen del producto <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional)</span></label><div id="pr-img-preview"></div></div>
   </div>
   <!-- VARIANTES -->
   <div style="margin-top:14px">
@@ -2353,6 +2354,7 @@ td{padding:11px 14px;font-size:13px}
     <div class="fg"><label>Alerta stock mínimo</label><input type="number" id="up-stockmin" placeholder="5" min="0" step="1"></div>
     <div class="fg" style="grid-column:1/-1"><label>…o compartir stock con un producto del catálogo <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Stock propio (arriba) —</option></select><div style="font-size:10px;color:var(--text3);margin-top:3px">Si vinculas un producto, el upsell descuenta del stock de ESE producto y se ignora el stock propio.</div></div>
     <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
+    <div class="fg" style="grid-column:1/-1"><label>Imagen <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional)</span></label><div id="up-img-preview"></div></div>
   </div>
   <!-- Ofertas por cantidad -->
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
@@ -7738,6 +7740,7 @@ function renderProdCards(){
     const isTop=rank===0&&maxVendidos>0;
     const borderStyle=agotado?'border-color:rgba(239,68,68,.6);background:rgba(239,68,68,.03)':isLow?'border-color:rgba(245,158,11,.5)':isTop?'box-shadow:0 0 0 2px rgba(139,92,246,.3)':'';
     return `<div class="prod-card" style="${borderStyle}">
+      ${p.imagen?`<img src="${p.imagen}" alt="${(p.nombre||'').replace(/"/g,'&quot;')}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;margin-bottom:9px;border:1px solid var(--border)">`:''}
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0"><div class="prod-name">${p.nombre}</div><div class="prod-sku">${p.sku||'Sin SKU'}</div></div>
         <div style="display:flex;gap:4px;flex-shrink:0;margin-left:6px">
@@ -7783,7 +7786,7 @@ function renderProdTabla(){
     const stockColor=agotado?'var(--red)':isLow?'var(--amber)':'var(--green)';
     const diasHtml=diasRestantes!==null?`<span style="font-size:11px;color:${diasRestantes<=7?'var(--red)':diasRestantes<=14?'var(--amber)':'var(--text3)'}">~${diasRestantes}d</span>`:'—';
     return`<tr style="${agotado?'background:rgba(239,68,68,.05)':isLow?'background:rgba(245,158,11,.04)':''}">
-      <td data-label="Producto" style="font-weight:600">${rank===0&&vendidos>0?ic('trophy',13)+' ':agotado?ic('x-circle',13)+' ':isLow?ic('alert-triangle',13)+' ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></td>
+      <td data-label="Producto" style="font-weight:600"><div style="display:flex;align-items:center;gap:8px">${p.imagen?`<img src="${p.imagen}" style="width:38px;height:38px;object-fit:cover;border-radius:7px;border:1px solid var(--border);flex-shrink:0">`:''}<div>${rank===0&&vendidos>0?ic('trophy',13)+' ':agotado?ic('x-circle',13)+' ':isLow?ic('alert-triangle',13)+' ':''}${p.nombre}<div style="font-size:10.5px;color:var(--text3)">${p.sku||''}</div></div></div></td>
       <td data-label="Categoría"><span class="bdg" style="background:var(--tealL);color:var(--teal);font-size:10px">${p.categoria||'General'}</span></td>
       <td data-label="Precio" class="mono" style="font-weight:700;color:var(--green)">${fmt(p.precio)}</td>
       <td data-label="Costo" class="mono" style="color:var(--red)">${fmt(p.costo)}</td>
@@ -7882,13 +7885,29 @@ function renderOfertasProd(){
     </div>`).join('');
 }
 
+// ── Imagen genérica reutilizable (productos, upsells) ──
+async function cargarImgGenerica(input,stateKey,previewId){
+  const f=input.files&&input.files[0];if(!f)return;
+  if(!/^image\//.test(f.type)){alert('Selecciona una imagen.');return;}
+  if(f.size>10*1024*1024){alert('Imagen muy grande (máx 10MB).');return;}
+  try{window[stateKey]=await _comprimirImagen(f,900,0.82);renderImgPreview(stateKey,previewId);}
+  catch(e){alert('No se pudo procesar la imagen.');}
+}
+function quitarImgGenerica(stateKey,previewId){window[stateKey]=null;renderImgPreview(stateKey,previewId);}
+function renderImgPreview(stateKey,previewId){
+  const el=document.getElementById(previewId);if(!el)return;
+  const img=window[stateKey];
+  if(img){el.innerHTML=`<div style="position:relative;display:inline-block"><img src="${img}" style="max-width:120px;max-height:120px;border-radius:10px;border:1px solid var(--border2);display:block;object-fit:cover"><button type="button" class="act act-del" onclick="quitarImgGenerica('${stateKey}','${previewId}')" style="position:absolute;top:-8px;right:-8px;width:26px;height:26px">${ic('trash',13)}</button></div>`;}
+  else{el.innerHTML=`<label style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:1px dashed var(--border2);border-radius:10px;cursor:pointer;font-size:12px;color:var(--text2)">${ic('upload',14)} Subir imagen<input type="file" accept="image/*" onchange="cargarImgGenerica(this,'${stateKey}','${previewId}')" style="display:none"></label>`;}
+}
 function openModalProd(id){
   document.getElementById('mprod-title').textContent=id?'Editar Producto':'Nuevo Producto';
   document.getElementById('pr-id').value=id||'';
-  prodVariantes=[];prodOfertas=[];
+  prodVariantes=[];prodOfertas=[];window.prodImg=null;
   if(id){
     const p=DB.productos.find(x=>x.id===parseInt(id)||x.id===id);
     if(p){
+      window.prodImg=p.imagen||null;
       document.getElementById('pr-nombre').value=p.nombre;
       document.getElementById('pr-sku').value=p.sku||'';
       document.getElementById('pr-cat').value=p.categoria||'Salud';
@@ -7909,6 +7928,7 @@ function openModalProd(id){
   }
   renderVariantes();
   renderOfertasProd();
+  renderImgPreview('prodImg','pr-img-preview');
   document.getElementById('modal-prod').classList.add('open');
 }
 
@@ -7930,7 +7950,8 @@ function guardarProducto(){
     stock:totalStock,
     stockMin:parseInt(document.getElementById('pr-stock-min').value)||5,
     variantes:tieneVariantes?prodVariantes.filter(v=>v.nombre):[],
-    ofertas:(prodOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad)
+    ofertas:(prodOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad),
+    imagen:window.prodImg||null
   };
   // Stock dinámico: la base = lo que el admin ingresó (disponible) + lo ya entregado.
   // Así recomputarStock deja el disponible = lo ingresado.
@@ -8056,9 +8077,12 @@ function renderUpsells(){
     return `<div class="card" style="border-left:3px solid ${convColor}">
       <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-        <div style="flex:1;min-width:0">
-          <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${u.tipo||'Order Bump'}</span>
-          <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
+        <div style="flex:1;min-width:0;display:flex;gap:10px;align-items:flex-start">
+          ${u.imagen?`<img src="${u.imagen}" alt="${(u.nombre||'').replace(/"/g,'&quot;')}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;border:1px solid var(--border);flex-shrink:0">`:''}
+          <div style="min-width:0">
+            <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${u.tipo||'Order Bump'}</span>
+            <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
+          </div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
           <button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})">${ic('pencil',14)}</button>
@@ -8145,12 +8169,14 @@ function toggleUpsellFechas(per){
 
 function openModalUpsell(id){
   document.getElementById('up-id').value=id||'';
+  window.upsellImg=null;
   // Selector de producto del catálogo (vínculo para stock)
   const vincSel=document.getElementById('up-prodvinc');
   if(vincSel){const prods=(DB.productos||[]).filter(p=>p.modalidad==='stock');vincSel.innerHTML='<option value="">— Sin vínculo (no toca stock) —</option>'+prods.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');}
   if(id){
     const u=DB.upsells.find(x=>x.id===id);
     if(u){
+      window.upsellImg=u.imagen||null;
       document.getElementById('up-nombre').value=u.nombre||'';
       document.getElementById('up-tipo').value=u.tipo||'Order Bump';
       document.getElementById('up-precio').value=u.precio||'';
@@ -8170,6 +8196,7 @@ function openModalUpsell(id){
     upsellOfertas=[];
   }
   renderOfertasUp();
+  renderImgPreview('upsellImg','up-img-preview');
   document.getElementById('modal-upsell').classList.add('open');
   setTimeout(()=>document.getElementById('up-nombre')?.focus(),80);
 }
@@ -8186,7 +8213,8 @@ function guardarUpsell(){
     productoId:document.getElementById('up-prodvinc')?.value?parseInt(document.getElementById('up-prodvinc').value):null,
     stockMin:parseInt(document.getElementById('up-stockmin').value)||5,
     desc:document.getElementById('up-desc').value.trim(),
-    ofertas:(upsellOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad)
+    ofertas:(upsellOfertas||[]).filter(o=>o.cantidad>0&&o.precio>0).sort((a,b)=>a.cantidad-b.cantidad),
+    imagen:window.upsellImg||null
   };
   // Stock propio (solo si no comparte producto): base = disponible ingresado + ya entregados
   const stockRaw=document.getElementById('up-stock').value;

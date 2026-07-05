@@ -4491,7 +4491,7 @@ function brutosTabla(rows){
     const h=Array.isArray(r.historial)?r.historial:[];
     const nc=h.filter(x=>x.accion==='no_contesta').length;
     const wa=h.filter(x=>x.accion==='no_responde_wa').length;
-    const cont=(nc||wa)?`<div style="display:flex;gap:9px;margin-top:4px;font-size:10px;color:var(--text3)">${nc?`<span title="No contestó">${ic('phone-off',11)} ×${nc}</span>`:''}${wa?`<span title="No respondió WhatsApp">${ic('message-circle',11)} ×${wa}</span>`:''}</div>`:'';
+    const cont=miDiaContadoresHtml(nc,wa,true);
     return `<tr style="background:${t.bg}" data-bruto-row="${r.id}">
       <td style="${td};text-align:center;border-left:3px solid ${t.bd}"><input type="checkbox" class="bruto-chk" data-id="${r.id}" onclick="brutoToggleSel(${r.id},this)" style="cursor:pointer"></td>
       <td style="${td};color:var(--text3);font-family:var(--mono);font-size:11.5px;white-space:nowrap" title="Ingreso al sistema">${brutoFmtFecha(r.created_at||r.fecha_hora)}</td>
@@ -4900,7 +4900,7 @@ async function renderMiDia(){
   setContent(`<div class="section-header"><div><div class="section-title">Mi Día</div><div class="section-sub" style="text-transform:capitalize">${fecha}</div></div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px">${vistaToggle}${periodoSelectHtml('midia-per',_miDiaPer,'setMiDiaPer(this.value)')}<button class="btn btn-ghost btn-sm" onclick="toggleMiDiaSort()">${ic('repeat',14)} ${_miDiaSort==='asc'?'Antiguos primero':'Recientes primero'}</button><button class="btn btn-ghost btn-sm" onclick="renderMiDia()">${ic('repeat',14)} Actualizar</button></div></div>
     <div id="midia-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
-    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('inbox',16)} Por contactar <span style="font-size:12px;color:var(--text3);font-weight:500">· ${escB(periodoLabel(_miDiaPer))}${isAdmin()?'':' · mías + pool'}</span></div>
+    <div class="section-title" style="font-size:15px;margin:4px 0 10px">${ic('inbox',16)} Por contactar <span style="font-size:12px;color:var(--text3);font-weight:500">· ${escB(periodoLabel(_miDiaPer))} · tablero del equipo</span></div>
     <div id="midia-cola"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
   miDiaResumen(ws,mineId);
   miDiaCola(ws,mineId);
@@ -4913,7 +4913,8 @@ function setMiDiaPer(v){_miDiaPer=v;renderMiDia();}
 async function miDiaResumen(ws,mineId){
   const el=document.getElementById('midia-resumen'); if(!el)return;
   const per=_miDiaPer;
-  const baseEst=(est,col)=>{let q=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).eq('estado',est);q=periodoAplicar(q,per,col||'updated_at');if(!isAdmin())q=q.eq('asesor_id',mineId);return q;};
+  // Tablero del equipo: los totales son de todo el workspace (no por trabajador).
+  const baseEst=(est,col)=>{let q=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).eq('estado',est);q=periodoAplicar(q,per,col||'updated_at');return q;};
   let reg=0,rech=0,pend=0,total=0;
   try{
     const r1=await baseEst('registrado'); reg=r1.count||0;
@@ -4921,11 +4922,9 @@ async function miDiaResumen(ws,mineId){
     // Total ingresados en el período (por fecha de creación)
     let qt=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws);
     qt=periodoAplicar(qt,per,'created_at');
-    if(!isAdmin())qt=qt.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
     const rt=await qt; total=rt.count||0;
     // Pendientes (estado actual, no depende del período)
     let q3=_supabase.from('pedidos_brutos').select('id',{count:'exact',head:true}).eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
-    if(!isAdmin())q3=q3.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
     const r3=await q3; pend=r3.count||0;
   }catch(_){}
   const gest=reg+rech; const conv=gest?Math.round(reg/gest*100):0;
@@ -4935,8 +4934,9 @@ async function miDiaResumen(ws,mineId){
 
 async function miDiaCola(ws,mineId){
   const el=document.getElementById('midia-cola'); if(!el)return;
+  // Tablero del equipo: TODOS ven todos los pendientes. Al tomar uno no se retira
+  // del tablero, solo se resalta con el color de quien lo está atendiendo.
   let q=_supabase.from('pedidos_brutos').select('*').eq('workspace_id',ws).not('estado','in','("rechazado","registrado","perdido")');
-  if(!isAdmin())q=q.or(`asesor_id.eq.${mineId},asesor_id.is.null`);
   q=periodoAplicar(q,_miDiaPer,'created_at');
   q=q.order('created_at',{ascending:_miDiaSort==='asc'}).limit(120);
   let res; try{res=await q;}catch(e){res={error:e};}
@@ -4949,6 +4949,16 @@ async function miDiaCola(ws,mineId){
   }else{
     el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${rows.map(miDiaCard).join('')}</div>`;
   }
+}
+// Contadores de intentos (No contesta / No responde WA) como pills llamativos
+function miDiaContadoresHtml(nc,waC,compact){
+  if(!nc&&!waC)return '';
+  const pad=compact?'2px 7px':'3px 9px';
+  const pill=(bg,fg,icon,n,lbl,tip)=>`<span title="${tip}" style="display:inline-flex;align-items:center;gap:4px;background:${bg};color:${fg};font-weight:800;font-size:11px;padding:${pad};border-radius:20px;line-height:1;white-space:nowrap">${icon}${compact?'':`<span>${lbl}</span>`}<span style="font-family:var(--mono)">×${n}</span></span>`;
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:${compact?'0':'8px'}">
+    ${nc?pill('rgba(245,158,11,.16)','var(--amber)',ic('phone-off',12),nc,'No contesta','Veces marcado como “No contesta”'):''}
+    ${waC?pill('rgba(59,130,246,.16)','var(--blue)',ic('message-circle',12),waC,'No responde WA','Veces marcado como “No responde WhatsApp”'):''}
+  </div>`;
 }
 // Info + acciones compartidas por tarjeta y lista
 function miDiaAsesorChip(r){
@@ -4982,7 +4992,7 @@ function miDiaRow(r){
   const waC=h.filter(x=>x.accion==='no_responde_wa').length;
   const ingreso=r.created_at?new Date(r.created_at).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
   return `<tr style="border-left:4px solid ${barColor}">
-    <td data-label="Cliente"><div style="font-weight:700">${escB(r.nombre)||'—'}</div><div style="font-size:11.5px;color:var(--text3);font-family:var(--mono)">${escB(r.celular)||''}</div>${(nc||waC)?`<div style="font-size:10.5px;color:var(--text3);margin-top:2px">${nc?`📞×${nc} `:''}${waC?`💬×${waC}`:''}</div>`:''}</td>
+    <td data-label="Cliente"><div style="font-weight:700">${escB(r.nombre)||'—'}</div><div style="font-size:11.5px;color:var(--text3);font-family:var(--mono)">${escB(r.celular)||''}</div>${miDiaContadoresHtml(nc,waC,true)}</td>
     <td data-label="Asignado">${miDiaAsesorChip(r)}</td>
     <td data-label="Producto"><div style="font-size:12.5px">${escB(r.producto_raw)||'—'}</div>${r.precio!=null?`<div style="font-size:11.5px;color:var(--text2)"><b>${fmt(r.precio)}</b></div>`:''}</td>
     <td data-label="Ingreso"><span style="font-size:11.5px;color:var(--text3)">${ingreso}</span></td>
@@ -5010,7 +5020,7 @@ function miDiaCard(r){
     ${dir?`<div style="font-size:11.5px;color:var(--text2);margin-top:4px">📍 ${dir}</div>`:''}
     ${loc?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${loc}</div>`:''}
     ${ingreso?`<div style="font-size:10.5px;color:var(--text3);margin-top:4px">🕐 Ingresó: ${ingreso}</div>`:''}
-    ${(nc||wa)?`<div style="display:flex;gap:11px;margin-top:6px;font-size:11px;color:var(--text3)">${nc?`<span>${ic('phone-off',12)} ×${nc}</span>`:''}${wa?`<span>${ic('message-circle',12)} ×${wa}</span>`:''}</div>`:''}
+    ${miDiaContadoresHtml(nc,wa,false)}
     <div class="act-grp" style="margin-top:11px">${miDiaAccionesHtml(r)}</div>
   </div>`;
 }

@@ -103,10 +103,14 @@ Deno.serve(async (req) => {
     let brutos: any[] = [];
     if (src === "shopify") {
       const raw = await req.text();
-      // Lista de secretos: tiendas múltiples (shopify_tiendas) + legado (shopify_secret)
-      const tiendas = Array.isArray(intg.shopify_tiendas) ? intg.shopify_tiendas : [];
+      // Lista de secretos: tiendas de la app (workspaces.cfg_data.shopifyTiendas) + legado (integraciones.shopify_secret)
       const secrets: { nombre: string; secret: string }[] = [];
-      for (const t of tiendas) if (t && t.secret) secrets.push({ nombre: (t.nombre || "").toString(), secret: String(t.secret) });
+      try {
+        const { data: wsRow } = await supa.from("workspaces").select("cfg_data").eq("id", ws).maybeSingle();
+        const cfg = (wsRow && wsRow.cfg_data) || {};
+        const tiendas = Array.isArray(cfg.shopifyTiendas) ? cfg.shopifyTiendas : [];
+        for (const t of tiendas) if (t && t.secret) secrets.push({ nombre: (t.nombre || "").toString(), secret: String(t.secret) });
+      } catch (_) { /* sin cfg: continúa */ }
       if (intg.shopify_secret && !secrets.some((s) => s.secret === intg.shopify_secret)) secrets.push({ nombre: "", secret: String(intg.shopify_secret) });
       let matched: { nombre: string; secret: string } | null = null;
       if (secrets.length) {

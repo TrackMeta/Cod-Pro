@@ -57,9 +57,9 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v7';
+const CACHE='cod-pro-v8';
 self.addEventListener('install',e=>{self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET'||e.request.url.includes('supabase'))return;
   e.respondWith(caches.open(CACHE).then(c=>

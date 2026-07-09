@@ -4401,7 +4401,7 @@ const BRUTO_ESTADOS={
   perdido:{label:'Perdido',color:'var(--text3)',ic:'undo'}
 };
 const BRUTO_ORDEN=['por_contactar','rechazado','registrado','perdido'];
-const BRUTO_ACCION_LBL={tomado:'Tomado',devuelto_al_pool:'Devuelto al pool',asignado:'Asignado por admin',no_contesta:'No contestó (llamada)',no_responde_wa:'No respondió WhatsApp',reintento:'Intento de llamada',rechazado:'Rechazado',registrado:'Registrado (venta cerrada)',perdido:'Marcado como perdido',reactivar:'Reactivado',whatsapp:'Mensaje de WhatsApp',sub_estado:'Etapa de atención'};
+const BRUTO_ACCION_LBL={tomado:'Tomado',devuelto_al_pool:'Devuelto al pool',asignado:'Asignado por admin',no_contesta:'No contestó (llamada)',no_responde_wa:'No respondió WhatsApp',reintento:'Intento de llamada',rechazado:'Rechazado',registrado:'Registrado (venta cerrada)',perdido:'Marcado como perdido',reactivar:'Reactivado',whatsapp:'Mensaje de WhatsApp',sub_estado:'Etapa de atención',nota:'Nota / comentario'};
 const BRUTO_MOTIVOS=['Cliente no responde','Número incorrecto','Zona no atendida','Falta de información','Otro motivo'];
 const BRUTO_TINT={por_contactar:{bg:'rgba(245,158,11,.08)',bd:'var(--amber)'},rechazado:{bg:'rgba(239,68,68,.10)',bd:'var(--red)'},registrado:{bg:'rgba(34,197,94,.10)',bd:'var(--green)'},perdido:{bg:'rgba(148,163,184,.08)',bd:'var(--text3)'}};
 function brutoEstadoNorm(e){return (e==='rechazado'||e==='registrado'||e==='perdido')?e:'por_contactar';}
@@ -4433,6 +4433,81 @@ async function setBrutoSubEstado(id,v){
   }
   b.sub_estado=v||null;b.historial=hist;
   refrescarBrutosUI();
+}
+
+// ── Notas / comentarios por pedido (Mi Día + Pedidos Brutos) ─────────
+// Se guardan DENTRO del historial del bruto ({accion:'nota', texto, asesor, ts})
+// → trazabilidad garantizada: nunca se pierden y aparecen también en el
+// historial completo del pedido.
+function brutoNotas(b){const h=Array.isArray(b&&b.historial)?b.historial:[];return h.filter(x=>x.accion==='nota'&&x.texto);}
+function notasBtnHtml(r){
+  const n=brutoNotas(r).length;
+  return `<button class="btn btn-ghost btn-sm" style="position:relative;overflow:visible" onclick="verBrutoNotas(${r.id})" onmouseenter="notasHoverShow(event,${r.id})" onmouseleave="notasHoverHide()" title="Notas / comentarios del pedido">${ic('note',13)}${n?`<span style="position:absolute;top:-7px;right:-7px;background:var(--accent);color:#fff;font-size:9.5px;font-weight:800;min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-family:var(--mono);box-shadow:0 1px 4px rgba(0,0,0,.35)">${n}</span>`:''}</button>`;
+}
+let _notasHoverT=null;
+function notasHoverShow(ev,id){
+  clearTimeout(_notasHoverT);
+  const b=_brutosCache[id];if(!b)return;
+  const notas=brutoNotas(b).slice(-3).reverse();
+  if(!notas.length)return;
+  let pop=document.getElementById('notas-pop');
+  if(!pop){pop=document.createElement('div');pop.id='notas-pop';pop.style.cssText='position:fixed;z-index:10004;width:290px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.4);pointer-events:none';document.body.appendChild(pop);}
+  pop.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">📝 Últimas notas</div>`
+    +notas.map(n=>`<div style="padding:6px 0;border-top:1px solid var(--border)"><div style="font-size:12px;line-height:1.45">${escB(n.texto)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${escB(n.asesor_nombre||'')}${n.ts?' · '+new Date(n.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div></div>`).join('')
+    +`<div style="font-size:10px;color:var(--accent);margin-top:6px;font-weight:700">Click para ver todas o agregar</div>`;
+  const rc=ev.currentTarget.getBoundingClientRect();
+  pop.style.left=Math.max(8,Math.min(rc.left,window.innerWidth-306))+'px';
+  pop.style.top=(rc.bottom+8+300>window.innerHeight?rc.top-pop.offsetHeight-8:rc.bottom+8)+'px';
+  pop.style.display='block';
+}
+function notasHoverHide(){_notasHoverT=setTimeout(()=>{const p=document.getElementById('notas-pop');if(p)p.style.display='none';},130);}
+function _notasListaHtml(b){
+  const notas=brutoNotas(b).slice().reverse(); // más recientes primero
+  if(!notas.length)return '<div style="color:var(--text3);padding:18px 0;text-align:center;font-size:13px">Sin notas todavía. Escribe la primera 👇</div>';
+  return notas.map(n=>{
+    const meta=asesorMeta(n.asesor_id);
+    const t=n.ts?new Date(n.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    return `<div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="width:10px;height:10px;border-radius:50%;background:${meta.color};margin-top:4px;flex-shrink:0"></span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${escB(n.texto)}</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:3px"><b style="color:${meta.color}">${escB(n.asesor_nombre||meta.nombre)}</b> · ${t}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function verBrutoNotas(id){
+  const p=document.getElementById('notas-pop');if(p)p.style.display='none';
+  const b=_brutosCache[id]; if(!b)return;
+  let ov=document.getElementById('bruto-notas-ov');
+  if(!ov){ov=document.createElement('div');ov.id='bruto-notas-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:460px;width:100%;max-height:82vh;display:flex;flex-direction:column;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div style="font-weight:800;font-size:15px">📝 Notas — ${escB(b.nombre||'—')}</div><button onclick="document.getElementById('bruto-notas-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">${escB(b.celular||'')}${b.producto_raw?' · '+escB(b.producto_raw):''}</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
+      <textarea id="bruto-nota-txt" rows="2" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;resize:vertical" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();agregarBrutoNota(${id});}"></textarea>
+      <button class="btn btn-primary btn-sm" onclick="agregarBrutoNota(${id})" style="white-space:nowrap">${ic('save',13)} Agregar</button>
+    </div>
+    <div id="bruto-notas-lista" style="overflow:auto;flex:1">${_notasListaHtml(b)}</div>
+  </div>`;
+  setTimeout(()=>{document.getElementById('bruto-nota-txt')?.focus();},50);
+}
+async function agregarBrutoNota(id){
+  const inp=document.getElementById('bruto-nota-txt');
+  const texto=(inp?.value||'').trim();
+  if(!texto)return;
+  const b=_brutosCache[id]; if(!b)return;
+  const btn=inp.parentElement?.querySelector('button');if(btn)btn.disabled=true;
+  const hist=Array.isArray(b.historial)?b.historial.slice():[];
+  hist.push({accion:'nota',texto,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
+  const{error}=await _supabase.from('pedidos_brutos').update({historial:hist}).eq('id',id).eq('workspace_id',SESSION.workspace_id);
+  if(btn)btn.disabled=false;
+  if(error){alert('No se pudo guardar la nota: '+error.message);return;}
+  b.historial=hist;
+  if(inp)inp.value='';
+  const lista=document.getElementById('bruto-notas-lista');
+  if(lista)lista.innerHTML=_notasListaHtml(b);
+  refrescarBrutosUIDeb(); // actualiza el contador del botón en el tablero
 }
 
 function escB(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -4720,38 +4795,210 @@ function brutoShowWarn(html){
   w.innerHTML=html;
 }
 
+// =====================================================================
+// AUTOCOMPLETADO INTELIGENTE bruto → pedido (Shopify / EasySell / Releasit / Sheets)
+// Normaliza teléfono y nombre, reconoce distrito/departamento con tolerancia a
+// typos, empareja producto por similitud con detección de ambigüedad, extrae
+// cantidad y variante, valida coherencia y REPORTA cada inconsistencia en un
+// panel de avisos en vez de completar datos incorrectos en silencio.
+// =====================================================================
+const LIMA_DISTRITOS_AUTO=['ANCON','ATE','BARRANCO','BELLAVISTA','BREÑA','CAJAMARQUILLA','CALLAO','CARABAYLLO','CARAPONGO','CARMEN DE LA LEGUA REYNOSO','CERCADO DE LIMA','CHACLACAYO','CHORRILLOS','CHOSICA','CIENEGUILLA','COMAS','EL AGUSTINO','HUACHIPA','HUAYCAN','INDEPENDENCIA','JESUS MARIA','JICAMARCA','LA MOLINA','LA PERLA','LA PUNTA','LA VICTORIA','LINCE','LOS OLIVOS','LURIGANCHO','LURIN','MAGDALENA DEL MAR','MANCHAY','MI PERÚ','MIRAFLORES','PACHACÁMAC','PUEBLO LIBRE','PUENTE PIEDRA','PUNTA NEGRA','RICARDO PALMA','RIMAC','SAN BORJA','SAN ISIDRO','SAN JUAN DE LURIGANCHO','SAN JUAN DE MIRAFLORES','SAN LUIS','SAN MARTIN DE PORRES','SAN MIGUEL','SANTA ANITA','SANTA EULALIA','SANTA MARIA DEL MAR','SANTA ROSA','SANTIAGO DE SURCO','SURQUILLO','VENTANILLA','VILLA EL SALVADOR','VILLA MARIA DEL TRIUNFO'];
+const DIST_ALIAS={'sjl':'SAN JUAN DE LURIGANCHO','sjm':'SAN JUAN DE MIRAFLORES','smp':'SAN MARTIN DE PORRES','vmt':'VILLA MARIA DEL TRIUNFO','ves':'VILLA EL SALVADOR','surco':'SANTIAGO DE SURCO','lima cercado':'CERCADO DE LIMA','centro de lima':'CERCADO DE LIMA','agustino':'EL AGUSTINO','magdalena':'MAGDALENA DEL MAR'};
+const PE_DEPARTAMENTOS=['AMAZONAS','ANCASH','APURIMAC','AREQUIPA','AYACUCHO','CAJAMARCA','CALLAO','CUSCO','HUANCAVELICA','HUANUCO','ICA','JUNIN','LA LIBERTAD','LAMBAYEQUE','LIMA','LORETO','MADRE DE DIOS','MOQUEGUA','PASCO','PIURA','PUNO','SAN MARTIN','TACNA','TUMBES','UCAYALI'];
+function _lev(a,b){
+  const m=a.length,n=b.length;
+  if(!m)return n; if(!n)return m;
+  let prev=new Array(n+1),cur=new Array(n+1);
+  for(let j=0;j<=n;j++)prev[j]=j;
+  for(let i=1;i<=m;i++){
+    cur[0]=i;
+    for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    const t=prev;prev=cur;cur=t;
+  }
+  return prev[n];
+}
+// Similitud 0..1 insensible a mayúsculas/acentos/símbolos (1 = idénticos)
+function _simTxt(a,b){a=brutoNorm(a);b=brutoNorm(b);if(!a||!b)return 0;if(a===b)return 1;return 1-_lev(a,b)/Math.max(a.length,b.length);}
+function _titleCase(s){return (s||'').toString().toLowerCase().replace(/(^|[\s\-\.])([a-záéíóúñü])/g,(m,p,c)=>p+c.toUpperCase()).trim();}
+// Celular peruano: quita espacios/guiones/prefijos (+51, 0051, 051) y valida 9 dígitos empezando en 9
+function normalizarCelularPE(raw){
+  let d=(raw||'').toString().replace(/\D/g,'');
+  if(d.startsWith('0051'))d=d.slice(4);
+  else if(d.startsWith('051')&&d.length===12)d=d.slice(3);
+  else if(d.startsWith('51')&&d.length===11)d=d.slice(2);
+  d=d.replace(/^0+/,'');
+  const valido=/^9\d{8}$/.test(d);
+  return {celular:valido?'+51'+d:((raw||'').toString().trim()),valido,digitos:d};
+}
+function limpiarNombreCliente(s){
+  s=(s||'').toString().replace(/[\r\n\t]+/g,' ').replace(/\s{2,}/g,' ').trim();
+  if(!s)return '';
+  if(s===s.toUpperCase()||s===s.toLowerCase())s=_titleCase(s); // TODO MAYÚS o minús → Título
+  return s;
+}
+function matchDistritoLima(textos){
+  const txt=brutoNorm((textos||[]).filter(Boolean).join(' | '));
+  if(!txt)return null;
+  for(const[alias,dist]of Object.entries(DIST_ALIAS)){if(new RegExp('(^|[^a-z0-9])'+alias+'([^a-z0-9]|$)').test(txt))return dist;}
+  let best=null,bestLen=0;
+  for(const d of LIMA_DISTRITOS_AUTO){
+    const dn=brutoNorm(d);
+    if(dn&&txt.includes(dn)&&dn.length>bestLen){best=d;bestLen=dn.length;}
+  }
+  if(best)return best;
+  // Tolerancia a typos: comparar cada campo completo ("miraflres" → MIRAFLORES)
+  for(const t of (textos||[])){
+    if(!t)continue;
+    for(const d of LIMA_DISTRITOS_AUTO){if(_simTxt(t,d)>=0.87)return d;}
+  }
+  return null;
+}
+function matchDepartamento(textos){
+  const txt=brutoNorm((textos||[]).filter(Boolean).join(' | '));
+  if(!txt)return null;
+  for(const dep of PE_DEPARTAMENTOS){const dn=brutoNorm(dep);if(dn&&new RegExp('(^|[^a-z0-9])'+dn+'([^a-z0-9]|$)').test(txt))return dep;}
+  for(const t of (textos||[])){if(!t)continue;for(const dep of PE_DEPARTAMENTOS){if(_simTxt(t,dep)>=0.86)return dep;}}
+  return null;
+}
+// Match de producto con puntaje (0..1) y detección de ambigüedad entre 2 similares
+function matchProductoBrutoV2(rawTxt){
+  const r=brutoNorm(rawTxt);
+  if(!r)return{prod:null,score:0,ambiguo:null};
+  const rTok=r.split(' ').filter(Boolean);
+  const scored=[];
+  for(const p of (DB.productos||[])){
+    const pn=brutoNorm(p.nombre);if(!pn)continue;
+    let score=0;
+    if(r===pn)score=1;
+    else if(r.includes(pn))score=0.93;
+    else if(pn.includes(r))score=0.9;
+    else{
+      const pTok=pn.split(' ').filter(Boolean);
+      const tokEq=(a,b)=>a===b||(a.length>3&&b.length>3&&_simTxt(a,b)>=0.84);
+      // Cobertura en ambos sentidos: cuánto del catálogo aparece en el texto y
+      // cuánto del texto aparece en el catálogo ("lector biblia" → "Lector de Biblia Electrónico")
+      const hitsP=pTok.filter(t=>rTok.some(rt=>tokEq(rt,t))).length;
+      const hitsR=rTok.filter(rt=>pTok.some(t=>tokEq(rt,t))).length;
+      const covP=pTok.length?hitsP/pTok.length:0;
+      const covR=(rTok.length>=2)?hitsR/rTok.length*0.95:0; // 1 sola palabra = señal débil
+      score=Math.max(covP,covR)*0.85;
+    }
+    if(score>=0.5)scored.push({p,score});
+  }
+  scored.sort((a,b)=>b.score-a.score||brutoNorm(b.p.nombre).length-brutoNorm(a.p.nombre).length);
+  const best=scored[0];
+  if(!best||best.score<0.6)return{prod:null,score:best?best.score:0,ambiguo:null};
+  const second=scored.find(s=>s.p.id!==best.p.id);
+  return{prod:best.p,score:best.score,ambiguo:(second&&second.score>=best.score-0.07)?second.p:null};
+}
+// Cantidad: raw.items de Shopify > "×2"/"x2" > "2 unidades" en el texto
+function extraerCantidadBruto(b){
+  if(b.raw&&Array.isArray(b.raw.items)){const q=b.raw.items.reduce((s,it)=>s+(parseInt(it.quantity)||0),0);if(q>0)return q;}
+  const s=b.producto_raw||'';
+  let m=s.match(/[×x]\s*(\d{1,2})(?!\d)/i);if(m)return parseInt(m[1]);
+  m=s.match(/(?:^|\s)(\d{1,2})\s*(?:unidades|unidad|und|uds|u\.)\b/i);if(m)return parseInt(m[1]);
+  return null;
+}
+// Variante: variant_title de Shopify o texto libre vs variantes del catálogo
+function matchVarianteBruto(b,prod){
+  if(!prod||!Array.isArray(prod.variantes)||!prod.variantes.length)return '';
+  const fuentes=[];
+  if(b.raw&&Array.isArray(b.raw.items))b.raw.items.forEach(it=>{if(it.variant)fuentes.push(it.variant);});
+  fuentes.push(b.producto_raw||'');
+  for(const f of fuentes){
+    const fn=brutoNorm(f);if(!fn)continue;
+    for(const v of prod.variantes){
+      const vn=brutoNorm(v.nombre);if(!vn)continue;
+      if(fn===vn||fn.includes(vn)||_simTxt(fn,vn)>=0.85)return v.nombre;
+    }
+  }
+  return '';
+}
+// Panel de avisos (rojo=corregir, ámbar=verificar, azul=informativo)
+function brutoShowAvisos(avisos){
+  if(!avisos||!avisos.length){brutoClearWarn();return;}
+  const colores={red:['rgba(239,68,68,.12)','var(--red)','⛔'],amber:['rgba(245,158,11,.12)','var(--amber)','⚠️'],blue:['rgba(59,130,246,.10)','var(--blue)','ℹ️']};
+  const orden={red:0,amber:1,blue:2};
+  const items=avisos.slice().sort((a,b)=>(orden[a.nivel]??2)-(orden[b.nivel]??2)).map(a=>{
+    const c=colores[a.nivel]||colores.blue;
+    return `<div style="display:flex;gap:8px;align-items:flex-start;background:${c[0]};border-left:3px solid ${c[1]};border-radius:6px;padding:7px 10px;font-size:12px;line-height:1.45"><span>${c[2]}</span><div>${a.msg}</div></div>`;
+  }).join('');
+  brutoShowWarn(`<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${items}</div>`);
+}
+
 function registrarBruto(id){
   const b=_brutosCache[id]; if(!b){alert('No se encontró el pedido bruto.');return;}
-  const zona=detectarZonaBruto(b);
+  const avisos=[];
+  // ── Zona: distrito Lima + departamento con chequeo de coherencia ──
+  const dist=matchDistritoLima([b.ciudad,b.direccion,b.provincia_raw]);
+  const dep=matchDepartamento([b.provincia_raw,b.ciudad]);
+  let zona;
+  if(dist&&(!dep||dep==='LIMA'||dep==='CALLAO'))zona='lima';
+  else if(dep&&dep!=='LIMA'&&dep!=='CALLAO')zona='provincia';
+  else if(dep==='LIMA'&&!dist){zona='provincia';avisos.push({nivel:'amber',msg:'Departamento <b>Lima</b> pero sin distrito de Lima Metropolitana reconocido (¿Huaral, Cañete, Huacho…?). Se asumió <b>Provincia</b> — verifica la zona.'});}
+  else zona=detectarZonaBruto(b);
+  if(dist&&dep&&dep!=='LIMA'&&dep!=='CALLAO')avisos.push({nivel:'amber',msg:`Datos mixtos: distrito limeño <b>${escB(_titleCase(dist))}</b> pero departamento <b>${escB(_titleCase(dep))}</b>. Se asumió <b>${zona==='lima'?'Lima':'Provincia'}</b> — revisa.`});
+  if(!b.ciudad&&!b.provincia_raw&&!dist&&!dep)avisos.push({nivel:'amber',msg:'El lead no trae ciudad ni departamento — no se pudo detectar la zona con certeza.'});
   openNuevoPedido(zona);          // resetea y abre el modal (limpia _brutoEnRegistro)
   _brutoEnRegistro=b;             // marcar que este pedido viene de un bruto
   const sv=(eid,val)=>{const e=document.getElementById(eid);if(e)e.value=val||'';};
-  sv('p-nombre',b.nombre);
-  sv('p-celular',b.celular);
-  sv('p-dir',b.direccion);
+  // ── Nombre normalizado ──
+  const nombre=limpiarNombreCliente(b.nombre);
+  sv('p-nombre',nombre);
+  if(!nombre)avisos.push({nivel:'red',msg:'El lead <b>no trae nombre</b> — complétalo antes de guardar.'});
+  // ── Celular normalizado y validado ──
+  const cel=normalizarCelularPE(b.celular);
+  sv('p-celular',cel.celular);
+  if(!cel.valido)avisos.push({nivel:'red',msg:`El celular "<b>${escB(b.celular||'—')}</b>" no parece un móvil peruano válido (9 dígitos empezando en 9). Corrígelo antes de guardar.`});
+  sv('p-dir',(b.direccion||'').replace(/\s{2,}/g,' ').trim());
+  if(!(b.direccion||'').trim())avisos.push({nivel:'amber',msg:'Sin dirección — pídela al cliente.'});
   document.getElementById('p-zona').value=zona; toggleZona();
-  if(zona==='provincia'){ sv('p-prov',limpiarProvincia(b.provincia_raw||b.ciudad)); }
-  else { sv('p-ref', b.ciudad?('Ciudad: '+b.ciudad):''); }
-  // Producto: match catálogo o texto libre
-  const match=matchProductoBruto(b.producto_raw);
-  if(match){
-    let it={productoId:match.id,nombre:match.nombre,variante:'',desglose:[],cantidad:1,sku:match.sku||'',cali:''};
-    if(match.ofertas&&match.ofertas.length){it.cantidad=match.ofertas[0].cantidad;it.precio=(b.precio!=null&&b.precio>0)?b.precio:match.ofertas[0].precio;it.cprod=(match.costo||0)*it.cantidad;}
-    else{it.precio=(b.precio!=null&&b.precio>0)?b.precio:(match.precio||0);it.cprod=match.costo||0;}
-    pedidoItems=[it];
+  if(zona==='lima'){
+    if(dist){
+      const de=document.getElementById('p-dist');
+      if(de){de.value=dist;if(de.value===dist)avisos.push({nivel:'blue',msg:`Distrito detectado automáticamente: <b>${escB(_titleCase(dist))}</b>.`});}
+    } else avisos.push({nivel:'amber',msg:'No se reconoció el <b>distrito</b> de Lima — selecciónalo manualmente.'});
+    const refBits=[];
+    if(b.ciudad&&(!dist||brutoNorm(b.ciudad)!==brutoNorm(dist)))refBits.push('Ciudad: '+b.ciudad);
+    sv('p-ref',refBits.join(' · '));
   } else {
-    pedidoItems=[{productoId:'',nombre:b.producto_raw||'',variante:'',cantidad:1,precio:(b.precio!=null?b.precio:''),cprod:'',cali:'',sku:''}];
+    sv('p-prov',dep?_titleCase(dep):limpiarProvincia(b.provincia_raw||b.ciudad));
+    const extraLoc=[b.ciudad,b.provincia_raw].filter(Boolean).join(' / ');
+    if(extraLoc){const ce=document.getElementById('p-comentario');if(ce&&!ce.value)ce.value='📍 Ubicación del lead: '+extraLoc;}
+    avisos.push({nivel:'blue',msg:'Elige la <b>sede Shalom</b> de destino (no se puede inferir automáticamente).'});
+  }
+  // ── Producto: match por similitud + cantidad + variante + validación de precio ──
+  const cant=extraerCantidadBruto(b);
+  const{prod:match,score,ambiguo}=matchProductoBrutoV2(b.producto_raw);
+  if(match){
+    const cantidad=cant||((match.ofertas&&match.ofertas.length)?match.ofertas[0].cantidad:1);
+    const it={productoId:match.id,nombre:match.nombre,variante:'',desglose:[],cantidad,sku:match.sku||'',cali:''};
+    const oferta=(match.ofertas||[]).find(o=>parseInt(o.cantidad)===parseInt(cantidad));
+    const precioCatalogo=oferta?parseFloat(oferta.precio):(parseFloat(match.precio)||0)*cantidad;
+    it.precio=(b.precio!=null&&b.precio>0)?b.precio:precioCatalogo; // manda lo cobrado en el checkout
+    it.cprod=(parseFloat(match.costo)||0)*cantidad;
+    const vari=matchVarianteBruto(b,match);
+    if(vari){if(cantidad<=1)it.variante=vari;else it.desglose=[{variante:vari,cantidad}];avisos.push({nivel:'blue',msg:`Variante detectada: <b>${escB(vari)}</b>.`});}
+    else if(Array.isArray(match.variantes)&&match.variantes.length)avisos.push({nivel:'amber',msg:`<b>${escB(match.nombre)}</b> tiene variantes — elige el color/variante.`});
+    pedidoItems=[it];
+    if(score<0.85)avisos.push({nivel:'amber',msg:`Producto emparejado por similitud (${Math.round(score*100)}%): "<b>${escB(b.producto_raw||'')}</b>" → <b>${escB(match.nombre)}</b>. Verifica.`});
+    if(ambiguo)avisos.push({nivel:'amber',msg:`Coincidencia ambigua: también se parece a <b>${escB(ambiguo.nombre)}</b>. Verifica el producto elegido.`});
+    if(b.precio!=null&&b.precio>0&&precioCatalogo>0){
+      const dif=Math.abs(b.precio-precioCatalogo)/precioCatalogo;
+      if(dif>0.15)avisos.push({nivel:'amber',msg:`El precio del pedido (<b>${fmt(b.precio)}</b>) difiere del catálogo (<b>${fmt(precioCatalogo)}</b> por ${cantidad} und.). Se usó el del pedido — verifica.`});
+    }
+    if(cant&&cant>1)avisos.push({nivel:'blue',msg:`Cantidad detectada: <b>${cant}</b> unidades.`});
+  } else {
+    pedidoItems=[{productoId:'',nombre:(b.producto_raw||'').trim(),variante:'',cantidad:cant||1,precio:(b.precio!=null?b.precio:''),cprod:'',cali:'',sku:''}];
+    avisos.push({nivel:'amber',msg:'El producto <b>no está en el catálogo</b> — quedó como texto libre (sin costo asociado, no descuenta stock).'});
   }
   renderItemsPedido();
   if(isAdmin()&&b.asesor_id)fillVendedorSelect(b.asesor_id);
-  // Aviso de cliente existente
-  const previos=clientesPreviosPed(b.celular);
+  // ── Cliente con pedidos previos (dedup capa 3) ──
+  const previos=clientesPreviosPed(cel.valido?cel.celular:b.celular);
   const activos=previos.filter(p=>['nuevo','confirmado','enviado','no-contesta','reprogramado'].includes(p.estado));
-  let bits=[];
-  if(activos.length)bits.push(`<b>${activos.length}</b> activo(s)`);
-  if(previos.length)bits.push(`${previos.length} en total`);
-  if(previos.length)brutoShowWarn(`<div class="abox" style="background:rgba(245,158,11,.12);border:1px solid var(--amber)"><span class="abox-icon">${ic('alert-triangle',16)}</span><div class="abox-text">Cliente con pedidos previos: ${bits.join(' · ')}. Revisa duplicados antes de registrar.</div></div>`);
-  else brutoClearWarn();
+  if(previos.length)avisos.push({nivel:'amber',msg:`Cliente con pedidos previos: ${activos.length?`<b>${activos.length}</b> activo(s) · `:''}${previos.length} en total. Revisa duplicados antes de registrar.`});
+  brutoShowAvisos(avisos);
 }
 
 async function marcarBrutoRegistrado(b,numeroPedido){
@@ -4919,7 +5166,7 @@ function verBrutoHistorial(id){
   const rows=hist.length?hist.slice().reverse().map(h=>{
     const lbl=BRUTO_ACCION_LBL[h.accion]||h.accion;
     const t=h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-    const extra=[h.valor?escB(h.valor):'',h.motivo?escB(h.motivo):'',h.nota?escB(h.nota):''].filter(Boolean).join(' — ');
+    const extra=[h.texto?escB(h.texto):'',h.valor?escB(h.valor):'',h.motivo?escB(h.motivo):'',h.nota?escB(h.nota):''].filter(Boolean).join(' — ');
     return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:92px;white-space:nowrap">${t}</span><div><div style="font-weight:600;font-size:13px">${escB(lbl)}${h.intento?` · intento ${h.intento}`:''}</div>${h.asesor_nombre?`<div style="font-size:11px;color:var(--text3)">${escB(h.asesor_nombre)}</div>`:''}${extra?`<div style="font-size:11.5px;color:var(--amber);margin-top:2px">${extra}</div>`:''}</div></div>`;
   }).join(''):'<div style="color:var(--text3);padding:16px 0;text-align:center">Sin movimientos todavía.</div>';
   let ov=document.getElementById('bruto-hist-ov');
@@ -4980,9 +5227,10 @@ function brutoAccionesHtml(r){
   const det=`<button class="btn btn-ghost btn-sm" onclick="verBrutoDetalle(${r.id})" title="Ver datos completos del lead">${ic('eye',13)}</button>`;
   const del=`<button class="btn btn-danger btn-sm" onclick="brutoEliminar(${r.id})" title="Eliminar definitivamente">${ic('trash',13)}</button>`;
   const hist=`<button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Ver historial">${ic('clock',13)}</button>`;
+  const notas=notasBtnHtml(r);
   if(est==='registrado'){
     const tag=r.pedido_numero?`<span style="font-size:12px;color:var(--green);font-weight:700;white-space:nowrap">${ic('check-circle',12)} #${r.pedido_numero}</span>`:`<span style="font-size:12px;color:var(--green)">Registrado</span>`;
-    return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${det}${hist}${del}</div>`;
+    return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${tag}${notas}${det}${hist}${del}</div>`;
   }
   const reg=`<button class="btn btn-act-reg btn-sm" onclick="registrarBruto(${r.id})" title="Registrar pedido (acción principal)">${ic('check-circle',13)} Registrar</button>`;
   const rech=`<button class="btn btn-act-rech btn-sm" onclick="if(confirm('¿Marcar este pedido como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazar pedido (acción crítica)">${ic('x-circle',13)} Rechazar</button>`;
@@ -5005,7 +5253,7 @@ function brutoAccionesHtml(r){
     if(!r.asesor_id)pool=`<button class="btn btn-ghost btn-sm" onclick="tomarBruto(${r.id})">Tomar</button>`;
     else if(String(r.asesor_id)===String(mineId))pool=`<button class="btn btn-ghost btn-sm" onclick="devolverBruto(${r.id})" title="Devolver al pool">${ic('undo',13)}</button>`;
   }
-  return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${wa}${call}${reg}${est==='por_contactar'?rech:''}${menu}${pool}${det}${hist}${del}</div>`;
+  return `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap">${wa}${call}${reg}${est==='por_contactar'?rech:''}${menu}${pool}${notas}${det}${hist}${del}</div>`;
 }
 
 async function brutoEliminar(id){
@@ -5109,14 +5357,15 @@ function miDiaAccionesHtml(r){
   const waNum=tel.replace(/\D/g,'');
   const hist=`<button class="btn btn-ghost btn-sm" onclick="verBrutoHistorial(${r.id})" title="Historial">${ic('clock',13)}</button>`;
   const det=`<button class="btn btn-ghost btn-sm" onclick="verBrutoDetalle(${r.id})" title="Datos completos">${ic('eye',13)}</button>`;
+  const notas=notasBtnHtml(r);
   // Procesados: quedan visibles como historial, con acciones reducidas
   if(est==='registrado'){
     const tag=`<span class="midia-tag-reg">${ic('check-circle',12)} REGISTRADO${r.pedido_numero?' #'+r.pedido_numero:''}</span>`;
-    return `${tag}${hist}${det}`;
+    return `${tag}${notas}${hist}${det}`;
   }
   if(est==='rechazado'){
     return `<span class="midia-tag-rech">${ic('x-circle',12)} RECHAZADO</span>
-      <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'reactivar')" title="Reactivar (vuelve a pendiente)">↺ Reactivar</button>${hist}${det}`;
+      <button class="btn btn-ghost btn-sm" onclick="brutoAccion(${r.id},'reactivar')" title="Reactivar (vuelve a pendiente)">↺ Reactivar</button>${notas}${hist}${det}`;
   }
   const pool=!r.asesor_id;
   const mine=String(r.asesor_id||'')===String(miAsesorId());
@@ -5128,7 +5377,7 @@ function miDiaAccionesHtml(r){
     <button class="btn btn-act-nc btn-sm" onclick="brutoAccion(${r.id},'no_contesta')" title="No contesta (suma al contador)">${ic('phone-off',13)}</button>
     <button class="btn btn-act-nowa btn-sm" onclick="brutoAccion(${r.id},'no_responde_wa')" title="No responde WhatsApp (suma al contador)">💬</button>
     <button class="btn btn-act-rech btn-sm" onclick="if(confirm('¿Marcar como Rechazado?'))brutoAccion(${r.id},'rechazado')" title="Rechazar pedido (acción crítica)">${ic('x-circle',13)} Rechazar</button>
-    ${hist}${det}`;
+    ${notas}${hist}${det}`;
 }
 function miDiaRow(r){
   const est=brutoEstadoNorm(r.estado);

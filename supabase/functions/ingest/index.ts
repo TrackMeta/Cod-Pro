@@ -62,11 +62,51 @@ function mapSheet(r: any, ws: string) {
     precio: (r.precio != null && r.precio !== "") ? Number(r.precio) : null,
   };
 }
+// Los formularios COD (EasySell, Releasit, etc.) suelen mandar los datos del
+// cliente en note_attributes en vez de shipping_address. Este helper los indexa
+// por nombre normalizado para poder buscarlos con alias.
+function attrsMap(o: any): Record<string, string> {
+  const out: Record<string, string> = {};
+  const push = (arr: any) => {
+    if (!Array.isArray(arr)) return;
+    for (const a of arr) {
+      const k = norm(a?.name ?? a?.key);
+      const v = (a?.value ?? "").toString().trim();
+      if (k && v && !out[k]) out[k] = v;
+    }
+  };
+  push(o.note_attributes);
+  push(o.attributes);
+  return out;
+}
+function attrPick(attrs: Record<string, string>, aliases: string[]) {
+  for (const a of aliases) { const k = norm(a); if (attrs[k]) return attrs[k]; }
+  // búsqueda parcial (p.ej. "numerodetelefono" contiene "telefono")
+  for (const key of Object.keys(attrs)) {
+    for (const a of aliases) { const k = norm(a); if (k && key.includes(k)) return attrs[key]; }
+  }
+  return "";
+}
 function mapShopify(o: any, ws: string) {
   const sa = o.shipping_address || o.billing_address || {};
   const cust = o.customer || {};
-  const nombre = (sa.name || [cust.first_name, cust.last_name].filter(Boolean).join(" ") || "").trim();
-  const celular = (sa.phone || o.phone || cust.phone || "").toString().trim();
+  const attrs = attrsMap(o);
+  // Prioridad por campo: shipping_address (estructurado) > note_attributes
+  // (formulario COD EasySell/Releasit) > customer. Si difieren, gana el más
+  // estructurado y el resto queda en raw para revisión manual en la app.
+  const nombre = (sa.name
+    || [cust.first_name, cust.last_name].filter(Boolean).join(" ")
+    || attrPick(attrs, ["full name", "nombre completo", "nombre", "name", "nombres y apellidos"])
+    || "").trim();
+  const celular = (sa.phone || o.phone || cust.phone
+    || attrPick(attrs, ["phone", "telefono", "celular", "numero de telefono", "whatsapp", "movil"])
+    || "").toString().trim();
+  const direccion = ([sa.address1, sa.address2].filter(Boolean).join(" ").trim()
+    || attrPick(attrs, ["address", "direccion", "domicilio"]));
+  const ciudad = ((sa.city || "").toString().trim()
+    || attrPick(attrs, ["city", "ciudad", "distrito", "district"]));
+  const provincia = ((sa.province || "").toString().trim()
+    || attrPick(attrs, ["province", "provincia", "departamento", "region", "state", "estado"]));
   const items = Array.isArray(o.line_items) ? o.line_items : [];
   const producto = items.map((li: any) => `${li.title}${li.quantity > 1 ? " ×" + li.quantity : ""}`).join(", ");
   const orderId = o.id != null ? String(o.id) : (o.name || "");
@@ -76,12 +116,26 @@ function mapShopify(o: any, ws: string) {
     huella: "shopify:" + orderId,
     fecha_hora: o.created_at || null,
     nombre, celular,
-    direccion: [sa.address1, sa.address2].filter(Boolean).join(" ").trim(),
-    ciudad: (sa.city || "").toString().trim(),
-    provincia_raw: (sa.province || "").toString().trim(),
+    direccion, ciudad,
+    provincia_raw: provincia,
     producto_raw: producto,
     precio: o.total_price != null ? Number(o.total_price) : null,
-    raw: { shopify_name: o.name },
+    raw: {
+      shopify_name: o.name,
+      // Ítems con cantidad/variante/precio → la app los usa para autocompletar
+      items: items.map((li: any) => ({
+        title: (li.title || "").toString(),
+        quantity: li.quantity != null ? Number(li.quantity) : 1,
+        price: li.price != null ? Number(li.price) : null,
+        sku: (li.sku || "").toString(),
+        variant: (li.variant_title || "").toString(),
+      })),
+      // Datos del formulario COD tal cual, por si algo no se mapeó
+      note_attributes: attrs,
+      note: (o.note || "").toString().slice(0, 500),
+      financial_status: (o.financial_status || "").toString(),
+      gateway: (o.gateway || (Array.isArray(o.payment_gateway_names) ? o.payment_gateway_names.join(",") : "")).toString(),
+    },
   };
 }
 

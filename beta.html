@@ -1136,18 +1136,6 @@ td{padding:11px 14px;font-size:13px}
   <div id="p-packs-chips"></div>
   <div id="p-items-container"></div>
 
-  <!-- COSTOS (stock propio) -->
-  <div id="p-stock-c" style="margin-top:10px">
-    <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Costos del envío</div>
-    <div class="form-grid">
-      <div class="fg"><label>Costo envío S/</label><input type="number" id="p-cenv" placeholder="0" oninput="renderPedidoResumen()"></div>
-      <div class="fg"><label>Embalaje S/</label><input type="number" id="p-emb" placeholder="0" oninput="renderPedidoResumen()"></div>
-    </div>
-  </div>
-  <div id="p-ali-c" style="display:none;margin-top:10px">
-    <div class="abox abox-blue"><span class="abox-icon" data-ic="link" data-ic-size="18"></span><div class="abox-text"><b>Aliclick:</b> El almacén gestiona el envío. Solo ingresa precio de venta y costo Aliclick por ítem.</div></div>
-  </div>
-
   <!-- UPSELL -->
   <div style="margin-top:10px;padding:11px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
     <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Producto Extra ofrecido</div>
@@ -1161,6 +1149,18 @@ td{padding:11px 14px;font-size:13px}
     </div>
     <input type="hidden" id="p-upsell-precio" value="">
     <div id="upsell-ofr-box"></div>
+  </div>
+
+  <!-- COSTOS (stock propio) -->
+  <div id="p-stock-c" style="margin-top:10px">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Costos del envío</div>
+    <div class="form-grid">
+      <div class="fg"><label>Costo envío S/</label><input type="number" id="p-cenv" placeholder="0" oninput="renderPedidoResumen()"></div>
+      <div class="fg"><label>Embalaje S/</label><input type="number" id="p-emb" placeholder="0" oninput="renderPedidoResumen()"></div>
+    </div>
+  </div>
+  <div id="p-ali-c" style="display:none;margin-top:10px">
+    <div class="abox abox-blue"><span class="abox-icon" data-ic="link" data-ic-size="18"></span><div class="abox-text"><b>Aliclick:</b> El almacén gestiona el envío. Solo ingresa precio de venta y costo Aliclick por ítem.</div></div>
   </div>
 
   <div class="divider"></div>
@@ -6196,7 +6196,10 @@ function renderItemsPedido(){
       </div>`:'';
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;position:relative">
       <button type="button" onclick="eliminarItemPedido(${idx})" style="position:absolute;top:8px;right:8px;background:var(--redL);border:none;border-radius:5px;color:var(--red);cursor:pointer;font-size:13px;width:22px;height:22px;display:flex;align-items:center;justify-content:center">×</button>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Producto ${idx+1}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">Producto ${idx+1}
+        ${it.packId?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(59,130,246,.14);color:var(--accent);border:1px solid var(--accent);font-size:9px;font-weight:800;padding:2px 8px;border-radius:12px;text-transform:none">${ic('tag',10)} ${escB((packsList().find(o=>String(o.id)===String(it.packId))||{}).nombre||'Oferta')}</span>`:''}
+        ${it.esExtra?`<span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:9px;font-weight:800;padding:2px 8px;border-radius:12px;text-transform:none">EXTRA</span>`:''}
+      </div>
       <div class="form-grid">
         <div class="fg"><label>Del catálogo</label>
           <select onchange="autoFillItem(${idx},this.value)">
@@ -6442,15 +6445,35 @@ function renderPackChips(){
   const box=document.getElementById('p-packs-chips');if(!box)return;
   const packs=packsList().filter(o=>o.activa!==false);
   if(!packs.length){box.innerHTML='';return;}
+  // Con oferta aplicada: barra azul con el pack elegido + botón para quitarla.
+  const aplicada=_packAplicado?packs.find(o=>String(o.id)===String(_packAplicado)):null;
+  if(aplicada){
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(59,130,246,.10);border:1.5px solid var(--accent);border-radius:10px;padding:9px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+        <span style="color:var(--accent);display:inline-flex">${ic('tag',15)}</span>
+        <div style="min-width:0">
+          <div style="font-size:12.5px;font-weight:800;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Oferta aplicada: ${escB(aplicada.nombre)} · ${fmt(aplicada.precio||0)}</div>
+          <div style="font-size:10.5px;color:var(--text3)">El precio del pack ya está repartido en las líneas de abajo — puedes ajustar variantes o cantidades</div>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="quitarPackDelPedido()" style="flex-shrink:0;color:var(--red);border:1px solid var(--red)">✕ Quitar oferta</button>
+    </div>`;
+    return;
+  }
   box.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-    <span style="font-size:10.5px;color:var(--text3);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('tag',12)} Ofertas:</span>
+    <span style="font-size:10.5px;color:var(--text3);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('tag',12)} Elige una oferta <span style="font-weight:400">(opcional)</span> o arma el pedido abajo:</span>
     ${packs.map(o=>{
       const t=packTotales(o);
-      const sel=String(_packAplicado)===String(o.id);
       const agotada=t.packsPosibles!=null&&t.packsPosibles<=0;
-      return `<button type="button" onclick="aplicarPackAlPedido(${o.id})" title="${escB(o.nombre)}${agotada?' — SIN STOCK':''} · clic para aplicar al pedido" style="cursor:pointer;font-size:12px;font-weight:700;padding:6px 13px;border-radius:18px;transition:all .12s;${sel?'background:var(--accent);color:#fff;border:1.5px solid var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.35)':'background:var(--surface3);color:var(--text2);border:1.5px solid var(--border)'};${agotada?'opacity:.5':''}">${escB(o.nombre)} · ${fmt(o.precio||0)}</button>`;
+      return `<button type="button" onclick="aplicarPackAlPedido(${o.id})" title="${escB(o.nombre)}${agotada?' — SIN STOCK':''} · clic para aplicar al pedido" style="cursor:pointer;font-size:12px;font-weight:700;padding:6px 13px;border-radius:18px;transition:all .12s;background:var(--surface3);color:var(--text2);border:1.5px solid var(--border);${agotada?'opacity:.5':''}">${escB(o.nombre)} · ${fmt(o.precio||0)}</button>`;
     }).join('')}
   </div>`;
+}
+function quitarPackDelPedido(){
+  pedidoItems=pedidoItems.filter(it=>!it.packId);
+  if(!pedidoItems.length)pedidoItems=[{productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''}];
+  _packAplicado=null;
+  renderItemsPedido();renderPackChips();recalcPend();
 }
 function aplicarPackAlPedido(id){
   const o=packsList().find(x=>x.id===id);if(!o)return;
@@ -6463,9 +6486,11 @@ function aplicarPackAlPedido(id){
   let asignado=0;
   const lineas=infos.map((x,i)=>{
     let share;
+    // Reparto en SOLES ENTEROS (nada de 133.33): la última línea absorbe el
+    // ajuste para que la suma dé exactamente el precio del pack.
     if(valorTotal>0){
       if(i===infos.length-1)share=Math.round((precio-asignado)*100)/100;
-      else{share=Math.round((x.inf.precio*x.cant/valorTotal)*precio*100)/100;asignado+=share;}
+      else{share=Math.round((x.inf.precio*x.cant/valorTotal)*precio);asignado+=share;}
     }else share=i===0?precio:0;
     const base={nombre:x.inf.nombre,variante:'',desglose:[],cantidad:x.cant,precio:share,cprod:Math.round(x.inf.costo*x.cant*100)/100,sku:'',cali:'',packId:o.id};
     if(x.it.tipo==='extra'){

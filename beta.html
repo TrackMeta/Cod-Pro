@@ -1131,9 +1131,14 @@ td{padding:11px 14px;font-size:13px}
   <!-- PRODUCTOS (multi-item) -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Qué lleva el pedido</div>
-    <button class="btn btn-ghost btn-sm" type="button" onclick="agregarItemPedido()">+ Agregar producto</button>
+    <button class="btn btn-ghost btn-sm" type="button" onclick="agregarItemManual()">+ Producto manual</button>
   </div>
-  <div id="p-packs-chips"></div>
+  <div id="p-add-row" style="margin-bottom:10px">
+    <select id="p-add-prod" onchange="pickProductoPedido(this.value)" style="width:100%;background:var(--surface2);border:1.5px solid var(--accent);border-radius:9px;padding:11px 12px;color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;outline:none">
+      <option value="">➕ Elige un producto principal…</option>
+    </select>
+  </div>
+  <div id="p-comolleva" style="display:none;margin-bottom:10px"></div>
   <div id="p-items-container"></div>
 
   <!-- UPSELL -->
@@ -6158,10 +6163,57 @@ function eliminarItemPedido(idx){
 function renderItemsPedido(){
   const c=document.getElementById('p-items-container');if(!c)return;
   if(!pedidoItems.length){
-    c.innerHTML=`<div style="text-align:center;padding:18px;color:var(--text3);border:1px dashed var(--border2);border-radius:8px;font-size:12px">Sin productos. Usa "+ Agregar producto"</div>`;
-    return;
+    c.innerHTML=`<div style="text-align:center;padding:18px;color:var(--text3);border:1px dashed var(--border2);border-radius:8px;font-size:12px">Aún no hay productos. Elige uno arriba 👆 o usa "+ Producto manual".</div>`;
+    recalcPend();return;
   }
-  c.innerHTML=pedidoItems.map((it,idx)=>{
+  // Agrupar por instancia de oferta (packInst): las líneas de un mismo pack se
+  // muestran como UN bloque compacto; las líneas sueltas como línea editable.
+  const groups=[];const seen={};
+  pedidoItems.forEach((it,idx)=>{
+    if(it.packInst){
+      if(seen[it.packInst]==null){seen[it.packInst]=groups.length;groups.push({pack:true,packInst:it.packInst,nombre:it.packNombre||'Oferta',idxs:[idx]});}
+      else groups[seen[it.packInst]].idxs.push(idx);
+    } else groups.push({plain:true,idx});
+  });
+  c.innerHTML=groups.map(g=>g.pack?renderBloqueOferta(g):renderLineaProducto(pedidoItems[g.idx],g.idx)).join('');
+  recalcPend();
+}
+// Bloque compacto de una oferta dentro del pedido (con lápiz para editar)
+function renderBloqueOferta(g){
+  const lines=g.idxs.map(i=>pedidoItems[i]);
+  const total=lines.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+  const mini=g.idxs.map(gi=>{
+    const it=pedidoItems[gi];
+    const prod=(!it.esExtra&&it.productoId)?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
+    const needsVar=prod&&prod.variantes&&prod.variantes.length;
+    const varSel=needsVar?`<select onchange="pedidoItems[${gi}].variante=this.value;renderItemsPedido()" style="background:var(--surface3);border:1px solid ${it.variante?'var(--border2)':'var(--red)'};border-radius:6px;padding:3px 7px;font-size:11px;color:var(--text);outline:none;max-width:120px">
+        <option value="">— color —</option>
+        ${prod.variantes.map(v=>`<option value="${v.nombre}" ${it.variante===v.nombre?'selected':''}>${v.nombre}</option>`).join('')}
+      </select>`:'';
+    return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:3px 0">
+      <span style="font-size:12.5px;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(it.nombre)}${it.variante?' · '+escB(it.variante):''} ×${parseInt(it.cantidad)||1}${it.esExtra?' <span style="font-size:9px;color:var(--amber);font-weight:800">EXTRA</span>':''}${needsVar&&!it.variante?' <span style="font-size:9px;color:var(--red);font-weight:800">falta color</span>':''}</span>
+      ${varSel}
+    </div>`;
+  }).join('');
+  return `<div style="border:1.5px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:8px;background:rgba(59,130,246,.05)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:7px;font-weight:800;font-size:13.5px;color:var(--accent);min-width:0"><span style="flex-shrink:0">${ic('tag',15)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(g.nombre)}</span></div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openEditOfertaPedido('${g.packInst}')" title="Editar esta oferta solo para este pedido">${ic('pencil',13)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="quitarBloqueOferta('${g.packInst}')" title="Quitar la oferta del pedido" style="color:var(--red)">✕</button>
+      </div>
+    </div>
+    <div style="margin:8px 0;padding-left:2px">${mini}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px">
+      <span style="font-size:11.5px;color:var(--text3)">Precio del pack</span>
+      <div style="display:flex;align-items:center;gap:5px"><span style="font-size:12px;color:var(--text3)">S/</span>
+        <input type="number" value="${Math.round(total*100)/100}" min="0" step="0.5" onchange="setPrecioBloqueOferta('${g.packInst}',this.value)" style="width:82px;background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:6px 9px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:14px;text-align:right">
+      </div>
+    </div>
+  </div>`;
+}
+// Línea editable de un producto suelto (idéntica a la de antes)
+function renderLineaProducto(it,idx){
     const prod=it.productoId?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
     const variantes=prod&&prod.variantes&&prod.variantes.length?prod.variantes:[];
     const variantesHtml=variantes.length?variantes.map(v=>`<option value="${v.nombre}" ${it.variante===v.nombre?'selected':''}>${v.nombre} (Stock: ${v.stock})</option>`).join(''):'';
@@ -6196,10 +6248,7 @@ function renderItemsPedido(){
       </div>`:'';
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;position:relative">
       <button type="button" onclick="eliminarItemPedido(${idx})" style="position:absolute;top:8px;right:8px;background:var(--redL);border:none;border-radius:5px;color:var(--red);cursor:pointer;font-size:13px;width:22px;height:22px;display:flex;align-items:center;justify-content:center">×</button>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">Producto ${idx+1}
-        ${it.packId?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(59,130,246,.14);color:var(--accent);border:1px solid var(--accent);font-size:9px;font-weight:800;padding:2px 8px;border-radius:12px;text-transform:none">${ic('tag',10)} ${escB((packsList().find(o=>String(o.id)===String(it.packId))||{}).nombre||'Oferta')}</span>`:''}
-        ${it.esExtra?`<span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:9px;font-weight:800;padding:2px 8px;border-radius:12px;text-transform:none">EXTRA</span>`:''}
-      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Producto suelto</div>
       <div class="form-grid">
         <div class="fg"><label>Del catálogo</label>
           <select onchange="autoFillItem(${idx},this.value)">
@@ -6217,8 +6266,6 @@ function renderItemsPedido(){
       ${ofertasHtml}
       ${desgloseHtml}
     </div>`;
-  }).join('');
-  recalcPend();
 }
 function actualizarCantidadItem(idx,val){
   const cant=parseInt(val)||1;
@@ -6290,7 +6337,7 @@ function openNuevoPedido(zonaDefault){
   const felEl=document.getElementById('p-fecha-entrega-lima');if(felEl)felEl.value='';
   const fregBox=document.getElementById('fg-fecha-reg');if(fregBox)fregBox.style.display='none';
   window.pedidoTestimonio=null;renderTestimonioPreview();
-  _packAplicado=null;renderPackChips();
+  fillAddProdSelect();cerrarComoLleva();
   pedidoItems=[];
   agregarItemPedido();
   fillUpsellSelect();
@@ -6344,7 +6391,7 @@ function editarPedido(id){
   fillUpsellOfertas(p.upsellProd,p.upsellPrecio);
   fillVendedorSelect(p.vendedor);
   window.pedidoTestimonio=p.testimonio||null;renderTestimonioPreview();
-  _packAplicado=((p.items||[]).find(it=>it.packId)||{}).packId||null;renderPackChips();
+  fillAddProdSelect();cerrarComoLleva();
   toggleZona();
   renderItemsPedido();
   recalcPend();
@@ -6436,74 +6483,186 @@ function renderPedidoResumen(){
     </div>`:''}
     <button class="btn btn-primary" type="button" style="width:100%;margin-top:12px;justify-content:center" onclick="guardarPedido()">${ic('save',14)} Guardar pedido</button>`;
 }
-// ── OFERTAS en el registro de pedido: chips de aplicación rápida ──
-// Al aplicar una oferta, sus productos se EXPANDEN en líneas normales del
-// pedido (editables). El precio del pack se reparte proporcionalmente al valor
-// de catálogo de cada línea para que reportes y márgenes cuadren.
-let _packAplicado=null;
-function renderPackChips(){
-  const box=document.getElementById('p-packs-chips');if(!box)return;
-  const packs=packsList().filter(o=>o.activa!==false);
-  if(!packs.length){box.innerHTML='';return;}
-  // Con oferta aplicada: barra azul con el pack elegido + botón para quitarla.
-  const aplicada=_packAplicado?packs.find(o=>String(o.id)===String(_packAplicado)):null;
-  if(aplicada){
-    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(59,130,246,.10);border:1.5px solid var(--accent);border-radius:10px;padding:9px 12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px;min-width:0">
-        <span style="color:var(--accent);display:inline-flex">${ic('tag',15)}</span>
-        <div style="min-width:0">
-          <div style="font-size:12.5px;font-weight:800;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Oferta aplicada: ${escB(aplicada.nombre)} · ${fmt(aplicada.precio||0)}</div>
-          <div style="font-size:10.5px;color:var(--text3)">El precio del pack ya está repartido en las líneas de abajo — puedes ajustar variantes o cantidades</div>
-        </div>
+// ── OFERTAS en el registro de pedido: flujo PRODUCTO-PRIMERO ──
+// Eliges un producto arriba → aparece "¿cómo lo lleva?" con la opción de llevarlo
+// solo o dentro de una oferta que lo contenga. La oferta queda como un BLOQUE
+// compacto (packInst) con lápiz para editarla solo en este pedido. Al guardar,
+// cada bloque son líneas normales (packId/packInst/esExtra) → stock y finanzas
+// usan la lógica existente sin cambios.
+function fillAddProdSelect(){
+  const sel=document.getElementById('p-add-prod');if(!sel)return;
+  sel.innerHTML='<option value="">➕ Elige un producto principal…</option>'+(DB.productos||[]).map(p=>`<option value="${p.id}">${escB(p.nombre)}</option>`).join('');
+  sel.value='';
+}
+function cerrarComoLleva(){const box=document.getElementById('p-comolleva');if(box){box.style.display='none';box.innerHTML='';}const sel=document.getElementById('p-add-prod');if(sel)sel.value='';}
+function pickProductoPedido(prodId){
+  const box=document.getElementById('p-comolleva');if(!box)return;
+  if(!prodId){box.style.display='none';box.innerHTML='';return;}
+  const prod=DB.productos.find(p=>p.id===parseInt(prodId));if(!prod)return;
+  // Ofertas activas que contengan este producto como principal
+  const ofertas=packsList().filter(o=>o.activa!==false&&(o.items||[]).some(it=>it.tipo==='prod'&&String(it.refId)===String(prod.id)));
+  const qtyBtns=(prod.ofertas&&prod.ofertas.length)?prod.ofertas.map(of=>`<button type="button" onclick="agregarProductoSolo(${prod.id},${of.cantidad},${of.precio})" style="background:var(--surface3);border:1.5px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer">${of.cantidad}× S/${of.precio}</button>`).join(''):'';
+  box.style.display='block';
+  box.innerHTML=`<div style="border:1px solid var(--border2);border-radius:10px;padding:12px;background:var(--surface2)">
+    <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:8px">¿Cómo lleva <b style="color:var(--text)">${escB(prod.nombre)}</b>?</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px">
+      <div style="border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--surface)">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('package',14)} Solo el producto</div>
+        ${qtyBtns?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${qtyBtns}</div>`:''}
+        <button type="button" class="btn btn-primary btn-sm" style="width:100%;justify-content:center" onclick="agregarProductoSolo(${prod.id},1,${prod.precio||0})">Agregar${qtyBtns?' 1 unidad':''}</button>
       </div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="quitarPackDelPedido()" style="flex-shrink:0;color:var(--red);border:1px solid var(--red)">✕ Quitar oferta</button>
-    </div>`;
-    return;
-  }
-  box.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-    <span style="font-size:10.5px;color:var(--text3);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('tag',12)} Elige una oferta <span style="font-weight:400">(opcional)</span> o arma el pedido abajo:</span>
-    ${packs.map(o=>{
-      const t=packTotales(o);
-      const agotada=t.packsPosibles!=null&&t.packsPosibles<=0;
-      return `<button type="button" onclick="aplicarPackAlPedido(${o.id})" title="${escB(o.nombre)}${agotada?' — SIN STOCK':''} · clic para aplicar al pedido" style="cursor:pointer;font-size:12px;font-weight:700;padding:6px 13px;border-radius:18px;transition:all .12s;background:var(--surface3);color:var(--text2);border:1.5px solid var(--border);${agotada?'opacity:.5':''}">${escB(o.nombre)} · ${fmt(o.precio||0)}</button>`;
-    }).join('')}
+      ${ofertas.map(o=>{
+        const t=packTotales(o);const agot=t.packsPosibles!=null&&t.packsPosibles<=0;
+        const det=(o.items||[]).map(it=>escB(packItemInfo(it).nombre)+' ×'+(parseInt(it.cantidad)||1)).join(' + ');
+        return `<div style="border:1.5px solid var(--accent);border-radius:9px;padding:10px;background:var(--surface)">
+          <div style="font-size:12.5px;font-weight:800;color:var(--accent);margin-bottom:2px;display:inline-flex;align-items:center;gap:5px">${ic('tag',14)} ${escB(o.nombre)} · ${fmt(o.precio||0)}</div>
+          <div style="font-size:10.5px;color:var(--text3);margin-bottom:8px">${det}${agot?' · <span style="color:var(--red);font-weight:700">SIN STOCK</span>':''}</div>
+          <button type="button" class="btn btn-sm" style="width:100%;justify-content:center;background:var(--accent);color:#fff;font-weight:700" onclick="agregarPackAlPedido(${o.id})">Agregar oferta</button>
+        </div>`;
+      }).join('')}
+    </div>
+    ${ofertas.length?'':'<div style="font-size:11px;color:var(--text3);margin-top:8px">Este producto no está en ninguna oferta — se agrega como producto suelto.</div>'}
   </div>`;
 }
-function quitarPackDelPedido(){
-  pedidoItems=pedidoItems.filter(it=>!it.packId);
-  if(!pedidoItems.length)pedidoItems=[{productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''}];
-  _packAplicado=null;
-  renderItemsPedido();renderPackChips();recalcPend();
+function agregarProductoSolo(prodId,cantidad,precio){
+  const prod=DB.productos.find(p=>p.id===parseInt(prodId));if(!prod)return;
+  cantidad=parseInt(cantidad)||1;
+  pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
+  pedidoItems.push({productoId:prod.id,nombre:prod.nombre,variante:'',desglose:cantidad>1?[{variante:'',cantidad:1},{variante:'',cantidad:cantidad-1}]:[],cantidad,precio:(precio!=null?precio:prod.precio)||0,cprod:(prod.costo||0)*cantidad,sku:prod.sku||'',cali:''});
+  cerrarComoLleva();renderItemsPedido();recalcPend();
 }
-function aplicarPackAlPedido(id){
-  const o=packsList().find(x=>x.id===id);if(!o)return;
-  const t=packTotales(o);
-  if(t.rotos){alert('Esta oferta incluye productos que ya no existen en el inventario. Edítala en la sección Ofertas antes de usarla.');return;}
-  if(t.packsPosibles!=null&&t.packsPosibles<=0&&!confirm('Esta oferta está AGOTADA según el stock actual.\n¿Aplicarla de todas formas?'))return;
+function agregarItemManual(){pedidoItems.push({productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''});cerrarComoLleva();renderItemsPedido();}
+function _nuevoPackInst(){return 'pk'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+// Valor de catálogo de una línea (para repartir el precio del pack)
+function lineaValorCatalogo(it){
+  const cant=parseInt(it.cantidad)||1;
+  if(it.esExtra){const u=(DB.upsells||[]).find(x=>String(x.id)===String(it.upsellId));return (u?parseFloat(u.precio)||0:0)*cant;}
+  if(it.productoId){const p=DB.productos.find(x=>x.id===parseInt(it.productoId));if(p)return (parseFloat(p.precio)||0)*cant;}
+  return parseFloat(it.precio)||0;
+}
+// Expande una oferta en líneas de pedido, repartiendo el precio en SOLES ENTEROS
+function _expandirPackALineas(o,packInst){
   const precio=parseFloat(o.precio)||0;
   const infos=(o.items||[]).map(it=>({it,inf:packItemInfo(it),cant:parseInt(it.cantidad)||1}));
   const valorTotal=infos.reduce((s,x)=>s+x.inf.precio*x.cant,0);
   let asignado=0;
-  const lineas=infos.map((x,i)=>{
+  return infos.map((x,i)=>{
     let share;
-    // Reparto en SOLES ENTEROS (nada de 133.33): la última línea absorbe el
-    // ajuste para que la suma dé exactamente el precio del pack.
     if(valorTotal>0){
       if(i===infos.length-1)share=Math.round((precio-asignado)*100)/100;
       else{share=Math.round((x.inf.precio*x.cant/valorTotal)*precio);asignado+=share;}
     }else share=i===0?precio:0;
-    const base={nombre:x.inf.nombre,variante:'',desglose:[],cantidad:x.cant,precio:share,cprod:Math.round(x.inf.costo*x.cant*100)/100,sku:'',cali:'',packId:o.id};
-    if(x.it.tipo==='extra'){
-      const u=x.inf.ref;
-      return Object.assign(base,{productoId:(u&&u.productoId)||'',esExtra:true,upsellId:x.it.refId});
-    }
+    const base={nombre:x.inf.nombre,variante:'',desglose:[],cantidad:x.cant,precio:share,cprod:Math.round(x.inf.costo*x.cant*100)/100,sku:'',cali:'',packId:o.id,packInst,packNombre:o.nombre};
+    if(x.it.tipo==='extra'){const u=x.inf.ref;return Object.assign(base,{productoId:(u&&u.productoId)||'',esExtra:true,upsellId:x.it.refId});}
     return Object.assign(base,{productoId:parseInt(x.it.refId)||''});
   });
-  pedidoItems=lineas;
-  _packAplicado=o.id;
-  renderItemsPedido();renderPackChips();
-  if(typeof recalcPend==='function')recalcPend();
-  showToast('✅ Oferta "'+(o.nombre||'')+'" aplicada — ajusta variantes o cantidades si hace falta','success',2800);
+}
+function agregarPackAlPedido(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  const t=packTotales(o);
+  if(t.rotos){alert('Esta oferta incluye productos que ya no existen en el inventario. Edítala en la sección Ofertas antes de usarla.');return;}
+  if(t.packsPosibles!=null&&t.packsPosibles<=0&&!confirm('Esta oferta está AGOTADA según el stock actual.\n¿Agregarla de todas formas?'))return;
+  pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
+  pedidoItems=pedidoItems.concat(_expandirPackALineas(o,_nuevoPackInst()));
+  cerrarComoLleva();renderItemsPedido();recalcPend();
+  showToast('✅ Oferta "'+(o.nombre||'')+'" agregada','success',2000);
+}
+function quitarBloqueOferta(packInst){
+  pedidoItems=pedidoItems.filter(it=>String(it.packInst)!==String(packInst));
+  renderItemsPedido();recalcPend();
+}
+function _redistribuirPack(packInst,P){
+  const idxs=[];pedidoItems.forEach((it,i)=>{if(String(it.packInst)===String(packInst))idxs.push(i);});
+  const vals=idxs.map(i=>lineaValorCatalogo(pedidoItems[i]));
+  const tot=vals.reduce((s,v)=>s+v,0);
+  let asignado=0;
+  idxs.forEach((gi,k)=>{
+    let share;
+    if(tot>0){if(k===idxs.length-1)share=Math.round((P-asignado)*100)/100;else{share=Math.round(vals[k]/tot*P);asignado+=share;}}
+    else share=k===0?P:0;
+    pedidoItems[gi].precio=share;
+  });
+}
+function setPrecioBloqueOferta(packInst,val){_redistribuirPack(packInst,parseFloat(val)||0);renderItemsPedido();recalcPend();}
+
+// ── Editor de una oferta SOLO para este pedido (lápiz) ──
+let _pedPackEdit=null;
+function openEditOfertaPedido(packInst){
+  const lines=pedidoItems.filter(it=>String(it.packInst)===String(packInst));
+  if(!lines.length)return;
+  const total=lines.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+  _pedPackEdit={packInst,packId:lines[0].packId,nombre:lines[0].packNombre||'Oferta',precio:Math.round(total*100)/100,q:'',
+    items:lines.map(it=>({tipo:it.esExtra?'extra':'prod',refId:it.esExtra?it.upsellId:it.productoId,cantidad:parseInt(it.cantidad)||1}))};
+  renderEditOfertaPedido();
+}
+function cerrarEditOfertaPedido(){const ov=document.getElementById('pedpack-ov');if(ov)ov.remove();_pedPackEdit=null;}
+function renderEditOfertaPedido(){
+  const e=_pedPackEdit;if(!e)return;
+  let ov=document.getElementById('pedpack-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pedpack-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto';ov.onclick=ev=>{if(ev.target===ov)cerrarEditOfertaPedido();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:720px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="color:var(--accent);flex-shrink:0">${ic('tag',18)}</span>
+        <input value="${escB(e.nombre)}" oninput="_pedPackEdit.nombre=this.value" style="flex:1;min-width:0;max-width:300px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:14px;font-weight:700">
+        <span style="font-size:11px;color:var(--text3);flex-shrink:0">solo este pedido</span>
+      </div>
+      <button onclick="cerrarEditOfertaPedido()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:12px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:400px;overflow:auto">
+        <input value="${escB(e.q)}" placeholder="🔎 Buscar producto…" oninput="_pedPackEdit.q=this.value;_renderPedPackListas()" style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12.5px;margin-bottom:8px">
+        <div id="pedpack-listas">${_pedPackListasHtml()}</div>
+      </div>
+      <div style="background:var(--surface2);border:1.5px solid var(--accent);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;margin-bottom:8px">Contenido · ${e.items.length}</div>
+        <div id="pedpack-items">${_pedPackItemsHtml()}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
+          <label style="font-size:12.5px;color:var(--text2);font-weight:700">Precio del pack S/</label>
+          <input type="number" value="${e.precio}" min="0" step="0.5" oninput="_pedPackEdit.precio=parseFloat(this.value)||0" style="width:100px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:15px">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn btn-primary" onclick="guardarEditOfertaPedido()">${ic('save',14)} Aplicar al pedido</button>
+          <button class="btn btn-ghost" onclick="cerrarEditOfertaPedido()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function _pedPackListasHtml(){
+  const q=brutoNorm(_pedPackEdit.q);
+  const fila=(nombre,onclk)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px"><span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(nombre)}</span><button class="btn btn-sm" style="background:var(--accent);color:#fff;font-weight:800;padding:2px 11px" onclick="${onclk}">+</button></div>`;
+  const prods=(DB.productos||[]).filter(p=>!q||brutoNorm(p.nombre).includes(q));
+  const extras=(DB.upsells||[]).filter(u=>!q||brutoNorm(u.nombre).includes(q));
+  return `<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:4px 0 6px">${ic('store',12)} Principales</div>
+    ${prods.length?prods.map(p=>fila(p.nombre,`_pedPackAdd('prod',${p.id})`)).join(''):'<div style="font-size:11.5px;color:var(--text3)">Sin resultados</div>'}
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:10px 0 6px">${ic('arrow-up-circle',12)} Extras</div>
+    ${extras.length?extras.map(u=>fila(u.nombre,`_pedPackAdd('extra','${String(u.id)}')`)).join(''):'<div style="font-size:11.5px;color:var(--text3)">Sin resultados</div>'}`;
+}
+function _pedPackItemsHtml(){
+  const items=_pedPackEdit.items;
+  if(!items.length)return '<div style="font-size:12px;color:var(--text3);padding:14px 0;text-align:center">Agrega productos 👈</div>';
+  return items.map((it,i)=>{const inf=packItemInfo(it);return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface3);border-radius:8px;padding:7px 9px;margin-bottom:5px"><span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${inf.ok?'':'color:var(--red)'}">${escB(inf.nombre)} ${inf.extra?'<span style="font-size:9.5px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span><span style="display:flex;align-items:center;gap:5px;flex-shrink:0"><button class="btn btn-ghost btn-xs" onclick="_pedPackQty(${i},-1)" style="padding:1px 8px;font-weight:800">−</button><b style="font-family:var(--mono);min-width:18px;text-align:center">${parseInt(it.cantidad)||1}</b><button class="btn btn-ghost btn-xs" onclick="_pedPackQty(${i},1)" style="padding:1px 8px;font-weight:800">+</button><button class="btn btn-ghost btn-xs" onclick="_pedPackDel(${i})">${ic('trash',12)}</button></span></div>`;}).join('');
+}
+function _renderPedPackListas(){const el=document.getElementById('pedpack-listas');if(el)el.innerHTML=_pedPackListasHtml();}
+function _renderPedPackItems(){const a=document.getElementById('pedpack-items');if(a)a.innerHTML=_pedPackItemsHtml();}
+function _pedPackAdd(tipo,refId){const ex=_pedPackEdit.items.find(it=>it.tipo===tipo&&String(it.refId)===String(refId));if(ex)ex.cantidad=(parseInt(ex.cantidad)||1)+1;else _pedPackEdit.items.push({tipo,refId,cantidad:1});_renderPedPackItems();}
+function _pedPackQty(i,d){const it=_pedPackEdit.items[i];if(!it)return;it.cantidad=Math.max(1,(parseInt(it.cantidad)||1)+d);_renderPedPackItems();}
+function _pedPackDel(i){_pedPackEdit.items.splice(i,1);_renderPedPackItems();}
+function guardarEditOfertaPedido(){
+  const e=_pedPackEdit;if(!e)return;
+  if(!e.items.length){alert('La oferta debe tener al menos un producto.');return;}
+  if(!(parseFloat(e.precio)>0)){alert('Define el precio del pack.');return;}
+  const prevLines=pedidoItems.filter(it=>String(it.packInst)===String(e.packInst));
+  const nuevas=_expandirPackALineas({id:e.packId,nombre:e.nombre,precio:e.precio,items:e.items},e.packInst);
+  // Preservar variantes ya elegidas cuando el producto coincide
+  nuevas.forEach(nl=>{const prev=prevLines.find(pl=>(nl.esExtra?String(pl.upsellId)===String(nl.upsellId):String(pl.productoId)===String(nl.productoId))&&pl.variante);if(prev)nl.variante=prev.variante;});
+  const firstIdx=pedidoItems.findIndex(it=>String(it.packInst)===String(e.packInst));
+  const insertPos=pedidoItems.slice(0,firstIdx<0?0:firstIdx).filter(it=>String(it.packInst)!==String(e.packInst)).length;
+  const resto=pedidoItems.filter(it=>String(it.packInst)!==String(e.packInst));
+  resto.splice(insertPos,0,...nuevas);
+  pedidoItems=resto;
+  cerrarEditOfertaPedido();renderItemsPedido();recalcPend();
+  showToast('✅ Oferta actualizada para este pedido','success',2000);
 }
 
 // ── Upsell / Order Bump como línea de pedido (cuenta igual que un producto) ──

@@ -898,6 +898,11 @@ td{padding:11px 14px;font-size:13px}
 .midia-tag-reg{display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.15);color:var(--green);border:1.5px solid var(--green);font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:20px;white-space:nowrap}
 .midia-tag-rech{display:inline-flex;align-items:center;gap:5px;background:rgba(239,68,68,.15);color:var(--red);border:1.5px solid var(--red);font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:20px;white-space:nowrap}
 .evid-thumb{width:74px;height:74px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border2);cursor:pointer}
+/* ── Modal de pedido: 2 columnas con resumen fijo ── */
+#modal-pedido .modal{max-width:1020px}
+.mp-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
+.mp-resumen{position:sticky;top:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px}
+@media(max-width:920px){.mp-grid{grid-template-columns:1fr}.mp-resumen{position:static}}
 </style>
 </head>
 <body>
@@ -1007,8 +1012,8 @@ td{padding:11px 14px;font-size:13px}
         <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico" data-ic="banknote"></span>Liquidación</div>
         <!-- GESTIÓN (admin) -->
         <div class="nav-section admin-only">Gestión</div>
-        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Catálogo & Stock</div>
-        <div class="nav-item admin-only" onclick="showPage('upsells',this)"><span class="ico" data-ic="arrow-up-circle"></span>Upsells / Bumps</div>
+        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Inventario</div>
+        <div class="nav-item admin-only" onclick="showPage('ofertas',this)"><span class="ico" data-ic="tag"></span>Ofertas</div>
         <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico" data-ic="users"></span>Equipo & Usuarios</div>
         <!-- SISTEMA (admin) -->
         <div class="nav-section admin-only">Sistema</div>
@@ -1102,8 +1107,9 @@ td{padding:11px 14px;font-size:13px}
 ====================================================== -->
 <!-- MODAL PEDIDO -->
 <div class="overlay" id="modal-pedido">
-<div class="modal" style="max-width:780px">
+<div class="modal">
   <div class="modal-h"><div class="modal-title" id="mp-title">Nuevo Pedido</div><div class="mc" onclick="closeModal('modal-pedido')">×</div></div>
+  <div class="mp-grid"><div class="mp-left">
   <input type="hidden" id="p-id">
   <!-- Fecha de registro (solo en modo edición) -->
   <div id="fg-fecha-reg" style="display:none;margin-bottom:6px;padding:6px 10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)"><span data-ic="note" data-ic-size="12"></span> Registrado el: <span id="p-fecha-creado" style="color:var(--text2);font-weight:600"></span></div>
@@ -1124,17 +1130,18 @@ td{padding:11px 14px;font-size:13px}
 
   <!-- PRODUCTOS (multi-item) -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Productos del pedido</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Qué lleva el pedido</div>
     <button class="btn btn-ghost btn-sm" type="button" onclick="agregarItemPedido()">+ Agregar producto</button>
   </div>
+  <div id="p-packs-chips"></div>
   <div id="p-items-container"></div>
 
   <!-- COSTOS (stock propio) -->
   <div id="p-stock-c" style="margin-top:10px">
     <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Costos del envío</div>
     <div class="form-grid">
-      <div class="fg"><label>Costo envío S/</label><input type="number" id="p-cenv" placeholder="0"></div>
-      <div class="fg"><label>Embalaje S/</label><input type="number" id="p-emb" placeholder="0"></div>
+      <div class="fg"><label>Costo envío S/</label><input type="number" id="p-cenv" placeholder="0" oninput="renderPedidoResumen()"></div>
+      <div class="fg"><label>Embalaje S/</label><input type="number" id="p-emb" placeholder="0" oninput="renderPedidoResumen()"></div>
     </div>
   </div>
   <div id="p-ali-c" style="display:none;margin-top:10px">
@@ -1143,10 +1150,10 @@ td{padding:11px 14px;font-size:13px}
 
   <!-- UPSELL -->
   <div style="margin-top:10px;padding:11px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Upsell / Order Bump ofrecido</div>
+    <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Producto Extra ofrecido</div>
     <div class="form-grid">
-      <div class="fg"><label>Producto upsell</label>
-        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin upsell —</option></select>
+      <div class="fg"><label>Producto extra</label>
+        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin producto extra —</option></select>
       </div>
       <div class="fg"><label>Resultado</label>
         <select id="p-upsell-res" onchange="recalcPend()"><option value="">—</option><option value="aceptado">✅ Aceptado</option><option value="rechazado">❌ Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
@@ -2237,6 +2244,9 @@ td{padding:11px 14px;font-size:13px}
   </div>
   <div class="fg" style="margin-top:10px"><label>Comentario de llamada</label><textarea id="p-comentario" placeholder="Notas, próximo contacto, instrucciones especiales..."></textarea></div>
   <div class="fg" style="margin-top:10px"><label>🧾 Testimonio / comprobante <span style="color:var(--text3);font-weight:400">(captura del chat o del pago)</span></label><div id="p-testi-box" style="margin-top:4px"></div></div>
+  </div>
+  <aside class="mp-resumen" id="mp-resumen"></aside>
+  </div>
   <div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="guardarPedido()"><span data-ic="save" data-ic-size="15"></span> Guardar pedido</button>
     <button class="btn btn-ghost" onclick="closeModal('modal-pedido')">Cancelar</button>
@@ -2345,12 +2355,12 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Ofertas por cantidad</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Precios por cantidad</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/79 · 2×S/119 · 3×S/149 — aparecen como botones al registrar pedidos</div>
       </div>
-      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaProd()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaProd()" style="border-color:var(--amber);color:var(--amber)">+ Precio</button>
     </div>
-    <div id="pr-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div></div>
+    <div id="pr-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
@@ -2362,16 +2372,16 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL UPSELL -->
 <div class="overlay" id="modal-upsell">
 <div class="modal sm">
-  <div class="modal-h"><div><div class="modal-title"><span data-ic="arrow-up-circle" data-ic-size="18"></span> Upsell / Order Bump</div><div class="modal-sub">Producto extra que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
+  <div class="modal-h"><div><div class="modal-title"><span data-ic="arrow-up-circle" data-ic-size="18"></span> Producto Extra</div><div class="modal-sub">Producto adicional que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
   <input type="hidden" id="up-id">
   <div class="form-grid">
-    <div class="fg" style="grid-column:1/-1"><label>Nombre del upsell *</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF" autofocus></div>
-    <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option>Order Bump</option><option>Upsell</option><option>Cross-sell</option><option>Downsell</option></select></div>
+    <div class="fg" style="grid-column:1/-1"><label>Nombre del producto extra *</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF" autofocus></div>
+    <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option value="Order Bump">Producto Extra</option><option value="Cross-sell">Cross-sell</option><option value="Downsell">Downsell</option></select></div>
     <div class="fg"><label>Precio de oferta S/ *</label><input type="number" id="up-precio" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Costo S/</label><input type="number" id="up-costo" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Stock propio (unidades) <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><input type="number" id="up-stock" placeholder="vacío = sin control" min="0" step="1"></div>
     <div class="fg"><label>Alerta stock mínimo</label><input type="number" id="up-stockmin" placeholder="5" min="0" step="1"></div>
-    <div class="fg" style="grid-column:1/-1"><label>…o compartir stock con un producto del catálogo <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Stock propio (arriba) —</option></select><div style="font-size:10px;color:var(--text3);margin-top:3px">Si vinculas un producto, el upsell descuenta del stock de ESE producto y se ignora el stock propio.</div></div>
+    <div class="fg" style="grid-column:1/-1"><label>…o compartir stock con un producto del catálogo <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Stock propio (arriba) —</option></select><div style="font-size:10px;color:var(--text3);margin-top:3px">Si vinculas un producto, el extra descuenta del stock de ESE producto y se ignora el stock propio.</div></div>
     <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
     <div class="fg" style="grid-column:1/-1"><label>Imagen <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional)</span></label><div id="up-img-preview"></div></div>
   </div>
@@ -2379,12 +2389,12 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Ofertas por cantidad</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Precios por cantidad</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/25 · 2×S/40 — aparecen como botones al registrar pedidos</div>
       </div>
-      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaUp()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaUp()" style="border-color:var(--amber);color:var(--amber)">+ Precio</button>
     </div>
-    <div id="up-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div></div>
+    <div id="up-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarUpsell()">Guardar</button>
@@ -2544,7 +2554,7 @@ function upsellEntregados(upId){
   let t=0;
   (DB.pedidos||[]).forEach(p=>{
     if(p.estado!=='entregado')return;
-    (p.items||[]).forEach(it=>{if(it.esUpsell&&String(it.upsellId)===String(upId))t+=parseInt(it.cantidad)||1;});
+    (p.items||[]).forEach(it=>{if((it.esUpsell||it.esExtra)&&String(it.upsellId)===String(upId))t+=parseInt(it.cantidad)||1;});
   });
   return t;
 }
@@ -4099,7 +4109,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,ofertas:renderOfertas,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -6081,7 +6091,7 @@ function renderPedidosContent(){
     <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}</td>
     <td data-label="Cliente"><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('alert-triangle',10)+' DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
     <td data-label="Producto">${pedidoProductoMain(p)}</td>
-    <td data-label="Upsell / Order Bump">${(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':(p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':'<span style="font-size:10.5px;color:var(--text3)">—</span>');})()}</td>
+    <td data-label="Producto Extra">${(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':(p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':'<span style="font-size:10.5px;color:var(--text3)">—</span>');})()}</td>
     <td data-label="Modalidad">${bdgMod(p.modalidad||'stock')}</td>
     <td data-label="Zona" style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b style="display:inline-flex;align-items:center;gap:4px">${p.zona==='lima'?ic('building',13)+' Lima':ic('package',13)+' Prov.'}</b></td>
     <td data-label="Precio" class="mono" style="font-weight:700">${fmt(p.precio)}</td>
@@ -6099,7 +6109,7 @@ function renderPedidosContent(){
   </tr>`).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
-  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Upsell / Order Bump</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
+  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Producto Extra</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${tableBody}</tbody></table></div>`;
 }
 
@@ -6179,7 +6189,7 @@ function renderItemsPedido(){
       </div>`:'';
     const ofertasHtml=prod&&prod.ofertas&&prod.ofertas.length?`
       <div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:7px">
-        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Seleccionar oferta</div>
+        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Elegir precio por cantidad</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${prod.ofertas.map(of=>{const activa=cant==of.cantidad&&precioTotal==of.precio;return `<button type="button" onclick="aplicarOferta(${idx},${of.cantidad},${of.precio},${prod.costo})" style="background:${activa?'var(--accent)':'var(--surface3)'};border:2px solid ${activa?'var(--accent)':'var(--border2)'};border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;color:${activa?'#fff':'var(--text)'};cursor:pointer;transition:all .15s;line-height:1.4;text-align:center">${of.cantidad}x<br><span style="font-size:11px;opacity:.85">S/${of.precio}</span></button>`;}).join('')}
         </div>
@@ -6277,6 +6287,7 @@ function openNuevoPedido(zonaDefault){
   const felEl=document.getElementById('p-fecha-entrega-lima');if(felEl)felEl.value='';
   const fregBox=document.getElementById('fg-fecha-reg');if(fregBox)fregBox.style.display='none';
   window.pedidoTestimonio=null;renderTestimonioPreview();
+  _packAplicado=null;renderPackChips();
   pedidoItems=[];
   agregarItemPedido();
   fillUpsellSelect();
@@ -6330,14 +6341,16 @@ function editarPedido(id){
   fillUpsellOfertas(p.upsellProd,p.upsellPrecio);
   fillVendedorSelect(p.vendedor);
   window.pedidoTestimonio=p.testimonio||null;renderTestimonioPreview();
+  _packAplicado=((p.items||[]).find(it=>it.packId)||{}).packId||null;renderPackChips();
   toggleZona();
   renderItemsPedido();
+  recalcPend();
   document.getElementById('modal-pedido').classList.add('open');
 }
 
 function fillUpsellSelect(selId){
   const sel=document.getElementById('p-upsell-prod');
-  sel.innerHTML='<option value="">— Sin upsell —</option>'+DB.upsells.map(u=>{
+  sel.innerHTML='<option value="">— Sin producto extra —</option>'+DB.upsells.map(u=>{
     const disp=upsellDisponible(u);
     const stk=disp==null?'':(disp<=0?' · AGOTADO':` · stock ${disp}`);
     return `<option value="${u.id}" ${u.id==selId?'selected':''}>${u.nombre} — S/${u.precio}${stk}</option>`;
@@ -6375,6 +6388,7 @@ function toggleZona(){
     const cenvEl=document.getElementById('p-cenv');
     if(cenvEl)cenvEl.value=z==='lima'?(CFG.courier||14):(CFG.shalom||12);
   }
+  renderPedidoResumen();
 }
 function toggleModalidad(){
   const m=document.getElementById('p-modalidad')?.value||'stock';
@@ -6389,7 +6403,84 @@ function recalcPend(){
   const adv=parseFloat(document.getElementById('p-adelanto')?.value)||0;
   const pend=document.getElementById('p-pendiente');
   if(pend)pend.value=Math.max(0,totalPrecio-adv).toFixed(2);
+  renderPedidoResumen();
 }
+// ── Resumen en vivo del pedido (columna derecha del modal) ──
+function renderPedidoResumen(){
+  const box=document.getElementById('mp-resumen');if(!box)return;
+  const upItem=typeof itemUpsellActual==='function'?itemUpsellActual():null;
+  const items=pedidoItems.filter(it=>!it.esUpsell).concat(upItem?[upItem]:[]);
+  const lineas=items.filter(it=>it.nombre).map(it=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${escB(it.nombre)} ×${parseInt(it.cantidad)||1}${(it.esUpsell||it.esExtra)?' <span style="font-size:9px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span><span style="font-family:var(--mono);flex-shrink:0">${fmt(parseFloat(it.precio)||0)}</span></div>`).join('');
+  const total=items.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+  const cprod=items.reduce((s,it)=>s+(parseFloat(it.cprod)||0),0);
+  const cant=items.reduce((s,it)=>s+(parseInt(it.cantidad)||1),0);
+  const zona=document.getElementById('p-zona')?.value||'lima';
+  const cenv=parseFloat(document.getElementById('p-cenv')?.value)||0;
+  const emb=(parseFloat(document.getElementById('p-emb')?.value)||0)*cant;
+  const adv=zona==='provincia'?(parseFloat(document.getElementById('p-adelanto')?.value)||0):0;
+  const gan=total-cprod-cenv-emb;
+  box.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Resumen del pedido</div>
+    ${lineas||'<div style="font-size:12px;color:var(--text3);padding:6px 0">Agrega productos para ver el resumen…</div>'}
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800"><span>Total cliente</span><span style="font-family:var(--mono)">${fmt(total)}</span></div>
+      ${zona==='provincia'?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-top:5px"><span>Adelanto</span><span style="font-family:var(--mono);color:var(--green)">${fmt(adv)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>Pendiente por cobrar</span><span style="font-family:var(--mono);color:var(--amber)">${fmt(Math.max(0,total-adv))}</span></div>`:''}
+    </div>
+    ${isAdmin()?`<div style="background:${gan>=0?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border-radius:8px;padding:8px 10px;margin-top:10px">
+      <div style="font-size:9.5px;color:${gan>=0?'var(--green)':'var(--red)'};text-transform:uppercase;font-weight:800">Ganancia estimada</div>
+      <div style="font-family:var(--mono);font-weight:800;font-size:17px;color:${gan>=0?'var(--green)':'var(--red)'}">${fmt(gan)}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">precio − producto − envío − embalaje</div>
+    </div>`:''}
+    <button class="btn btn-primary" type="button" style="width:100%;margin-top:12px;justify-content:center" onclick="guardarPedido()">${ic('save',14)} Guardar pedido</button>`;
+}
+// ── OFERTAS en el registro de pedido: chips de aplicación rápida ──
+// Al aplicar una oferta, sus productos se EXPANDEN en líneas normales del
+// pedido (editables). El precio del pack se reparte proporcionalmente al valor
+// de catálogo de cada línea para que reportes y márgenes cuadren.
+let _packAplicado=null;
+function renderPackChips(){
+  const box=document.getElementById('p-packs-chips');if(!box)return;
+  const packs=packsList().filter(o=>o.activa!==false);
+  if(!packs.length){box.innerHTML='';return;}
+  box.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+    <span style="font-size:10.5px;color:var(--text3);font-weight:700;display:inline-flex;align-items:center;gap:4px">${ic('tag',12)} Ofertas:</span>
+    ${packs.map(o=>{
+      const t=packTotales(o);
+      const sel=String(_packAplicado)===String(o.id);
+      const agotada=t.packsPosibles!=null&&t.packsPosibles<=0;
+      return `<button type="button" onclick="aplicarPackAlPedido(${o.id})" title="${escB(o.nombre)}${agotada?' — SIN STOCK':''} · clic para aplicar al pedido" style="cursor:pointer;font-size:12px;font-weight:700;padding:6px 13px;border-radius:18px;transition:all .12s;${sel?'background:var(--accent);color:#fff;border:1.5px solid var(--accent);box-shadow:0 2px 8px rgba(59,130,246,.35)':'background:var(--surface3);color:var(--text2);border:1.5px solid var(--border)'};${agotada?'opacity:.5':''}">${escB(o.nombre)} · ${fmt(o.precio||0)}</button>`;
+    }).join('')}
+  </div>`;
+}
+function aplicarPackAlPedido(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  const t=packTotales(o);
+  if(t.rotos){alert('Esta oferta incluye productos que ya no existen en el inventario. Edítala en la sección Ofertas antes de usarla.');return;}
+  if(t.packsPosibles!=null&&t.packsPosibles<=0&&!confirm('Esta oferta está AGOTADA según el stock actual.\n¿Aplicarla de todas formas?'))return;
+  const precio=parseFloat(o.precio)||0;
+  const infos=(o.items||[]).map(it=>({it,inf:packItemInfo(it),cant:parseInt(it.cantidad)||1}));
+  const valorTotal=infos.reduce((s,x)=>s+x.inf.precio*x.cant,0);
+  let asignado=0;
+  const lineas=infos.map((x,i)=>{
+    let share;
+    if(valorTotal>0){
+      if(i===infos.length-1)share=Math.round((precio-asignado)*100)/100;
+      else{share=Math.round((x.inf.precio*x.cant/valorTotal)*precio*100)/100;asignado+=share;}
+    }else share=i===0?precio:0;
+    const base={nombre:x.inf.nombre,variante:'',desglose:[],cantidad:x.cant,precio:share,cprod:Math.round(x.inf.costo*x.cant*100)/100,sku:'',cali:'',packId:o.id};
+    if(x.it.tipo==='extra'){
+      const u=x.inf.ref;
+      return Object.assign(base,{productoId:(u&&u.productoId)||'',esExtra:true,upsellId:x.it.refId});
+    }
+    return Object.assign(base,{productoId:parseInt(x.it.refId)||''});
+  });
+  pedidoItems=lineas;
+  _packAplicado=o.id;
+  renderItemsPedido();renderPackChips();
+  if(typeof recalcPend==='function')recalcPend();
+  showToast('✅ Oferta "'+(o.nombre||'')+'" aplicada — ajusta variantes o cantidades si hace falta','success',2800);
+}
+
 // ── Upsell / Order Bump como línea de pedido (cuenta igual que un producto) ──
 // Lee el upsell del modal; si fue ACEPTADO, devuelve un item marcado esUpsell
 // (con productoId del catálogo si está vinculado → descuenta stock). Devuelve
@@ -6445,7 +6536,7 @@ async function guardarPedido(){
   // Combinar productos principales + upsell aceptado (cuenta igual que un producto)
   const baseItems=pedidoItems.filter(it=>!it.esUpsell);
   const upItem=itemUpsellActual();
-  if(upItem){const _u=(DB.upsells||[]).find(x=>String(x.id)===String(upItem.upsellId));const _d=upsellDisponible(_u);if(_d!=null&&_d<=0&&!id){if(!confirm('El upsell "'+upItem.nombre+'" está AGOTADO (stock 0).\n¿Registrar el pedido de todas formas?'))return;}}
+  if(upItem){const _u=(DB.upsells||[]).find(x=>String(x.id)===String(upItem.upsellId));const _d=upsellDisponible(_u);if(_d!=null&&_d<=0&&!id){if(!confirm('El producto extra "'+upItem.nombre+'" está AGOTADO (stock 0).\n¿Registrar el pedido de todas formas?'))return;}}
   const allItems=upItem?baseItems.concat([upItem]):baseItems.slice();
   const totalPrecio=allItems.reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0);
   const totalCprod=allItems.reduce((s,it)=>(s+(parseFloat(it.cprod)||0)),0);
@@ -8162,6 +8253,212 @@ Margen: ${margen.toFixed(1)}%`;
 let prodVista='cards'; // 'cards' | 'tabla'
 let prodOrden='vendidos'; // 'vendidos'|'stock_bajo'|'ganancia'|'nombre'|'agotado'
 
+// =====================================================================
+// INVENTARIO — pestañas compartidas (Productos Principales / Productos Extras)
+// =====================================================================
+function inventarioTabsHtml(act){
+  return `<div class="tgrp" style="margin-bottom:16px">
+    <button class="tbtn ${act==='prod'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('productos')">${ic('store',14)} Productos Principales</button>
+    <button class="tbtn ${act==='extras'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('upsells')">${ic('arrow-up-circle',14)} Productos Extras</button>
+  </div>`;
+}
+// Etiqueta visible del tipo de extra. Los datos históricos guardan 'Order Bump'/
+// 'Upsell' — NO se tocan; solo cambia cómo se muestran.
+function tipoExtraLbl(t){if(!t||t==='Order Bump'||t==='Upsell')return 'Producto Extra';return t;}
+
+// =====================================================================
+// OFERTAS — packs que combinan productos principales + extras.
+// DB.packs=[{id,nombre,activa,precio,items:[{tipo:'prod'|'extra',refId,cantidad}]}]
+// Al usarse en un pedido se EXPANDEN en líneas normales → stock y finanzas
+// funcionan con la lógica existente, sin tocarla.
+// =====================================================================
+function packsList(){return Array.isArray(DB.packs)?DB.packs:[];}
+function packItemInfo(it){
+  if(it.tipo==='extra'){
+    const u=(DB.upsells||[]).find(x=>String(x.id)===String(it.refId));
+    if(!u)return {nombre:'(extra eliminado)',costo:0,precio:0,stock:null,extra:true,ok:false};
+    return {nombre:u.nombre,costo:parseFloat(u.costo)||0,precio:parseFloat(u.precio)||0,stock:upsellDisponible(u),extra:true,ok:true,ref:u};
+  }
+  const p=(DB.productos||[]).find(x=>x.id===parseInt(it.refId));
+  if(!p)return {nombre:'(producto eliminado)',costo:0,precio:0,stock:null,extra:false,ok:false};
+  return {nombre:p.nombre,costo:parseFloat(p.costo)||0,precio:parseFloat(p.precio)||0,stock:p.modalidad==='stock'?(p.stock||0):null,extra:false,ok:true,ref:p};
+}
+function packTotales(o){
+  let costo=0,valor=0,packsPosibles=null,rotos=0;
+  (o.items||[]).forEach(it=>{
+    const inf=packItemInfo(it);const c=parseInt(it.cantidad)||1;
+    costo+=inf.costo*c;valor+=inf.precio*c;if(!inf.ok)rotos++;
+    if(inf.stock!=null){const n=Math.floor(inf.stock/c);packsPosibles=packsPosibles==null?n:Math.min(packsPosibles,n);}
+  });
+  return {costo,valor,packsPosibles,rotos,gan:(parseFloat(o.precio)||0)-costo};
+}
+function renderOfertas(){
+  if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador.</div>');return;}
+  const packs=packsList();
+  const activas=packs.filter(o=>o.activa!==false).length;
+  setContent(`
+  <div class="section-header"><div><div class="section-title">${ic('tag',20)} Ofertas</div><div class="section-sub">${packs.length} oferta(s) · ${activas} activa(s) — combina productos del inventario en packs</div></div>
+  <div class="section-actions"><button class="btn btn-primary" onclick="openPackBuilder()">+ Crear oferta</button></div></div>
+  ${packs.length
+    ?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${packs.map(packCardHtml).join('')}</div>`
+    :`<div class="card" style="text-align:center;padding:44px 24px">
+        <div style="display:flex;justify-content:center;margin-bottom:12px">${ic('tag',34)}</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes ofertas</div>
+        <div style="font-size:13px;color:var(--text3);max-width:420px;margin:0 auto 16px">Una <b>oferta</b> combina productos principales y extras en un pack con precio propio (ej. 1 Lector + 2 Fundas a S/129). Al registrar un pedido, eliges la oferta con un clic y todo se completa solo.</div>
+        <button class="btn btn-primary" onclick="openPackBuilder()">+ Crear primera oferta</button>
+      </div>`}`);
+}
+function packCardHtml(o){
+  const t=packTotales(o);
+  const activa=o.activa!==false;
+  const items=(o.items||[]).map(it=>{
+    const inf=packItemInfo(it);
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="${inf.ok?'':'color:var(--red)'}">${escB(inf.nombre)} ${inf.extra?'<span style="font-size:10px;color:var(--accent);font-weight:700">EXTRA</span>':''}</span>
+      <span style="font-family:var(--mono);color:var(--text2)">×${parseInt(it.cantidad)||1}</span>
+    </div>`;
+  }).join('');
+  return `<div class="card" style="padding:16px;${activa?'':'opacity:.55'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div style="font-weight:800;font-size:14.5px">${escB(o.nombre||'—')}</div>
+      <span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;${activa?'background:rgba(34,197,94,.15);color:var(--green);border:1px solid var(--green)':'background:var(--surface3);color:var(--text3);border:1px solid var(--border)'}">${activa?'ACTIVA':'PAUSADA'}</span>
+    </div>
+    <div style="margin:10px 0 8px">${items||'<span style="font-size:12px;color:var(--text3)">Sin productos</span>'}</div>
+    ${t.rotos?`<div style="font-size:11px;color:var(--red);margin-bottom:6px">⚠️ ${t.rotos} producto(s) del pack ya no existe(n) en el inventario</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:80px;background:var(--surface3);border-radius:8px;padding:7px 9px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">Precio pack</div><div style="font-family:var(--mono);font-weight:800;font-size:15px">${fmt(o.precio||0)}</div></div>
+      <div style="flex:1;min-width:80px;background:var(--surface3);border-radius:8px;padding:7px 9px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">Ganancia</div><div style="font-family:var(--mono);font-weight:800;font-size:15px;color:${t.gan>=0?'var(--green)':'var(--red)'}">${fmt(t.gan)}</div></div>
+      <div style="flex:1;min-width:80px;background:var(--surface3);border-radius:8px;padding:7px 9px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">Stock packs</div><div style="font-family:var(--mono);font-weight:800;font-size:15px;color:${t.packsPosibles!=null&&t.packsPosibles<=0?'var(--red)':'var(--text)'}">${t.packsPosibles==null?'∞':t.packsPosibles}</div></div>
+    </div>
+    ${t.valor>(parseFloat(o.precio)||0)&&o.precio?`<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Cliente ahorra <b style="color:var(--green)">${fmt(t.valor-o.precio)}</b> vs comprar por separado (${fmt(t.valor)})</div>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="openPackBuilder(${o.id})">${ic('pencil',13)} Editar</button>
+      <button class="btn btn-ghost btn-sm" onclick="duplicarPack(${o.id})">📋 Duplicar</button>
+      <button class="btn btn-ghost btn-sm" onclick="togglePack(${o.id})">${activa?'⏸ Pausar':'▶ Activar'}</button>
+      <button class="btn btn-danger btn-sm" onclick="eliminarPack(${o.id})">${ic('trash',13)}</button>
+    </div>
+  </div>`;
+}
+// ── Constructor visual de ofertas ──
+let _pack=null,_packQ='';
+function openPackBuilder(id){
+  const base=id?packsList().find(x=>x.id===id):null;
+  _pack=base?JSON.parse(JSON.stringify(base)):{id:null,nombre:'',activa:true,precio:'',items:[]};
+  _packQ='';
+  renderPackBuilder();
+}
+function cerrarPackBuilder(){const ov=document.getElementById('pack-ov');if(ov)ov.remove();_pack=null;}
+function renderPackBuilder(){
+  if(!_pack)return;
+  let ov=document.getElementById('pack-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pack-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto';ov.onclick=e=>{if(e.target===ov)cerrarPackBuilder();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:760px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        ${ic('tag',18)}
+        <input id="pack-nombre" value="${escB(_pack.nombre)}" placeholder="Nombre de la oferta (ej. Pack Regalo)" oninput="_pack.nombre=this.value" style="flex:1;max-width:320px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:14px;font-weight:700">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer"><input type="checkbox" ${_pack.activa!==false?'checked':''} onchange="_pack.activa=this.checked" style="accent-color:var(--green);width:16px;height:16px;cursor:pointer"> Activa</label>
+      </div>
+      <button onclick="cerrarPackBuilder()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.25fr;gap:12px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:430px;overflow:auto">
+        <input id="pack-q" value="${escB(_packQ)}" placeholder="🔎 Buscar producto…" oninput="_packQ=this.value;renderPackListas()" style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12.5px;margin-bottom:8px">
+        <div id="pack-listas">${packListasHtml()}</div>
+      </div>
+      <div style="background:var(--surface2);border:1.5px solid var(--accent);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Tu oferta · ${(_pack.items||[]).length} producto(s)</div>
+        <div id="pack-items">${packItemsHtml()}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
+          <label style="font-size:12.5px;color:var(--text2);font-weight:700">Precio del pack S/</label>
+          <input type="number" value="${_pack.precio}" min="0" step="0.5" oninput="_pack.precio=parseFloat(this.value)||'';renderPackResumen()" style="width:100px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:15px">
+        </div>
+        <div id="pack-resumen">${packResumenHtml()}</div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary" onclick="guardarPack()">${ic('save',14)} Guardar oferta</button>
+          <button class="btn btn-ghost" onclick="cerrarPackBuilder()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function packListasHtml(){
+  const q=brutoNorm(_packQ);
+  const fila=(nombre,stock,onclk,extra)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px">
+    <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(nombre)}${stock!=null?` <span style="color:var(--text3);font-size:11px">· stock ${stock}</span>`:''}</span>
+    <button class="btn btn-sm" style="background:var(--accent);color:#fff;font-weight:800;padding:2px 11px" onclick="${onclk}" title="Agregar a la oferta">+</button>
+  </div>`;
+  const prods=(DB.productos||[]).filter(p=>!q||brutoNorm(p.nombre).includes(q));
+  const extras=(DB.upsells||[]).filter(u=>!q||brutoNorm(u.nombre).includes(q));
+  return `<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">${ic('store',12)} Productos principales</div>
+    ${prods.length?prods.map(p=>fila(p.nombre,p.modalidad==='stock'?(p.stock||0):null,`packAdd('prod',${p.id})`)).join(''):'<div style="font-size:11.5px;color:var(--text3);padding:4px 0 8px">Sin resultados</div>'}
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px">${ic('arrow-up-circle',12)} Productos extras</div>
+    ${extras.length?extras.map(u=>fila(u.nombre,upsellDisponible(u),`packAdd('extra','${String(u.id)}')`)).join(''):'<div style="font-size:11.5px;color:var(--text3);padding:4px 0">Sin resultados</div>'}`;
+}
+function packItemsHtml(){
+  const items=_pack.items||[];
+  if(!items.length)return '<div style="font-size:12px;color:var(--text3);padding:14px 0;text-align:center">Agrega productos desde el buscador de la izquierda 👈</div>';
+  return items.map((it,i)=>{
+    const inf=packItemInfo(it);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface3);border-radius:8px;padding:7px 9px;margin-bottom:5px">
+      <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${inf.ok?'':'color:var(--red)'}">${escB(inf.nombre)} ${inf.extra?'<span style="font-size:9.5px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span>
+      <span style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <button class="btn btn-ghost btn-xs" onclick="packQty(${i},-1)" style="padding:1px 8px;font-weight:800">−</button>
+        <b style="font-family:var(--mono);min-width:18px;text-align:center">${parseInt(it.cantidad)||1}</b>
+        <button class="btn btn-ghost btn-xs" onclick="packQty(${i},1)" style="padding:1px 8px;font-weight:800">+</button>
+        <button class="btn btn-ghost btn-xs" onclick="packDelItem(${i})" title="Quitar">${ic('trash',12)}</button>
+      </span>
+    </div>`;
+  }).join('');
+}
+function packResumenHtml(){
+  const t=packTotales(_pack);
+  const precio=parseFloat(_pack.precio)||0;
+  const cell=(l,v,c)=>`<div style="flex:1;background:var(--surface3);border-radius:8px;padding:8px 10px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">${l}</div><div style="font-family:var(--mono);font-weight:800;font-size:14.5px;color:${c||'var(--text)'}">${v}</div></div>`;
+  return `<div style="display:flex;gap:8px">
+    ${cell('Valor separado',fmt(t.valor))}
+    ${cell('Costo total',fmt(t.costo))}
+    ${cell('Ganancia est.',fmt(precio-t.costo),(precio-t.costo)>=0?'var(--green)':'var(--red)')}
+  </div>
+  ${precio&&t.valor>precio?`<div style="font-size:11px;color:var(--text3);margin-top:6px">El cliente ahorra <b style="color:var(--green)">${fmt(t.valor-precio)}</b> comprando el pack</div>`:''}`;
+}
+function renderPackListas(){const el=document.getElementById('pack-listas');if(el)el.innerHTML=packListasHtml();}
+function renderPackItemsUI(){const a=document.getElementById('pack-items');if(a)a.innerHTML=packItemsHtml();renderPackResumen();}
+function renderPackResumen(){const r=document.getElementById('pack-resumen');if(r)r.innerHTML=packResumenHtml();}
+function packAdd(tipo,refId){
+  if(!_pack)return;
+  const ex=(_pack.items||[]).find(it=>it.tipo===tipo&&String(it.refId)===String(refId));
+  if(ex)ex.cantidad=(parseInt(ex.cantidad)||1)+1;
+  else _pack.items.push({tipo,refId,cantidad:1});
+  renderPackItemsUI();
+}
+function packQty(i,d){const it=_pack.items[i];if(!it)return;it.cantidad=Math.max(1,(parseInt(it.cantidad)||1)+d);renderPackItemsUI();}
+function packDelItem(i){_pack.items.splice(i,1);renderPackItemsUI();}
+function guardarPack(){
+  if(!_pack)return;
+  _pack.nombre=(_pack.nombre||'').trim();
+  if(!_pack.nombre){alert('Ponle un nombre a la oferta.');return;}
+  if(!(_pack.items||[]).length){alert('Agrega al menos un producto.');return;}
+  if(!(parseFloat(_pack.precio)>0)){alert('Define el precio del pack.');return;}
+  if(!Array.isArray(DB.packs))DB.packs=[];
+  if(_pack.id){const idx=DB.packs.findIndex(x=>x.id===_pack.id);if(idx>=0)DB.packs[idx]=_pack;else DB.packs.push(_pack);}
+  else{_pack.id=Date.now();DB.packs.push(_pack);}
+  save();cerrarPackBuilder();renderOfertas();
+  showToast('✅ Oferta guardada');
+}
+function duplicarPack(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  const copia=JSON.parse(JSON.stringify(o));copia.id=Date.now();copia.nombre=(o.nombre||'Oferta')+' (copia)';
+  if(!Array.isArray(DB.packs))DB.packs=[];
+  DB.packs.push(copia);save();renderOfertas();showToast('✅ Oferta duplicada');
+}
+function togglePack(id){const o=packsList().find(x=>x.id===id);if(!o)return;o.activa=o.activa===false;save();renderOfertas();}
+function eliminarPack(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  if(!confirm('¿Eliminar la oferta "'+(o.nombre||'')+'"?\nLos pedidos ya registrados con ella NO se ven afectados.'))return;
+  DB.packs=packsList().filter(x=>x.id!==id);save();renderOfertas();
+}
+
 function renderProductos(){
   const cats=[...new Set(DB.productos.map(p=>p.categoria||'General'))].sort();
   const agotados=DB.productos.filter(p=>p.modalidad==='stock'&&p.stock<=0).length;
@@ -8171,10 +8468,11 @@ function renderProductos(){
   const valVenta=DB.productos.reduce((s,p)=>s+p.precio*(p.stock||0),0);
 
   const html=`
-  <div class="section-header"><div><div class="section-title">Catálogo & Stock</div><div class="section-sub">${DB.productos.length} producto(s) registrado(s)</div></div>
+  <div class="section-header"><div><div class="section-title">Inventario</div><div class="section-sub">${DB.productos.length} producto(s) principal(es) registrado(s)</div></div>
   <div class="section-actions">
     <button class="btn btn-primary" onclick="openModalProd()">+ Agregar producto</button>
   </div></div>
+  ${inventarioTabsHtml('prod')}
 
   <div class="metrics-grid" style="margin-bottom:14px">
     <div class="mcard mc-blue"><div class="mcard-label">Total productos</div><div class="mcard-val mv-blue">${DB.productos.length}</div><div class="mcard-sub">${cats.length} categoría(s)</div></div>
@@ -8446,7 +8744,7 @@ function agregarOfertaProd(){prodOfertas.push({cantidad:1,precio:0});renderOfert
 function eliminarOfertaProd(idx){prodOfertas.splice(idx,1);renderOfertasProd();}
 function renderOfertasProd(){
   const c=document.getElementById('pr-ofertas-container');if(!c)return;
-  if(!prodOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div>';return;}
+  if(!prodOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div>';return;}
   const inp='background:var(--surface3);border:1.5px solid var(--amber);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--mono);text-align:center';
   c.innerHTML=prodOfertas.map((o,i)=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -8583,7 +8881,7 @@ function renderUpsells(){
 
   const html=`
   <div class="section-header">
-    <div><div class="section-title">${ic('arrow-up-circle',20)} Upsells / Order Bumps</div><div class="section-sub">Aumenta el ticket promedio ofreciendo productos adicionales al confirmar</div></div>
+    <div><div class="section-title">Inventario</div><div class="section-sub">Productos extras: aumenta el ticket ofreciéndolos al confirmar el pedido</div></div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px">
       <select onchange="upsellPer=this.value;toggleUpsellFechas(this.value);renderUpsells()" style="${fbarStyle}">
         <option value="todo" ${upsellPer==='todo'?'selected':''}>Todo el historial</option>
@@ -8596,17 +8894,18 @@ function renderUpsells(){
         <span style="color:var(--text3)">→</span>
         <input type="date" id="up-hasta" onchange="renderUpsells()" style="${dateStyle}">
       </span>
-      <button class="btn btn-primary" onclick="openModalUpsell()">+ Nuevo upsell</button>
+      <button class="btn btn-primary" onclick="openModalUpsell()">+ Nuevo producto extra</button>
     </div>
   </div>
+  ${inventarioTabsHtml('extras')}
 
   <div class="metrics-grid" style="margin-bottom:14px">
     <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ingresos extra</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(upsellRev)}</div><div class="mcard-sub">precio cobrado × aceptados</div></div>
     ${tieneCostos?`<div class="mcard mc-accent"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('sparkle',13)} Ganancia real</div><div class="mcard-val mv-accent" style="font-size:19px">${fmt(upsellGan)}</div><div class="mcard-sub">precio − costo × aceptados</div></div>`:`<div class="mcard mc-blue"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('ticket',13)} Ticket con upsell</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(ticketConUp)}</div><div class="mcard-sub">${ticketSinUp>0?`vs ${fmt(ticketSinUp)} sin upsell`:'pedidos entregados'}</div></div>`}
     <div class="mcard mc-${convRate>=30?'green':convRate>=15?'amber':'red'}"><div class="mcard-label">% Conversión</div><div class="mcard-val mv-${convRate>=30?'green':convRate>=15?'amber':'red'}">${convRate}%</div><div class="mcard-sub">${aceptados.length} de ${todosOfrecidos.length} ofrecidos</div></div>
-    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">upsells cobrados</div></div>
+    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">extras cobrados</div></div>
     <div class="mcard mc-red"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('x-circle',13)} Rechazados</div><div class="mcard-val mv-red">${rechazados.length}</div><div class="mcard-sub">${todosOfrecidos.length>0?Math.round(rechazados.length/todosOfrecidos.length*100):0}% de ofrecidos</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('arrow-up-circle',13)} Upsells activos</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('arrow-up-circle',13)} Productos extras</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
   </div>
 
   ${ticketConUp>0&&ticketSinUp>0?`
@@ -8614,8 +8913,8 @@ function renderUpsells(){
     <span class="abox-icon">${ticketConUp>ticketSinUp?ic('trending-up',18):ic('dashboard',18)}</span>
     <div class="abox-text">
       ${ticketConUp>ticketSinUp
-        ?`<b>Los upsells aumentan el ticket en ${fmt(ticketConUp-ticketSinUp)} (+${((ticketConUp-ticketSinUp)/ticketSinUp*100).toFixed(0)}%)</b> — de ${fmt(ticketSinUp)} sin upsell a ${fmt(ticketConUp)} con upsell`
-        :`Ticket con upsell: ${fmt(ticketConUp)} · Sin upsell: ${fmt(ticketSinUp)}`}
+        ?`<b>Los productos extras aumentan el ticket en ${fmt(ticketConUp-ticketSinUp)} (+${((ticketConUp-ticketSinUp)/ticketSinUp*100).toFixed(0)}%)</b> — de ${fmt(ticketSinUp)} sin extra a ${fmt(ticketConUp)} con extra`
+        :`Ticket con extra: ${fmt(ticketConUp)} · Sin extra: ${fmt(ticketSinUp)}`}
     </div>
   </div>`:''}
 
@@ -8623,13 +8922,13 @@ function renderUpsells(){
   <div class="fbar" style="margin-bottom:14px">
     <div class="fg-filter">
       <label>Buscar</label>
-      <input type="text" value="${upsellQ}" placeholder="Nombre del upsell..." oninput="upsellQ=this.value;renderUpsells()">
+      <input type="text" value="${upsellQ}" placeholder="Nombre del producto extra..." oninput="upsellQ=this.value;renderUpsells()">
     </div>
     ${tipos.length>1?`<div class="fg-filter"><label>Tipo</label><select onchange="upsellTipoF=this.value;renderUpsells()">
       <option value="" ${upsellTipoF===''?'selected':''}>Todos</option>
-      ${tipos.map(t=>`<option value="${t}" ${upsellTipoF===t?'selected':''}>${t}</option>`).join('')}
+      ${tipos.map(t=>`<option value="${t}" ${upsellTipoF===t?'selected':''}>${tipoExtraLbl(t)}</option>`).join('')}
     </select></div>`:''}
-    <span style="font-size:12px;color:var(--text3);align-self:flex-end;padding-bottom:8px">${upsellsFilt.length} upsell(s)</span>
+    <span style="font-size:12px;color:var(--text3);align-self:flex-end;padding-bottom:8px">${upsellsFilt.length} producto(s) extra</span>
   </div>`:''}
 
   ${DB.upsells.length?`
@@ -8653,7 +8952,7 @@ function renderUpsells(){
         <div style="flex:1;min-width:0;display:flex;gap:10px;align-items:flex-start">
           ${u.imagen?`<img src="${u.imagen}" alt="${(u.nombre||'').replace(/"/g,'&quot;')}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;border:1px solid var(--border);flex-shrink:0">`:''}
           <div style="min-width:0">
-            <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${u.tipo||'Order Bump'}</span>
+            <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${tipoExtraLbl(u.tipo)}</span>
             <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
           </div>
         </div>
@@ -8666,7 +8965,7 @@ function renderUpsells(){
       <!-- Precio / Costo / Ganancia -->
       ${u.ofertas&&u.ofertas.length?`
       <div style="margin-bottom:10px;padding:9px 11px;background:rgba(240,165,32,.08);border:1px solid rgba(240,165,32,.22);border-radius:9px">
-        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Ofertas por cantidad</div>
+        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Precios por cantidad</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${u.ofertas.map(o=>`<span style="background:var(--surface3);border:1.5px solid rgba(240,165,32,.35);border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;color:var(--text);text-align:center;line-height:1.4">${o.cantidad}×<div style="font-size:11px;color:var(--amber)">${fmt(o.precio)}</div></span>`).join('')}
         </div>
@@ -8682,7 +8981,7 @@ function renderUpsells(){
         if(disp===null)return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="font-size:11px;color:var(--text3)">Sin control · <a onclick="openModalUpsell(${u.id})" style="color:var(--accent);cursor:pointer;text-decoration:underline">agregar stock</a></span></div>`;
         const bajo=disp<=(u.stockMin||5);
         const pv=u.productoId?(DB.productos||[]).find(x=>x.id===u.productoId):null;
-        const editBtn=pv?`<button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Stock compartido con ${(pv.nombre||'').replace(/"/g,'')}">${ic('pencil',11)}</button>`:`<button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})" title="Editar stock del upsell">${ic('pencil',11)}</button>`;
+        const editBtn=pv?`<button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Stock compartido con ${(pv.nombre||'').replace(/"/g,'')}">${ic('pencil',11)}</button>`:`<button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})" title="Editar stock del producto extra">${ic('pencil',11)}</button>`;
         return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock${pv?' (compartido)':''}</span><span class="fr-val" style="display:inline-flex;align-items:center;gap:6px"><span style="color:${disp<=0?'var(--red)':bajo?'var(--amber)':'var(--text)'};font-weight:700">${disp} u.${disp<=0?' · AGOTADO':bajo?' · bajo':''}</span>${editBtn}</span></div>${pv?`<div style="font-size:10px;color:var(--text3);margin-top:-2px;margin-bottom:4px">Comparte stock con: ${pv.nombre}</div>`:''}`;
       })()}
 
@@ -8721,16 +9020,16 @@ function renderUpsells(){
       ${u.desc?`<div style="margin-top:10px;padding:9px 11px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--border2);font-size:11.5px;color:var(--text2);line-height:1.6">"${u.desc}"</div>`:''}
     </div>`;
   }).join(''):
-  `<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Sin upsells que coincidan con los filtros.</div>`}
+  `<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Sin productos extras que coincidan con los filtros.</div>`}
   </div>`
   :`<div class="card" style="text-align:center;padding:40px 24px">
     <div style="margin-bottom:12px;color:var(--text3)">${ic('arrow-up-circle',40)}</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes upsells</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes productos extras</div>
     <div style="font-size:13px;color:var(--text3);max-width:440px;margin:0 auto 20px;line-height:1.6">
-      Un <b>upsell / order bump</b> es un producto extra que ofreces al cliente justo al confirmar su pedido.<br><br>
+      Un <b>producto extra</b> es un producto adicional que ofreces al cliente justo al confirmar su pedido.<br><br>
       Ejemplo: <i>"¿Le agrego el estuche protector por solo S/ 15 más?"</i> — si acepta, se suma al ticket.
     </div>
-    <button class="btn btn-primary" onclick="openModalUpsell()">+ Crear primer upsell</button>
+    <button class="btn btn-primary" onclick="openModalUpsell()">+ Crear primer producto extra</button>
   </div>`}`;
   setContent(html);
 }
@@ -8796,16 +9095,16 @@ function guardarUpsell(){
   if(id){const idx=DB.upsells.findIndex(x=>x.id===parseInt(id));DB.upsells[idx]=u;}
   else DB.upsells.push(u);
   save();closeModal('modal-upsell');renderUpsells();
-  showToast(id?'✅ Upsell actualizado':'✅ Upsell creado');
+  showToast(id?'✅ Producto extra actualizado':'✅ Producto extra creado');
 }
-function eliminarUpsell(id){if(!confirm('¿Eliminar upsell?'))return;DB.upsells=DB.upsells.filter(x=>x.id!==id);save();renderUpsells();}
+function eliminarUpsell(id){if(!confirm('¿Eliminar producto extra?'))return;DB.upsells=DB.upsells.filter(x=>x.id!==id);save();renderUpsells();}
 
 // ── OFERTAS POR CANTIDAD (Upsells) ────────────────────────────────────
 function agregarOfertaUp(){upsellOfertas.push({cantidad:1,precio:0});renderOfertasUp();}
 function eliminarOfertaUp(idx){upsellOfertas.splice(idx,1);renderOfertasUp();}
 function renderOfertasUp(){
   const c=document.getElementById('up-ofertas-container');if(!c)return;
-  if(!upsellOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div>';return;}
+  if(!upsellOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div>';return;}
   const inp='background:var(--surface3);border:1.5px solid var(--amber);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--mono);text-align:center';
   c.innerHTML=upsellOfertas.map((o,i)=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -8825,7 +9124,7 @@ function fillUpsellOfertas(upId,savedPrecio){
   if(!u||!u.ofertas||!u.ofertas.length){box.innerHTML='';if(hidden)hidden.value='';return;}
   if(hidden)hidden.value='';
   box.innerHTML=`<div style="margin-top:8px;padding:9px 11px;background:rgba(240,165,32,.07);border:1px solid rgba(240,165,32,.22);border-radius:8px">
-    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Seleccionar oferta</div>
+    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Elegir precio por cantidad</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">
       ${u.ofertas.map(of=>`<button type="button" id="uofr-${of.cantidad}" onclick="seleccionarOfertaUp(${of.cantidad},${of.precio})" style="background:var(--surface3);border:2px solid var(--border2);border-radius:9px;padding:7px 16px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;transition:all .15s;line-height:1.4;text-align:center">${of.cantidad}×<br><span style="font-size:11px;opacity:.85">S/${of.precio}</span></button>`).join('')}
     </div>
@@ -9071,7 +9370,7 @@ function renderFinanzas(){
         <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Ingresos por zona</div>
         <div class="fr"><span class="fr-label">${ic('building',13)} Lima</span><span class="fr-val" style="color:var(--blue)">${fmt(ingLima)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingLima/ing)*100).toFixed(0):0}%</span></span></div>
         <div class="fr"><span class="fr-label">${ic('package',13)} Provincia</span><span class="fr-val" style="color:var(--accent)">${fmt(ingProv)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingProv/ing)*100).toFixed(0):0}%</span></span></div>
-        ${upsellRev>0?`<div class="fr"><span class="fr-label">${ic('arrow-up-circle',13)} Upsells</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
+        ${upsellRev>0?`<div class="fr"><span class="fr-label">${ic('arrow-up-circle',13)} Productos Extras</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
       </div>`:''}
     </div>
     <div class="card">
@@ -11312,7 +11611,7 @@ function exportarDatos(){
 
 function exportarExcel(){
   // Export pedidos as CSV (opens in Excel)
-  const cols=['ID','Fecha','Fecha Creado','Nombre','Celular','DNI','Producto','Cantidad','Precio','Costo Prod','Embalaje','Costo Envio','Zona','Distrito/Ciudad','Vendedor','Courier','Estado','Motivo Dev.','Upsell','Comentario'];
+  const cols=['ID','Fecha','Fecha Creado','Nombre','Celular','DNI','Producto','Cantidad','Precio','Costo Prod','Embalaje','Costo Envio','Zona','Distrito/Ciudad','Vendedor','Courier','Estado','Motivo Dev.','Producto Extra','Comentario'];
   const getVendNombre=v=>{
     if(!v)return '';
     const a=DB.asesores.find(x=>String(x.id)===String(v));

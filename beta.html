@@ -1129,29 +1129,23 @@ td{padding:11px 14px;font-size:13px}
   <div class="divider"></div>
 
   <!-- PRODUCTOS (multi-item) -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+  <div style="margin-bottom:10px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Qué lleva el pedido</div>
-    <button class="btn btn-ghost btn-sm" type="button" onclick="agregarItemManual()">+ Producto manual</button>
   </div>
-  <div id="p-add-row" style="margin-bottom:10px">
+  <div id="p-items-container"></div>
+  <!-- El selector de producto va SIEMPRE debajo de lo ya elegido -->
+  <div id="p-add-row" style="margin-top:10px">
     <select id="p-add-prod" onchange="pickProductoPedido(this.value)" style="width:100%;background:var(--surface2);border:1.5px solid var(--accent);border-radius:9px;padding:11px 12px;color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;outline:none">
-      <option value="">➕ Elige un producto principal…</option>
+      <option value="">➕ Agregar un producto principal…</option>
     </select>
   </div>
-  <div id="p-comolleva" style="display:none;margin-bottom:10px"></div>
-  <div id="p-items-container"></div>
+  <div id="p-comolleva" style="display:none;margin-top:10px"></div>
 
-  <!-- UPSELL -->
-  <div style="margin-top:10px;padding:11px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Producto Extra ofrecido</div>
-    <div class="form-grid">
-      <div class="fg"><label>Producto extra</label>
-        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin producto extra —</option></select>
-      </div>
-      <div class="fg"><label>Resultado</label>
-        <select id="p-upsell-res" onchange="recalcPend()"><option value="">—</option><option value="aceptado">✅ Aceptado</option><option value="rechazado">❌ Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
-      </div>
-    </div>
+  <!-- UPSELL (oculto: los extras ahora van dentro de las Ofertas; se conserva el markup
+       para no perder datos de pedidos antiguos que ya tenían un extra ofrecido) -->
+  <div style="display:none">
+    <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin producto extra —</option></select>
+    <select id="p-upsell-res" onchange="recalcPend()"><option value="">—</option><option value="aceptado">Aceptado</option><option value="rechazado">Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
     <input type="hidden" id="p-upsell-precio" value="">
     <div id="upsell-ofr-box"></div>
   </div>
@@ -6163,7 +6157,7 @@ function eliminarItemPedido(idx){
 function renderItemsPedido(){
   const c=document.getElementById('p-items-container');if(!c)return;
   if(!pedidoItems.length){
-    c.innerHTML=`<div style="text-align:center;padding:18px;color:var(--text3);border:1px dashed var(--border2);border-radius:8px;font-size:12px">Aún no hay productos. Elige uno arriba 👆 o usa "+ Producto manual".</div>`;
+    c.innerHTML=`<div style="text-align:center;padding:18px;color:var(--text3);border:1px dashed var(--border2);border-radius:8px;font-size:12px">Aún no hay productos. Elige uno con el selector de abajo 👇</div>`;
     recalcPend();return;
   }
   // Agrupar por instancia de oferta (packInst): las líneas de un mismo pack se
@@ -6339,7 +6333,7 @@ function openNuevoPedido(zonaDefault){
   window.pedidoTestimonio=null;renderTestimonioPreview();
   fillAddProdSelect();cerrarComoLleva();
   pedidoItems=[];
-  agregarItemPedido();
+  renderItemsPedido(); // arranca vacío: el usuario elige un producto con el selector
   fillUpsellSelect();
   fillUpsellOfertas('');
   if(isAdmin()){fillVendedorSelect('');}else{const ma=DB.asesores.find(a=>a.workerId===SESSION.id);fillVendedorSelect(ma?ma.id:SESSION.id);}
@@ -6460,7 +6454,26 @@ function renderPedidoResumen(){
   const box=document.getElementById('mp-resumen');if(!box)return;
   const upItem=typeof itemUpsellActual==='function'?itemUpsellActual():null;
   const items=pedidoItems.filter(it=>!it.esUpsell).concat(upItem?[upItem]:[]);
-  const lineas=items.filter(it=>it.nombre).map(it=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${escB(it.nombre)} ×${parseInt(it.cantidad)||1}${(it.esUpsell||it.esExtra)?' <span style="font-size:9px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span><span style="font-family:var(--mono);flex-shrink:0">${fmt(parseFloat(it.precio)||0)}</span></div>`).join('');
+  // Agrupar por oferta (packInst): la oferta se muestra como título + desglose.
+  const groups=[];const seen={};
+  items.forEach(it=>{
+    if(it.packInst){
+      if(seen[it.packInst]==null){seen[it.packInst]=groups.length;groups.push({pack:true,nombre:it.packNombre||'Oferta',its:[it]});}
+      else groups[seen[it.packInst]].its.push(it);
+    } else groups.push({plain:true,it});
+  });
+  const lineas=groups.map(g=>{
+    if(g.pack){
+      const sub=g.its.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+      const desglose=g.its.map(it=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--text3);padding:1px 0 1px 12px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(it.nombre)}${it.variante?' · '+escB(it.variante):''} ×${parseInt(it.cantidad)||1}${it.esExtra?' <span style="color:var(--amber);font-weight:800">extra</span>':''}</span></div>`).join('');
+      return `<div style="padding:4px 0">
+        <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;color:var(--accent)"><span style="display:inline-flex;align-items:center;gap:4px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ic('tag',12)} ${escB(g.nombre)}</span><span style="font-family:var(--mono);flex-shrink:0">${fmt(sub)}</span></div>
+        ${desglose}
+      </div>`;
+    }
+    const it=g.it;if(!it.nombre)return '';
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${escB(it.nombre)} ×${parseInt(it.cantidad)||1}${(it.esUpsell||it.esExtra)?' <span style="font-size:9px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span><span style="font-family:var(--mono);flex-shrink:0">${fmt(parseFloat(it.precio)||0)}</span></div>`;
+  }).join('');
   const total=items.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
   const cprod=items.reduce((s,it)=>s+(parseFloat(it.cprod)||0),0);
   const cant=items.reduce((s,it)=>s+(parseInt(it.cantidad)||1),0);

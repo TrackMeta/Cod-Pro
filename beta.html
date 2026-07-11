@@ -6510,7 +6510,7 @@ function fillAddProdSelect(){
   const extras=(DB.upsells||[]).map(u=>`<option value="e:${u.id}">${escB(u.nombre)}</option>`).join('');
   sel.innerHTML='<option value="">➕ Agregar al pedido…</option>'
     +(prods?`<optgroup label="Principales">${prods}</optgroup>`:'')
-    +(extras?`<optgroup label="Extras (add-ons)">${extras}</optgroup>`:'');
+    +(extras?`<optgroup label="Extras">${extras}</optgroup>`:'');
   sel.value='';
 }
 function cerrarComoLleva(){const box=document.getElementById('p-comolleva');if(box){box.style.display='none';box.innerHTML='';}const sel=document.getElementById('p-add-prod');if(sel)sel.value='';}
@@ -6521,7 +6521,25 @@ function pickProductoPedido(val){
   const sep=String(val).indexOf(':');
   const tipo=sep>=0?String(val).slice(0,sep):'p';
   const id=sep>=0?String(val).slice(sep+1):String(val);
-  if(tipo==='e'){agregarExtraSolo(id);return;}
+  if(tipo==='e'){
+    const u=(DB.upsells||[]).find(x=>String(x.id)===String(id));
+    if(!u){box.style.display='none';box.innerHTML='';return;}
+    // Si el extra tiene precios por cantidad, mostrar el panel para elegir; si no, agregar directo.
+    if(u.ofertas&&u.ofertas.length){
+      const qb=u.ofertas.map(of=>`<button type="button" onclick="agregarExtraSolo('${String(u.id)}',${of.cantidad},${of.precio})" style="background:var(--surface3);border:1.5px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer">${of.cantidad}× S/${of.precio}</button>`).join('');
+      box.style.display='block';
+      box.innerHTML=`<div style="border:1px solid var(--border2);border-radius:10px;padding:12px;background:var(--surface2)">
+        <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:8px">Agregar <b style="color:var(--text)">${escB(u.nombre)}</b> <span style="color:var(--amber);font-weight:800">· EXTRA</span></div>
+        <div style="max-width:300px"><div style="border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--surface)">
+          <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('package',14)} Solo el extra</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${qb}</div>
+          <button type="button" class="btn btn-primary btn-sm" style="width:100%;justify-content:center" onclick="agregarExtraSolo('${String(u.id)}',1,${u.precio||0})">Agregar 1 unidad</button>
+        </div></div>
+      </div>`;
+      return;
+    }
+    agregarExtraSolo(id);return;
+  }
   const prod=DB.productos.find(p=>p.id===parseInt(id));if(!prod)return;
   // Ofertas activas que contengan este producto como principal
   const ofertas=packsList().filter(o=>o.activa!==false&&(o.items||[]).some(it=>it.tipo==='prod'&&String(it.refId)===String(prod.id)));
@@ -6558,10 +6576,11 @@ function agregarProductoSolo(prodId,cantidad,precio){
 function agregarItemManual(){pedidoItems.push({productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''});cerrarComoLleva();renderItemsPedido();}
 // Extra suelto (à la carte, fuera de una oferta): línea marcada esExtra que
 // descuenta del stock del extra. Misma estructura que los extras dentro de packs.
-function agregarExtraSolo(extraId){
+function agregarExtraSolo(extraId,cantidad,precio){
   const u=(DB.upsells||[]).find(x=>String(x.id)===String(extraId));if(!u)return;
+  cantidad=parseInt(cantidad)||1;
   pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
-  pedidoItems.push({productoId:u.productoId||'',nombre:u.nombre,variante:'',desglose:[],cantidad:1,precio:parseFloat(u.precio)||0,cprod:parseFloat(u.costo)||0,sku:'',cali:'',esExtra:true,upsellId:u.id});
+  pedidoItems.push({productoId:u.productoId||'',nombre:u.nombre,variante:'',desglose:[],cantidad,precio:(precio!=null?precio:u.precio)||0,cprod:(parseFloat(u.costo)||0)*cantidad,sku:'',cali:'',esExtra:true,upsellId:u.id});
   cerrarComoLleva();renderItemsPedido();recalcPend();
   showToast('✅ Extra "'+(u.nombre||'')+'" agregado','success',1600);
 }

@@ -4716,7 +4716,7 @@ function brutosTabla(rows){
       <td style="${td};max-width:240px">${escB(r.producto_raw)||'—'}</td>
       <td style="${td};text-align:right;font-family:var(--mono)">${r.precio!=null?fmt(r.precio):'—'}</td>
       <td style="${td};font-size:12px;color:var(--text2);max-width:160px">${loc}</td>
-      <td style="${td};font-size:12px">${asesor}</td>
+      <td style="${td};font-size:12px">${asesor}${(function(){const o=brutoAsesorOriginal(r);if(!o)return '';const actual=r.asesor_id!=null?String(r.asesor_id):null;if(actual&&String(o.id)===actual)return '';return `<div style="font-size:10px;color:var(--text3);margin-top:2px" title="Primer trabajador que tomó este lead — nunca cambia">↳ Original: ${escB(o.nombre)}</div>`;})()}</td>
       <td style="${td}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${e.color};background:var(--surface3);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap">${ic(e.ic,12)} ${e.label}</span>${cont}</td>
       <td style="${td}">${est==='por_contactar'?subEstadoSelectHtml(r):subEstadoChip(r.sub_estado)}</td>
       <td style="${td};text-align:right;white-space:nowrap">${brutoAccionesHtml(r)}</td>
@@ -5026,7 +5026,11 @@ async function marcarBrutoRegistrado(b,numeroPedido){
 
 async function brutoSetAsignacion(b,asesorId,accion,extra){
   const hist=Array.isArray(b.historial)?b.historial.slice():[];
-  hist.push(Object.assign({accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()},extra||{}));
+  // asesor_id = quien EJECUTA la acción; asesor_dest = a quién QUEDA asignado
+  // (clave para "Trabajador Original": el primer destinatario nunca se pierde)
+  const ev={accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()};
+  if(asesorId!=null){ev.asesor_dest=asesorId;ev.asesor_dest_nombre=asesorMeta(asesorId).nombre;}
+  hist.push(Object.assign(ev,extra||{}));
   const{error}=await _supabase.from('pedidos_brutos').update({asesor_id:asesorId,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('No se pudo actualizar: '+error.message);return;}
   refrescarBrutosUI();
@@ -5159,6 +5163,26 @@ function brutoFmtDur(ms){
   if(h<24)return h+'h'+(m?' '+m+'min':'');
   const d=Math.floor(h/24); return d+'d '+(h%24)+'h';
 }
+// ── Trazabilidad: Trabajador Original y Trabajador que Confirmó ──────
+// Original = PRIMER destinatario de un "tomado"/"asignado" en el historial.
+// Nunca cambia aunque el lead se devuelva o reasigne (se deriva del historial,
+// que es inmutable). Confirmó = quien marcó "registrado" (cierra la venta).
+function brutoAsesorOriginal(b){
+  const h=Array.isArray(b&&b.historial)?b.historial:[];
+  const ev=h.find(x=>x.accion==='tomado'||x.accion==='asignado');
+  if(!ev)return null;
+  // Eventos nuevos guardan asesor_dest (destinatario). Legacy: 'tomado' el actor
+  // es el destinatario; 'asignado' de repartirPool guardaba al destinatario en asesor_id.
+  const id=ev.asesor_dest!=null?ev.asesor_dest:ev.asesor_id;
+  const nombre=ev.asesor_dest_nombre||ev.asesor_nombre||asesorMeta(id).nombre;
+  return {id,nombre,ts:ev.ts||null};
+}
+function brutoAsesorConfirmo(b){
+  const h=Array.isArray(b&&b.historial)?b.historial:[];
+  const ev=h.filter(x=>x.accion==='registrado').pop();
+  if(!ev)return null;
+  return {id:ev.asesor_id,nombre:ev.asesor_nombre||asesorMeta(ev.asesor_id).nombre,ts:ev.ts||null};
+}
 // Tiempo de 1ª respuesta = desde que entró el lead hasta el primer "tomado/asignado"
 function brutoPrimeraRespuesta(b){
   const hist=Array.isArray(b.historial)?b.historial:[];
@@ -5171,7 +5195,12 @@ function verBrutoHistorial(id){
   const b=_brutosCache[id]; if(!b)return;
   const hist=Array.isArray(b.historial)?b.historial:[];
   const pr=brutoPrimeraRespuesta(b);
-  const prHtml=pr?`<div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:12px;font-size:12px"><span style="color:var(--text3)">⏱ 1ª respuesta:</span> <b>${brutoFmtDur(pr.ms)}</b>${pr.quien?` <span style="color:var(--text3)">· ${escB(pr.quien)}</span>`:''}</div>`:'';
+  const _orig=brutoAsesorOriginal(b),_conf=brutoAsesorConfirmo(b);
+  const trazaHtml=(_orig||_conf)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+    ${_orig?`<span title="Primer trabajador que tomó este lead — nunca cambia" style="display:inline-flex;align-items:center;gap:5px;background:rgba(59,130,246,.12);color:var(--accent);border:1px solid var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">👤 Original: ${escB(_orig.nombre)}</span>`:''}
+    ${_conf?`<span title="Quien cerró la venta (se lleva la conversión y la comisión)" style="display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.12);color:var(--green);border:1px solid var(--green);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✅ Confirmó: ${escB(_conf.nombre)}</span>`:''}
+  </div>`:'';
+  const prHtml=(trazaHtml||'')+(pr?`<div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:12px;font-size:12px"><span style="color:var(--text3)">⏱ 1ª respuesta:</span> <b>${brutoFmtDur(pr.ms)}</b>${pr.quien?` <span style="color:var(--text3)">· ${escB(pr.quien)}</span>`:''}</div>`:'');
   const rows=hist.length?hist.slice().reverse().map(h=>{
     const lbl=BRUTO_ACCION_LBL[h.accion]||h.accion;
     const t=h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
@@ -5215,7 +5244,9 @@ function verBrutoDetalle(id){
     ${row('Ciudad / Distrito',b.ciudad)}
     ${row('Provincia / Depto',b.provincia_raw)}
     ${row('Zona detectada',zona==='provincia'?'Provincia':'Lima')}
-    ${row('Asesor',asesor)}
+    ${row('Asesor actual',asesor)}
+    ${(function(){const o=brutoAsesorOriginal(b);return o?row('Trabajador original',o.nombre+(o.ts?' · '+new Date(o.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'}):''),true):'';})()}
+    ${(function(){const c=brutoAsesorConfirmo(b);return c?row('Confirmado por',c.nombre+(c.ts?' · '+new Date(c.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'}):''),true):'';})()}
     ${row('Order ID',b.order_id)}
     ${row('Ingreso al sistema',ingreso,true)}
     ${lead?row('Fecha del lead',lead):''}
@@ -10863,22 +10894,45 @@ function checkDuplicado(){
   }
 }
 
-function renderHistorial(pedidoId){
+async function renderHistorial(pedidoId){
   const p=DB.pedidos.find(x=>x.id===pedidoId);
   if(!p){alert('Pedido no encontrado');return;}
-  const hist=p.historial||[];
   const colores={nuevo:'var(--blue)',confirmado:'var(--green)','no-contesta':'var(--amber)',rechazado:'var(--red)',enviado:'var(--purple)',entregado:'var(--green)',devuelto:'var(--red)',reprogramado:'var(--amber)'};
+  // ── LÍNEA DE TIEMPO UNIFICADA: etapa de lead (bruto) + etapa de pedido ──
+  // Si el pedido nació de un lead (pedidos_brutos.pedido_numero = p.id), se
+  // traen sus eventos (tomado, devuelto, notas, etc.) y se mezclan por fecha.
+  const eventos=[];
+  try{
+    const{data:b}=await _supabase.from('pedidos_brutos').select('historial,created_at,fecha_hora,raw')
+      .eq('workspace_id',SESSION.workspace_id).eq('pedido_numero',pedidoId).limit(1).maybeSingle();
+    if(b){
+      const fuente=(b.raw&&b.raw.tienda)?('Shopify · '+b.raw.tienda):(b.raw&&b.raw.shopify_name?'Shopify':'Integración');
+      if(b.created_at)eventos.push({ts:b.created_at,lead:true,label:'Lead ingresó al sistema',sub:fuente});
+      (Array.isArray(b.historial)?b.historial:[]).forEach(h=>{
+        const quien=h.asesor_dest_nombre||h.asesor_nombre||'';
+        const extra=[h.texto,h.valor,h.motivo,h.nota].filter(Boolean).join(' — ');
+        eventos.push({ts:h.ts,lead:true,label:BRUTO_ACCION_LBL[h.accion]||h.accion,sub:[quien,extra].filter(Boolean).join(' · ')});
+      });
+    }
+  }catch(_){/* sin lead vinculado o sin conexión: se muestra solo el historial del pedido */}
+  (p.historial||[]).forEach(h=>eventos.push({ts:h.ts,estado:h.estado,user:h.user||'',motivo:h.motivo||''}));
+  eventos.sort((a,b)=>new Date(a.ts||0)-new Date(b.ts||0));
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-hist';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
-      <div><div class="modal-title">${ic('clock',18)} Historial #${p.id}</div><div class="modal-sub">${p.nombre} · ${p.producto}</div></div>
+      <div><div class="modal-title">${ic('clock',18)} Historial #${p.id}</div><div class="modal-sub">${escB(p.nombre)} · ${escB(p.producto||'')}</div></div>
       <div class="mc" onclick="document.getElementById('modal-hist').remove()">×</div>
     </div>
-    ${hist.length?hist.map((h,i)=>`
-      <div class="hist-line">
-        <div class="hist-dot" style="background:${colores[h.estado]||'var(--text3)'}"></div>
-        <div class="hist-time">${h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
-        <div style="flex:1">${badge(h.estado)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${h.user||''}</span>${h.motivo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">↳ ${h.motivo}</div>`:''}</div>
+    ${eventos.length?eventos.map(e=>e.lead
+      ?`<div class="hist-line">
+        <div class="hist-dot" style="background:var(--accent);opacity:.65"></div>
+        <div class="hist-time">${e.ts?new Date(e.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
+        <div style="flex:1"><span style="font-size:12px;font-weight:600;color:var(--text2)">${escB(e.label)}</span>${e.sub?`<div style="font-size:11px;color:var(--text3);margin-top:1px">↳ ${escB(e.sub)}</div>`:''}</div>
+      </div>`
+      :`<div class="hist-line">
+        <div class="hist-dot" style="background:${colores[e.estado]||'var(--text3)'}"></div>
+        <div class="hist-time">${e.ts?new Date(e.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
+        <div style="flex:1">${badge(e.estado)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${escB(e.user)}</span>${e.motivo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">↳ ${escB(e.motivo)}</div>`:''}</div>
       </div>`).join('')
     :`<div class="empty" style="padding:20px">Sin historial registrado</div>`}
     <div style="margin-top:16px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-hist').remove()">Cerrar</button></div>

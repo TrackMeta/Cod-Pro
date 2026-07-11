@@ -1006,7 +1006,6 @@ td{padding:11px 14px;font-size:13px}
         <!-- ANÁLISIS & FINANZAS (admin) -->
         <div class="nav-section admin-only">Análisis & Finanzas</div>
         <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico" data-ic="dashboard"></span>Dashboard</div>
-        <div class="nav-item admin-only" onclick="showPage('conversion',this)"><span class="ico" data-ic="target"></span>Conversión</div>
         <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico" data-ic="wallet"></span>Finanzas</div>
         <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico" data-ic="trending-up"></span>Flujo de Caja</div>
         <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico" data-ic="banknote"></span>Liquidación</div>
@@ -3150,7 +3149,7 @@ async function load(){
 }
 
 function saveConfig(){
-  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault','trackTransitoAviso','trackTransitoCritico','trackAgenciaAviso','trackAgenciaCritico'].forEach(k=>{
+  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault','trackTransitoAviso','trackTransitoCritico','trackAgenciaAviso','trackAgenciaCritico','maxLeadsActivos'].forEach(k=>{
     const el=document.getElementById('cfg-'+k);if(el)CFG[k]=parseFloat(el.value)||0;
   });
   save();
@@ -5037,7 +5036,22 @@ async function brutoSetAsignacion(b,asesorId,accion,extra){
   if(error){alert('No se pudo actualizar: '+error.message);return;}
   refrescarBrutosUI();
 }
-function tomarBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;brutoSetAsignacion(b,miAsesorId(),'tomado');}
+async function tomarBruto(id){
+  const b=_brutosCache[id];if(!b)return;
+  // Límite configurable de leads activos por trabajador (Config → Operaciones).
+  // Evita que un trabajador acapare el pool. 0 = sin límite. No aplica al admin.
+  const lim=parseInt(CFG.maxLeadsActivos)||0;
+  if(lim>0&&!isAdmin()){
+    try{
+      const{count}=await _supabase.from('pedidos_brutos').select('id',{count:'exact',head:true})
+        .eq('workspace_id',SESSION.workspace_id).eq('asesor_id',miAsesorId())
+        .not('estado','in','("rechazado","registrado","perdido")');
+      if((count||0)>=lim){alert(`Ya tienes ${count} lead(s) activos — el límite es ${lim}.\nConfirma, rechaza o devuelve alguno antes de tomar otro.\n(El administrador puede cambiar el límite en Configuración.)`);return;}
+    }catch(_){/* si el conteo falla, no bloquear la operación */}
+  }
+  if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;
+  brutoSetAsignacion(b,miAsesorId(),'tomado');
+}
 // Devolver al pool exige un motivo (queda en el historial para auditoría)
 function devolverBruto(id){
   if(!puede('devolverLeads')){alert('No tienes permiso para devolver leads al pool. Pídeselo al administrador (Equipo → Permisos).');return;}
@@ -5353,8 +5367,12 @@ async function miDiaResumen(ws,mineId){
     const r3=await q3; pend=r3.count||0;
   }catch(_){}
   const gest=reg+rech; const conv=gest?Math.round(reg/gest*100):0;
-  const card=(label,val,color)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
-  el.innerHTML=card('Total período',total,'var(--accent)')+card('Pendientes',pend,'var(--amber)')+card('Confirmados',reg,'var(--green)')+card('Rechazados',rech,'var(--red)')+card('Conversión',conv+'%','var(--blue)');
+  const card=(label,val,color,tip)=>`<div class="card" style="padding:14px" title="${tip||''}"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
+  el.innerHTML=card('Total período',total,'var(--accent)','Leads que entraron al sistema en el período seleccionado')
+    +card('Pendientes',pend,'var(--amber)','Leads aún en gestión (sin confirmar, rechazar ni perder) — no depende del período')
+    +card('Confirmados',reg,'var(--green)','Leads convertidos en pedido en el período')
+    +card('Rechazados',rech,'var(--red)','Leads marcados como rechazados en el período')
+    +(isAdmin()?card('Conversión',conv+'%','var(--blue)','Confirmados ÷ (confirmados + rechazados) del período — solo visible para el administrador'):'');
   // ── Vista operativa de PEDIDOS del período (worker: solo los suyos) ──
   try{
     const rango=periodoRango(per);
@@ -5810,7 +5828,9 @@ async function intgProbarTelegram(btn){
 let convPer='todo',convDesde='',convHasta='';
 function setConvFiltro(k,v){if(k==='per')convPer=v;if(k==='desde')convDesde=v;if(k==='hasta')convHasta=v;renderConversion();}
 async function renderConversion(){
-  if(!isAdmin()){setContent('<div class="abox abox-red"><span class="abox-icon">'+ic('x-circle',18)+'</span><div class="abox-text">Solo administradores.</div></div>');return;}
+  // FUSIONADA: la página "Conversión" se unificó con Equipo → Métricas para no
+  // tener las mismas cifras en dos lugares. Los enlaces antiguos redirigen.
+  showPage('equipoMetricas');return;
   const ws=SESSION?.workspace_id; if(!ws)return;
   const filtro=convPer==='custom'?{tipo:'custom',desde:convDesde,hasta:convHasta||hoy()}:convPer;
   const perLbl=convPer==='mes'?'30 días':convPer==='semana'?'7 días':convPer==='hoy'?'hoy':convPer==='custom'?`${convDesde||'?'} → ${convHasta||hoy()}`:'todo';
@@ -7481,11 +7501,11 @@ function renderLima(){
   ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">${ic('bike',18)}</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Lima</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
-    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Valor activo</div><div class="mcard-val mv-green" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+p.precio,0))}</div><div class="mcard-sub">en entregas pendientes</div></div>
+    <div class="mcard mc-accent" title="Pedidos confirmados + enviados que aún no llegan al cliente"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
+    <div class="mcard mc-green" title="Pedidos ya entregados al cliente (el monto es la suma de sus precios)"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
+    <div class="mcard mc-red" title="Pedidos que el cliente no recibió (la tasa es devueltos ÷ total)"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
+    ${isAdmin()?`<div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}" title="Entregados ÷ (entregados + devueltos) de Lima. Solo visible para el administrador."><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-green" title="Suma de los precios de los pedidos confirmados y enviados que aún no se entregan. Solo visible para el administrador."><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Valor activo</div><div class="mcard-val mv-green" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+p.precio,0))}</div><div class="mcard-sub">en entregas pendientes</div></div>`:''}
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -7709,11 +7729,11 @@ function renderProvincia(){
   })()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Provincia</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+(p.pendiente||0),0))}</div><div class="mcard-sub">pendiente en tránsito</div></div>
+    <div class="mcard mc-accent" title="Pedidos confirmados + enviados que aún no llegan al cliente"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
+    <div class="mcard mc-green" title="Pedidos ya entregados al cliente (el monto es la suma de sus precios)"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
+    <div class="mcard mc-red" title="Pedidos que el cliente no recibió (la tasa es devueltos ÷ total)"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
+    ${isAdmin()?`<div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}" title="Entregados ÷ (entregados + devueltos) de Provincia. Solo visible para el administrador."><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-amber" title="Suma de los saldos pendientes (precio − adelanto) de pedidos en tránsito. Solo visible para el administrador."><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+(p.pendiente||0),0))}</div><div class="mcard-sub">pendiente en tránsito</div></div>`:''}
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -11512,6 +11532,10 @@ function renderConfig(){
         <div><div class="cfg-label">Horas sin enviar</div><div class="cfg-sub">Alerta si pedido confirmado no se envía</div></div>
         <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-horasAlerta" value="${CFG.horasAlerta}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">h</span></div>
       </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Máx. leads activos por trabajador</div><div class="cfg-sub">Tope de leads que un trabajador puede tener tomados a la vez · 0 = sin límite (no aplica al admin)</div></div>
+        <input class="cfg-input" type="number" id="cfg-maxLeadsActivos" min="0" value="${CFG.maxLeadsActivos||0}" onchange="saveConfig()" style="width:64px">
+      </div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px;display:inline-flex;align-items:center;gap:5px">${ic('package',12)} Tracking Provincia</div>
       <div class="cfg-row">
@@ -11696,7 +11720,8 @@ async function renderEquipoMetricas(){
   const filas=M.workers.map((w,i)=>{
     const convP=w.trabajados?Math.round(w.confirmados/w.trabajados*100):0;
     const convE=w.confirmados?Math.round(w.entregados/w.confirmados*100):0;
-    const tProm=w.tiempos.length?brutoFmtDur(w.tiempos.reduce((a,b)=>a+b,0)/w.tiempos.length):'—';
+    const tResp=w.tiemposResp.length?brutoFmtDur(w.tiemposResp.reduce((a,b)=>a+b,0)/w.tiemposResp.length):'—';
+    const tGest=w.tiemposGest.length?brutoFmtDur(w.tiemposGest.reduce((a,b)=>a+b,0)/w.tiemposGest.length):'—';
     const porDia=dias?(Math.round(w.trabajados/dias*10)/10):null;
     const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
     const meta=asesorMeta(w.id);
@@ -11711,7 +11736,8 @@ async function renderEquipoMetricas(){
       <td data-label="Devueltos" style="font-family:var(--mono);text-align:center;color:${w.devueltosPed?'var(--red)':'var(--text3)'}">${w.devueltosPed}</td>
       <td data-label="Al pool" style="font-family:var(--mono);text-align:center;color:var(--text3)">${w.devueltosPool}</td>
       <td data-label="Cerró otro" style="font-family:var(--mono);text-align:center;color:var(--text3)" title="Leads que este trabajador tomó primero pero confirmó otra persona">${w.confirmadosPorOtro}</td>
-      <td data-label="T. confirmación" style="font-family:var(--mono);text-align:center;font-size:12px">${tProm}</td>
+      <td data-label="T. respuesta" style="font-family:var(--mono);text-align:center;font-size:12px">${tResp}</td>
+      <td data-label="T. gestión" style="font-family:var(--mono);text-align:center;font-size:12px">${tGest}</td>
       <td data-label="Leads/día" style="font-family:var(--mono);text-align:center;font-size:12px">${porDia==null?'—':porDia}</td>
     </tr>`;
   }).join('');
@@ -11726,7 +11752,8 @@ async function renderEquipoMetricas(){
     ['Devueltos','De sus confirmados, cuántos terminaron devueltos (anulan comisión).'],
     ['Al pool','Cuántas veces soltó un lead de vuelta a la bandeja.'],
     ['Cerró otro','Leads que tomó primero pero otra persona terminó confirmando.'],
-    ['T. confirmación','Tiempo promedio desde que entró el lead hasta que él/ella lo confirmó.'],
+    ['T. respuesta','Desde que el lead ENTRÓ (Shopify/Sheets) hasta que este trabajador lo tomó. Mide velocidad de reacción.'],
+    ['T. gestión','Desde que ÉL/ELLA tomó el lead hasta que lo confirmó. Mide velocidad de cierre, sin contar la espera en el pool.'],
     ['Leads/día','Leads trabajados por día del período.']
   ].map(([l,d])=>`<div style="display:flex;gap:8px;font-size:11px;padding:3px 0"><b style="min-width:110px;color:var(--text2)">${l}</b><span style="color:var(--text3)">${d}</span></div>`).join('');
   body.innerHTML=`
@@ -11739,10 +11766,39 @@ async function renderEquipoMetricas(){
   </div>
   <div class="card" style="padding:0;overflow-x:auto">
     <table style="width:100%;border-collapse:collapse">
-      <thead><tr><th style="${th};text-align:left">Trabajador</th><th style="${th}">Asignados</th><th style="${th}">Trabajados</th><th style="${th}">Confirmados</th><th style="${th}">% Conversión</th><th style="${th}">Entregados</th><th style="${th}">% Entrega</th><th style="${th}">Devueltos</th><th style="${th}">Al pool</th><th style="${th}">Cerró otro</th><th style="${th}">T. confirmación</th><th style="${th}">Leads/día</th></tr></thead>
-      <tbody>${filas||`<tr><td colspan="12" style="padding:26px;text-align:center;color:var(--text3)">Sin actividad de trabajadores en este período</td></tr>`}</tbody>
+      <thead><tr><th style="${th};text-align:left">Trabajador</th><th style="${th}">Asignados</th><th style="${th}">Trabajados</th><th style="${th}">Confirmados</th><th style="${th}">% Conversión</th><th style="${th}">Entregados</th><th style="${th}">% Entrega</th><th style="${th}">Devueltos</th><th style="${th}">Al pool</th><th style="${th}">Cerró otro</th><th style="${th}">T. respuesta</th><th style="${th}">T. gestión</th><th style="${th}">Leads/día</th></tr></thead>
+      <tbody>${filas||`<tr><td colspan="13" style="padding:26px;text-align:center;color:var(--text3)">Sin actividad de trabajadores en este período</td></tr>`}</tbody>
     </table>
   </div>
+  ${(function(){
+    // ── Efectividad de couriers (antes vivía en la página "Conversión") ──
+    const rng=periodoRango(_eqPer);
+    const peds=(DB.pedidos||[]).filter(p=>{
+      if(!rng.desde)return true;
+      const f=p.fecha?new Date(p.fecha+'T12:00:00'):null;
+      return f&&f>=new Date(rng.desde)&&(!rng.hasta||f<new Date(rng.hasta));
+    });
+    const crows=(DB.deliveries||[]).map(d=>{
+      const dP=peds.filter(p=>p.courier===d.nombre);
+      const ent=dP.filter(p=>p.estado==='entregado').length;
+      const dev=dP.filter(p=>p.estado==='devuelto').length;
+      return {n:d.nombre,ped:dP.length,ent,dev,ef:dP.length?Math.round(ent/dP.length*100):0};
+    }).filter(r=>r.ped>0).sort((a,b)=>b.ef-a.ef);
+    if(!crows.length)return '';
+    return `<div class="card" style="margin-top:12px;padding:0;overflow-x:auto">
+      <div style="padding:12px 14px 0;font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${ic('bike',13)} Efectividad de couriers (delivery Lima) · % de sus pedidos que terminaron entregados</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px">
+        <thead><tr><th style="${th};text-align:left;padding-left:14px">Courier</th><th style="${th}">Pedidos</th><th style="${th}">Entregados</th><th style="${th}">Devueltos</th><th style="${th}">Efectividad</th></tr></thead>
+        <tbody>${crows.map(r=>`<tr>
+          <td style="padding:9px 14px;border-top:1px solid var(--border);font-weight:600">${escB(r.n)}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center;font-family:var(--mono)">${r.ped}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center;font-family:var(--mono);color:var(--green)">${r.ent}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center;font-family:var(--mono);color:var(--red)">${r.dev}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center"><b style="font-family:var(--mono);color:${r.ef>=75?'var(--green)':r.ef>=50?'var(--amber)':'var(--red)'}">${r.ef}%</b></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  })()}
   <div class="card" style="margin-top:12px;padding:14px">
     <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${ic('lightbulb',13)} Qué significa cada columna</div>
     ${legend}
@@ -11752,7 +11808,7 @@ function calcMetricasEquipo(brutos){
   const pedByNum={};(DB.pedidos||[]).forEach(p=>{if(p&&p.id!=null)pedByNum[p.id]=p;});
   const GESTION=['tomado','no_contesta','no_responde_wa','rechazado','registrado','reactivar','sub_estado','nota','whatsapp','devuelto_al_pool'];
   const workers={};
-  const W=id=>{const k=String(id);if(!workers[k]){const m=asesorMeta(k);workers[k]={id:k,nombre:m.nombre,color:m.color,asignados:0,trabajados:0,confirmados:0,entregados:0,devueltosPed:0,devueltosPool:0,confirmadosPorOtro:0,tiempos:[]};}return workers[k];};
+  const W=id=>{const k=String(id);if(!workers[k]){const m=asesorMeta(k);workers[k]={id:k,nombre:m.nombre,color:m.color,asignados:0,trabajados:0,confirmados:0,entregados:0,devueltosPed:0,devueltosPool:0,confirmadosPorOtro:0,tiemposResp:[],tiemposGest:[]};}return workers[k];};
   const g={importados:brutos.length,confirmados:0,entregados:0,devueltos:0,pendientes:0,perdidos:0,rechazados:0};
   brutos.forEach(b=>{
     const est=brutoEstadoNorm(b.estado);
@@ -11769,9 +11825,20 @@ function calcMetricasEquipo(brutos){
       if(h.accion==='devuelto_al_pool'&&h.asesor_id!=null)W(h.asesor_id).devueltosPool++;
     });
     parts.forEach(id=>{W(id).trabajados++;});
+    // T. respuesta: desde que el lead ENTRÓ hasta que su primer tomador lo tomó
+    if(orig&&orig.id!=null&&orig.ts&&b.created_at){
+      const ms=new Date(orig.ts)-new Date(b.created_at);
+      if(ms>=0&&ms<1209600000)W(orig.id).tiemposResp.push(ms); // tope 14 días (descarta datos corruptos)
+    }
     if(conf&&conf.id!=null){
       const w=W(conf.id);w.confirmados++;
-      if(b.created_at&&conf.ts){const ms=new Date(conf.ts)-new Date(b.created_at);if(ms>0)w.tiempos.push(ms);}
+      // T. gestión: desde que EL CONFIRMADOR tomó el lead hasta que lo confirmó
+      if(conf.ts){
+        const h=Array.isArray(b.historial)?b.historial:[];
+        const toma=h.filter(x=>(x.accion==='tomado'||x.accion==='asignado')&&String(x.asesor_dest!=null?x.asesor_dest:x.asesor_id)===String(conf.id)&&x.ts&&new Date(x.ts)<=new Date(conf.ts)).pop();
+        const base=toma&&toma.ts?toma.ts:b.created_at;
+        if(base){const ms=new Date(conf.ts)-new Date(base);if(ms>=0&&ms<1209600000)w.tiemposGest.push(ms);}
+      }
       if(ped&&ped.estado==='entregado')w.entregados++;
       if(ped&&(ped.estado==='devuelto'||ped.estado==='cancelado'))w.devueltosPed++;
     }
@@ -12105,7 +12172,7 @@ function renderDeliveriesCard(){
         </div></td>
       </tr>`).join('')}
     </tbody></table></div>`:`<div class="empty" style="padding:20px">Sin deliveries. Agrega tus motorizados para asignarlos a pedidos Lima.</div>`}
-    <div style="font-size:10.5px;color:var(--text3);margin-top:8px">La efectividad de cada courier la ves en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Conversión</a>.</div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:8px">La efectividad de cada courier la ves en <a onclick="showPage('equipoMetricas')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Equipo → Métricas</a>.</div>
   </div>`;
 }
 

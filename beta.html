@@ -898,6 +898,14 @@ td{padding:11px 14px;font-size:13px}
 .midia-tag-reg{display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.15);color:var(--green);border:1.5px solid var(--green);font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:20px;white-space:nowrap}
 .midia-tag-rech{display:inline-flex;align-items:center;gap:5px;background:rgba(239,68,68,.15);color:var(--red);border:1.5px solid var(--red);font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:20px;white-space:nowrap}
 .evid-thumb{width:74px;height:74px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border2);cursor:pointer}
+/* ── Integraciones: tarjetas desplegables ── */
+.intg-card{padding:0!important;margin-bottom:12px;overflow:hidden}
+.intg-card summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 16px;user-select:none}
+.intg-card summary::-webkit-details-marker{display:none}
+.intg-card summary .intg-chev{margin-left:auto;color:var(--text3);transition:transform .18s;flex-shrink:0}
+.intg-card[open] summary .intg-chev{transform:rotate(180deg)}
+.intg-card[open] summary{border-bottom:1px solid var(--border)}
+.intg-card .intg-body{padding:14px 16px}
 /* ── Modal de pedido: 2 columnas con resumen fijo ── */
 #modal-pedido .modal{max-width:1020px}
 .mp-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
@@ -1002,13 +1010,11 @@ td{padding:11px 14px;font-size:13px}
         <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico" data-ic="package"></span>Provincia</div>
         <div class="nav-item" onclick="showPage('rotulos',this)"><span class="ico" data-ic="tag"></span>Rótulos de Envío</div>
         <div class="nav-item" onclick="showPage('whatsapp',this)"><span class="ico" data-ic="message-circle"></span>Plantillas WA</div>
-        <div class="nav-item" onclick="showPage('importar',this)"><span class="ico" data-ic="download"></span>Importar CSV</div>
         <!-- ANÁLISIS & FINANZAS (admin) -->
         <div class="nav-section admin-only">Análisis & Finanzas</div>
         <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico" data-ic="dashboard"></span>Dashboard</div>
         <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico" data-ic="wallet"></span>Finanzas</div>
         <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico" data-ic="trending-up"></span>Flujo de Caja</div>
-        <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico" data-ic="banknote"></span>Liquidación</div>
         <!-- GESTIÓN (admin) -->
         <div class="nav-section admin-only">Gestión</div>
         <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Inventario</div>
@@ -4134,7 +4140,10 @@ function renderDashboard(){
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
   const gastosArr=filtrarPeriodo(DB.gastos||[],filtro);
   const cgastos=gastosArr.reduce((s,g)=>s+(g.monto||0),0);
-  const cDev=dev.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
+  // Devoluciones: la pérdida real es el ENVÍO pagado. El producto REGRESA al
+  // stock (stock = base − entregados) y se puede revender; contar su costo aquí
+  // lo duplicaría cuando se revenda. Producto dañado → registrarlo como Gasto.
+  const cDev=dev.reduce((s,x)=>s+(x.cenv||0),0);
   const util=ing-cprod-cenv-cemb-pub-ccomEntregas-cgastos-cDev;
   const ef=p.length>0?Math.round(ent.length/p.length*100):0;
   const pctConf=p.length>0?Math.round(conf.length/p.length*100):0;
@@ -4167,7 +4176,7 @@ function renderDashboard(){
     const pCcom=pE.reduce((s,p)=>s+comisionDePedido(p),0);
     const pGastos=filtrarPeriodo(DB.gastos||[],prevFiltro).reduce((s,g)=>s+(g.monto||0),0);
     const pDevArr=filtrarPeriodo(DB.pedidos.filter(x=>x.estado==='devuelto'),prevFiltro);
-    const pCDev=pDevArr.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
+    const pCDev=pDevArr.reduce((s,x)=>s+(x.cenv||0),0);
     pUtil=pIng-pCp-pCe-pCm-pPub-pCcom-pGastos-pCDev;
     pEnt=pE.length; pEf=pAP.length>0?Math.round(pE.length/pAP.length*100):0;
     pDev=pAP.length>0?Math.round(pDv.length/pAP.length*100):0;
@@ -4307,7 +4316,7 @@ function renderDashboard(){
     <div class="fr"><span class="fr-label">${ic('megaphone',13)} Publicidad</span><span class="fr-val fv-neg">−${fmt(pub)}</span></div>
     <div class="fr" title="Suma de comisiones de cada asesor por sus entregas en el período. Detalle exacto en Equipo & Usuarios."><span class="fr-label">${ic('users',13)} Com. por entregas <span style="font-size:10px;color:var(--text3);font-weight:400">(${ent.filter(p=>comisionDePedido(p)>0).length}/${ent.length} con vendedor)</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
     ${cgastos>0?`<div class="fr"><span class="fr-label">${ic('banknote',13)} Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>`:''}
-    ${cDev>0?`<div class="fr"><span class="fr-label">${ic('undo',13)} Costo devoluciones</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
+    ${cDev>0?`<div class="fr" title="Envíos pagados de pedidos devueltos. El producto regresa al stock, por eso no se cuenta su costo aquí."><span class="fr-label">${ic('undo',13)} Devoluciones (envíos perdidos)</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
     ${sueldosTotal>0?`<div class="fr" style="opacity:.6"><span class="fr-label">${ic('users',13)} Sueldos fijos (info)</span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
     <div style="margin-top:8px;padding:10px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:7px">
       <div class="fr" style="border:none;padding:0"><span style="font-weight:700">UTILIDAD NETA</span><span class="mono" style="font-weight:700;font-size:16px;color:${util>=0?'var(--green)':'var(--red)'}">${fmtN(util)}</span></div>
@@ -5628,29 +5637,23 @@ async function renderIntegraciones(){
   const token=row.token;
   const shopUrl=`${INGEST_URL}?src=shopify&token=${token}`;
   const script=genScriptSheets(token);
+  const nTiendas=_shopTiendas().length;
+  const tgOn=!!(row.telegram_token&&row.telegram_chat_id);
+  const secHead=(logo,titulo,sub,badge)=>`<summary>
+    <span style="width:38px;height:38px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center">${logo}</span>
+    <span style="min-width:0"><span style="display:block;font-weight:800;font-size:14px">${titulo}</span><span style="display:block;font-size:11px;color:var(--text3);margin-top:1px">${sub}</span></span>
+    ${badge||''}
+    <span class="intg-chev">${ic('chevron-down'in ICONS?'chevron-down':'undo',16)}</span>
+  </summary>`;
+  const bOn=(txt)=>`<span style="flex-shrink:0;font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(34,197,94,.14);color:var(--green);border:1px solid var(--green)">${txt}</span>`;
+  const bOff=(txt)=>`<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--surface3);color:var(--text3);border:1px solid var(--border)">${txt}</span>`;
   body.innerHTML=`
   <div class="abox" style="background:var(--surface3);border:1px solid var(--border);margin-bottom:14px"><span class="abox-icon">${ic('inbox',18)}</span><div class="abox-text">Los pedidos entran solos a <b>Pedidos Brutos</b>. Tu token es privado de esta tienda: no lo compartas.</div></div>
 
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-title">${ic('download',14)} Google Sheets</div>
-    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">1) Abre tu Sheet → <b>Extensiones → Apps Script</b>. 2) Pega este script. 3) Ejecuta <b>setupTriggers</b> ▶ y autoriza. 4) Verifica el mapeo de columnas (COL).</p>
-    <div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📋 Orden de columnas esperado (fila 1 = encabezados, los datos empiezan en la fila 2):</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;font-size:11.5px">
-        ${[['A','Fecha y hora','del lead'],['B','Nombre','del cliente'],['C','Celular','con o sin +51'],['D','Dirección',''],['E','Ciudad','/ distrito'],['F','Provincia','/ departamento'],['G','Producto','texto libre'],['H','Precio','número']].map(([c,t,s])=>`<div style="display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-weight:800;color:var(--accent);min-width:14px">${c}</span><span><b>${t}</b>${s?` <span style="color:var(--text3)">${s}</span>`:''}</span></div>`).join('')}
-      </div>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">No importa cómo titules las columnas: lo que cuenta es el <b>orden</b> (A→H). Si tu hoja usa otro orden, ajusta el objeto <code>COL</code> dentro del script (1=A, 2=B…). Nombre y Celular no pueden ir ambos vacíos. Las filas duplicadas (mismo celular + producto + día) se ignoran solas.</div>
-    </div>
-    <textarea id="intg-script" readonly style="width:100%;height:150px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto">${escB(script)}</textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-script',this)">${ic('copy',13)} Copiar script</button>
-      <button class="btn btn-ghost btn-sm" onclick="intgProbar(this)">${ic('check-circle',13)} Probar conexión</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">${ic('store',14)} Shopify · varias tiendas (incluye Releasit y EasySell)</div>
-    <div class="abox abox-blue" style="margin:8px 0 12px"><span class="abox-icon">${ic('info',16)}</span><div class="abox-text"><b>Para conectar todas tus tiendas solo necesitas 1 cosa:</b> copiar la URL de abajo y pegarla como webhook en <b>cada</b> tienda Shopify. Los pedidos de todas llegarán juntos a <b>Pedidos Brutos</b>. Esta URL es la misma para todas.</div></div>
+  <details class="card intg-card" ${nTiendas?'':'open'}>
+    ${secHead(INTG_LOGOS.shopify,'Shopify','Pedidos de tus tiendas (incluye Releasit y EasySell)',nTiendas?bOn(nTiendas+' TIENDA'+(nTiendas>1?'S':'')+' CONECTADA'+(nTiendas>1?'S':'')):bOff('SIN CONECTAR'))}
+    <div class="intg-body">
+    <div class="abox abox-blue" style="margin:0 0 12px"><span class="abox-icon">${ic('info',16)}</span><div class="abox-text"><b>Para conectar todas tus tiendas solo necesitas 1 cosa:</b> copiar la URL de abajo y pegarla como webhook en <b>cada</b> tienda Shopify. Los pedidos de todas llegarán juntos a <b>Pedidos Brutos</b>. Esta URL es la misma para todas.</div></div>
     <p style="font-size:13px;color:var(--text2);margin:6px 0 6px"><b>Paso 1.</b> Copia esta URL (es la misma para todas tus tiendas):</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input id="intg-shopurl" readonly value="${escB(shopUrl)}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
@@ -5664,11 +5667,32 @@ async function renderIntegraciones(){
       <input id="intg-tienda-secret" type="text" placeholder="Secreto del webhook (opcional)" style="flex:1.4;min-width:200px;font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
       <button class="btn btn-primary btn-sm" onclick="intgAgregarTienda(this)">${ic('plus',13)} Agregar tienda</button>
     </div>
-  </div>
+    </div>
+  </details>
 
-  <div class="card" style="margin-top:14px">
-    <div class="card-title">${ic('send',14)} Telegram (aviso de pedido confirmado)</div>
-    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">Crea un bot con <b>@BotFather</b> y pega su <b>token</b>. Recibirás un aviso cada vez que se confirme un pedido.</p>
+  <details class="card intg-card">
+    ${secHead(INTG_LOGOS.sheets,'Google Sheets','Importa leads desde tu hoja de cálculo cada minuto','')}
+    <div class="intg-body">
+    <p style="font-size:13px;color:var(--text2);margin:0 0 10px">1) Abre tu Sheet → <b>Extensiones → Apps Script</b>. 2) Pega este script. 3) Ejecuta <b>setupTriggers</b> ▶ y autoriza. 4) Verifica el mapeo de columnas (COL).</p>
+    <div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📋 Orden de columnas esperado (fila 1 = encabezados, los datos empiezan en la fila 2):</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;font-size:11.5px">
+        ${[['A','Fecha y hora','del lead'],['B','Nombre','del cliente'],['C','Celular','con o sin +51'],['D','Dirección',''],['E','Ciudad','/ distrito'],['F','Provincia','/ departamento'],['G','Producto','texto libre'],['H','Precio','número']].map(([c,t,s])=>`<div style="display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-weight:800;color:var(--accent);min-width:14px">${c}</span><span><b>${t}</b>${s?` <span style="color:var(--text3)">${s}</span>`:''}</span></div>`).join('')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">No importa cómo titules las columnas: lo que cuenta es el <b>orden</b> (A→H). Si tu hoja usa otro orden, ajusta el objeto <code>COL</code> dentro del script (1=A, 2=B…). Nombre y Celular no pueden ir ambos vacíos. Las filas duplicadas (mismo celular + producto + día) se ignoran solas.</div>
+    </div>
+    <textarea id="intg-script" readonly style="width:100%;height:150px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto">${escB(script)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-script',this)">${ic('copy',13)} Copiar script</button>
+      <button class="btn btn-ghost btn-sm" onclick="intgProbar(this)">${ic('check-circle',13)} Probar conexión</button>
+    </div>
+    </div>
+  </details>
+
+  <details class="card intg-card">
+    ${secHead(INTG_LOGOS.telegram,'Telegram','Aviso instantáneo cuando se confirma un pedido',tgOn?bOn('ACTIVO'):bOff('SIN CONFIGURAR'))}
+    <div class="intg-body">
+    <p style="font-size:13px;color:var(--text2);margin:0 0 10px">Crea un bot con <b>@BotFather</b> y pega su <b>token</b>. Recibirás un aviso cada vez que se confirme un pedido.</p>
     <div class="abox abox-blue" style="margin-bottom:10px"><span class="abox-icon">${ic('info',16)}</span><div class="abox-text"><b>¿Por qué el Chat ID?</b> Telegram no deja que un bot escriba a alguien que no le habló primero, y solo sabe enviar a chats con un <b>ID</b> (no a un "admin"). Por eso, <b>una sola vez</b>: escríbele cualquier mensaje a tu bot y pulsa <b>"Detectar Chat ID"</b>. Después el bot avisa solo, para siempre.</div></div>
     <div style="display:flex;flex-direction:column;gap:8px;max-width:480px">
       <input id="intg-tg-token" type="text" placeholder="Bot token (123456:ABC...)" value="${escB(row.telegram_token||'')}" style="font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
@@ -5681,9 +5705,16 @@ async function renderIntegraciones(){
         <button class="btn btn-ghost btn-sm" onclick="intgProbarTelegram(this)">${ic('send',13)} Enviar prueba</button>
       </div>
     </div>
-  </div>`;
+    </div>
+  </details>`;
   intgRenderTiendas();
 }
+// Logos de marca embebidos (SVG, sin depender de archivos externos)
+const INTG_LOGOS={
+  shopify:`<svg width="34" height="34" viewBox="0 0 24 24"><path fill="#95BF47" d="M17.7 5.9c0-.1-.1-.2-.2-.2-.1 0-1.6-.1-1.6-.1s-1.1-1.1-1.2-1.2c-.1-.1-.3-.1-.5-.1l-.6.2c-.4-1-1-2-2.1-2h-.1c-.3-.4-.7-.6-1.1-.6C8 1.9 6.9 4.8 6.5 6.3l-1.9.6c-.6.2-.6.2-.7.8-.1.4-1.6 12-1.6 12l11.7 2.2 6.3-1.4S17.7 6 17.7 5.9zM12.4 4.6l-1 .3v-.2c0-.6-.1-1.2-.2-1.6.5.1.9.7 1.2 1.5zm-1.9.6l-2.1.6c.3-1.2 1-2.4 1.8-2.6.2.5.3 1.2.3 2zm-.5-2.7c.2 0 .3 0 .5.1-.9.5-1.6 1.7-1.9 3.1l-1.7.5c.5-1.6 1.6-3.7 3.1-3.7z"/><path fill="#5E8E3E" d="M17.5 5.7c-.1 0-1.6-.1-1.6-.1s-1.1-1.1-1.2-1.2c0 0-.1-.1-.2-.1l-.9 17.6 6.3-1.4S17.8 6 17.7 5.9c0-.1-.1-.2-.2-.2z"/><path fill="#fff" d="M12.4 8.2l-.8 2.3s-.7-.4-1.5-.4c-1.2 0-1.3.8-1.3 1 0 1 2.7 1.4 2.7 3.9 0 1.9-1.2 3.2-2.9 3.2-2 0-3-1.2-3-1.2l.5-1.8s1 .9 1.9.9c.6 0 .8-.4.8-.8 0-1.3-2.2-1.4-2.2-3.7 0-1.9 1.4-3.7 4.1-3.7 1.1 0 1.7.3 1.7.3z"/></svg>`,
+  sheets:`<svg width="30" height="30" viewBox="0 0 24 24"><path fill="#188648" d="M14.7 1.5H6.8c-.9 0-1.6.7-1.6 1.6v17.8c0 .9.7 1.6 1.6 1.6h10.4c.9 0 1.6-.7 1.6-1.6V6L14.7 1.5z"/><path fill="#8ED1B1" d="M14.7 1.5V6h4.1z"/><path fill="#fff" d="M8.2 10.7h7.6v7.3H8.2v-7.3zm1.2 1.2v1.2h2v-1.2h-2zm3.2 0v1.2h2v-1.2h-2zm-3.2 2.4v1.2h2v-1.2h-2zm3.2 0v1.2h2v-1.2h-2zm-3.2 2.4v1.2h2v-1.2h-2zm3.2 0v1.2h2v-1.2h-2z"/></svg>`,
+  telegram:`<svg width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#29A9EB"/><path fill="#fff" d="M5.4 11.7l11.2-4.3c.5-.2 1 .1.8.9l-1.9 9c-.1.6-.5.8-1.1.5l-2.9-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.5-4.9c.2-.2-.1-.3-.4-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.2-.8z"/></svg>`
+};
 
 // ── Shopify: gestión de múltiples tiendas ──
 // Se guardan en CFG.shopifyTiendas (blob de la app, se sincroniza con save()).
@@ -5696,14 +5727,17 @@ function intgRenderTiendas(){
   // Migra una sola vez el secreto legado (columna shopify_secret) a la lista de la app
   if(!tiendas.length && _intg?.shopify_secret){tiendas.push({id:Date.now(),nombre:'Tienda principal',secret:_intg.shopify_secret});save();}
   if(!tiendas.length){el.innerHTML=`<div style="font-size:12.5px;color:var(--text3);padding:8px 0">Aún no agregaste tiendas. Puedes agregar la primera abajo (o simplemente pega la URL en tu Shopify y los pedidos ya llegarán).</div>`;return;}
-  el.innerHTML=tiendas.map(t=>{
-    const secShort=t.secret?(String(t.secret).slice(0,6)+'…'+String(t.secret).slice(-4)):'sin secreto (igual llegan los pedidos)';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--surface3);border:1px solid var(--border);border-radius:9px;margin-bottom:7px">
-      <span style="width:30px;height:30px;border-radius:7px;background:var(--accentL);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ic('store',15)}</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escB(t.nombre||'Tienda')}</div><div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${escB(secShort)}</div></div>
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">`+tiendas.map(t=>{
+    const secShort=t.secret?('🔒 '+String(t.secret).slice(0,6)+'…'+String(t.secret).slice(-4)):'sin secreto (igual llegan los pedidos)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(149,191,71,.07);border:1.5px solid #95BF47;border-radius:10px">
+      <span style="width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${INTG_LOGOS.shopify}</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(t.nombre||'Tienda')}</span><span style="flex-shrink:0;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green)">CONECTADA</span></div>
+        <div style="font-size:10.5px;color:var(--text3);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(secShort)}</div>
+      </div>
       <button class="btn btn-danger btn-xs" onclick="intgEliminarTienda(${t.id})" title="Eliminar tienda">${ic('trash',13)}</button>
     </div>`;
-  }).join('');
+  }).join('')+`</div>`;
 }
 async function intgAgregarTienda(btn){
   const nombre=(document.getElementById('intg-tienda-nombre')?.value||'').trim();
@@ -7485,6 +7519,13 @@ async function exportarExcelShalom(){
   }catch(err){console.error('Error Shalom Excel:',err);alert('Error al generar el Excel: '+err.message);}
 }
 
+// Pestañas de la sección Lima: pedidos + liquidación del courier (solo admin ve la 2ª)
+function limaTabsHtml(act){
+  return `<div class="tgrp" style="margin-bottom:16px">
+    <button class="tbtn ${act==='pedidos'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('lima')">${ic('package',14)} Pedidos Lima</button>
+    ${isAdmin()?`<button class="tbtn ${act==='liquidacion'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('liquidacion')">${ic('banknote',14)} Liquidación courier</button>`:''}
+  </div>`;
+}
 function renderLima(){
   const arr=DB.pedidos.filter(p=>p.zona==='lima'&&['confirmado','enviado','entregado','devuelto'].includes(p.estado));
   const ent=arr.filter(p=>p.estado==='entregado'),dev=arr.filter(p=>p.estado==='devuelto');
@@ -7498,6 +7539,7 @@ function renderLima(){
     </button>
     <button class="btn btn-primary" onclick="openNuevoPedido('lima')">+ Pedido Lima</button>
   </div></div>
+  ${limaTabsHtml('pedidos')}
   ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">${ic('bike',18)}</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Lima</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
@@ -9490,10 +9532,9 @@ function renderFinanzas(){
   // Comisiones reales por asesor (cada vendedor tiene su tarifa en Equipo & Usuarios)
   const ccomEntregas=ent.reduce((s,p)=>s+comisionDePedido(p),0);
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
-  // ✅ NEW: impacto de devoluciones (costo sin ingreso)
-  const cDevProd=dev.reduce((s,p)=>s+(p.cprod||0),0);
-  const cDevEnv=dev.reduce((s,p)=>s+(p.cenv||0),0);
-  const cDev=cDevProd+cDevEnv;
+  // Devoluciones: solo el ENVÍO es pérdida real (el producto regresa al stock
+  // y se revende; contar su costo lo duplicaría). Producto dañado → Gasto manual.
+  const cDev=dev.reduce((s,p)=>s+(p.cenv||0),0);
 
   const totalCosts=cprod+cenv+cemb+cpub+cgastos+ccomEntregas+cDev;
   const util=ing-totalCosts;
@@ -9525,7 +9566,7 @@ function renderFinanzas(){
     const pCp=pE.reduce((s,p)=>s+(p.cprod||0),0),pCe=pE.reduce((s,p)=>s+(p.cenv||0),0),pCm=pE.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pCpub=pPub.reduce((s,p)=>s+p.monto,0),pCg=pGas.reduce((s,g)=>s+(g.monto||0),0);
     const pCcom=pE.reduce((s,p)=>s+comisionDePedido(p),0);
-    const pCdev=pDev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+    const pCdev=pDev.reduce((s,p)=>s+(p.cenv||0),0);
     pUtil=pIng-(pCp+pCe+pCm+pCpub+pCg+pCcom+pCdev);
     pEnt=pE.length;pEf=pAP.length>0?Math.round(pE.length/pAP.length*100):0;
     pTicket=pE.length>0?pIng/pE.length:0;
@@ -9548,7 +9589,7 @@ function renderFinanzas(){
       {label:'Envío+Emb',val:cenv+cemb,color:'#f97316'},
       {label:'Publicidad',val:cpub,color:'#a855f7'},
       {label:'Comisiones',val:ccomEntregas,color:'#3b82f6'},
-      {label:'Devoluciones',val:cDev,color:'#64748b'},
+      {label:'Devoluciones (envíos)',val:cDev,color:'#64748b'},
       {label:'Gastos extras',val:cgastos,color:'#f59e0b'},
       {label:'Utilidad',val:Math.max(util,0),color:'#22c55e'},
     ].filter(s=>s.val>0);
@@ -9664,7 +9705,7 @@ function renderFinanzas(){
       <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('megaphone',13)} Publicidad <span style="font-size:10px">${ing>0?((cpub/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cpub)}</span></div>
       <div class="fr" style="border-top:1px dashed var(--border2);margin-top:4px;padding-top:4px"><span class="fr-label" style="font-style:italic">= Margen post-pub</span><span class="fr-val" style="color:${(ing-cprod-cenv-cemb-cpub)>=0?'var(--blue)':'var(--red)'}">${fmt(ing-cprod-cenv-cemb-cpub)} <span style="font-size:10px">(${margenPostPub.toFixed(1)}%)</span></span></div>
       <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('users',13)} Comisiones entregas <span style="font-size:10px">${ing>0?((ccomEntregas/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
-      ${cDev>0?`<div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--red)">${ic('undo',13)} Devoluciones (${dev.length}) <span style="font-size:10px">costo sin ingreso</span></span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
+      ${cDev>0?`<div class="fr" style="padding-left:16px" title="Envíos pagados de pedidos devueltos. El producto regresa al stock."><span class="fr-label" style="color:var(--red)">${ic('undo',13)} Devoluciones (${dev.length}) <span style="font-size:10px">envíos perdidos</span></span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
       <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('note',13)} Gastos extras <span style="font-size:10px">${ing>0?((cgastos/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>
       ${sueldosTotal>0?`<div class="fr" style="padding-left:16px;opacity:.6"><span class="fr-label" style="color:var(--text3)">${ic('users',13)} Sueldos asesores <span style="font-size:10px">(no filtrado por período)</span></span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
       <div style="margin-top:10px;padding:14px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:8px;border:1px solid ${util>=0?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)'}">
@@ -10307,7 +10348,7 @@ function renderFlujoContent(){
     const cenvD=entDia.reduce((s,p)=>s+(p.cenv||0),0);
     const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const ccomD=entDia.reduce((s,p)=>s+comisionDePedido(p),0);
-    const cDevD=devDia.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+    const cDevD=devDia.reduce((s,p)=>s+(p.cenv||0),0); // solo envío: el producto vuelve al stock
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
     const gastosDia=(DB.gastos||[]).filter(g=>g.fecha===dia).reduce((s,g)=>s+(g.monto||0),0);
     // Entradas reales del día: adelantos cobrados de pedidos nuevos de provincia
@@ -10586,6 +10627,7 @@ function renderFlujoContent(){
 // LIQUIDACIÓN COURIER
 // =====================================================================
 function renderLiquidacion(){
+  if(!isAdmin()){showPage('lima');return;}
   const hoyStr=hoy();
   // Helper: costo de envío efectivo de un pedido (0 si fue marcado como no cobrado)
   const cenvOf=p=>p.cenvCobrado===false?0:(parseFloat(p.cenv)||0);
@@ -10632,9 +10674,10 @@ function renderLiquidacion(){
 
   const html=`
   <div class="section-header">
-    <div><div class="section-title">${ic('banknote',20)} Liquidación Courier</div>
+    <div><div class="section-title">${ic('building',20)} Lima — Liquidación Courier</div>
     <div class="section-sub">Control del efectivo que los motorizados Lima deben entregarte</div></div>
   </div>
+  ${limaTabsHtml('liquidacion')}
 
   <!-- MÉTRICAS GLOBALES -->
   <div class="metrics-grid">
@@ -11651,7 +11694,6 @@ function renderConfig(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <button class="btn btn-success btn-sm" onclick="exportarExcel()">📊 Pedidos CSV</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarFinanzasExcel()">💰 Finanzas CSV</button>
-        <button class="btn btn-ghost btn-sm" onclick="showPage('importar')">📥 Importar CSV</button>
       </div>
 
       <!-- Info datos actuales -->
@@ -11783,8 +11825,8 @@ async function renderEquipoMetricas(){
       const ent=dP.filter(p=>p.estado==='entregado').length;
       const dev=dP.filter(p=>p.estado==='devuelto').length;
       return {n:d.nombre,ped:dP.length,ent,dev,ef:dP.length?Math.round(ent/dP.length*100):0};
-    }).filter(r=>r.ped>0).sort((a,b)=>b.ef-a.ef);
-    if(!crows.length)return '';
+    }).sort((a,b)=>b.ef-a.ef||b.ped-a.ped);
+    if(!crows.length)return `<div class="card" style="margin-top:12px;padding:16px;text-align:center;color:var(--text3);font-size:12.5px">${ic('bike',18)} Sin couriers registrados todavía — agrégalos en <a onclick="showPage('comisiones')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Equipo → Usuarios & Delivery</a> y sus métricas aparecerán aquí.</div>`;
     return `<div class="card" style="margin-top:12px;padding:0;overflow-x:auto">
       <div style="padding:12px 14px 0;font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${ic('bike',13)} Efectividad de couriers (delivery Lima) · % de sus pedidos que terminaron entregados</div>
       <table style="width:100%;border-collapse:collapse;margin-top:8px">
@@ -12355,7 +12397,7 @@ function exportarFinanzasExcel(){
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
   const cemb=ent.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
   const ccom=ent.reduce((s,p)=>s+comisionDePedido(p),0);
-  const cdev=dev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+  const cdev=dev.reduce((s,p)=>s+(p.cenv||0),0); // solo envío: el producto vuelve al stock
   const util=ing-cprod-cenv-cemb-pub-gastos-ccom-cdev;
   const ef=ped.length>0?Math.round(ent.length/ped.length*100):0;
   const cols=['Métrica','Valor'];

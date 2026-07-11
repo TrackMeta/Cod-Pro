@@ -57,7 +57,7 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v9';
+const CACHE='cod-pro-v10';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
@@ -3395,7 +3395,7 @@ async function tryAutoLogin(){
   if(saData){
     try{
       const{ws,saEmail,saName,saInitials,saId}=JSON.parse(saData);
-      bootSaWorkspace(ws,{email:saEmail,name:saName,initials:saInitials,id:saId});
+      await bootSaWorkspace(ws,{email:saEmail,name:saName,initials:saInitials,id:saId});
       return;
     }catch(e){sessionStorage.removeItem('sa_viewing_ws');}
   }
@@ -3496,7 +3496,7 @@ async function doNewPassword(){
   },1500);
 }
 
-function bootSaWorkspace(w,saInfo){
+async function bootSaWorkspace(w,saInfo){
   // Load workspace DB and CFG
   DB={pedidos:[],asesores:[],deliveries:[],publicidad:[],gastos:[],productos:[],upsells:[],nextId:1,notifTrash:[],waTmpls:[]};
   CFG={adelanto:20,courier:14,shalom:12,comLima:1,comProv:2,metaEf:60,horasAlerta:24,metaVentaDia:500,stockMinDefault:5,roas_min:2,dev_max:20,embDefault:0,trackTransitoAviso:3,trackTransitoCritico:7,trackAgenciaAviso:3,trackAgenciaCritico:5,brutosRetencion:30};
@@ -3548,6 +3548,18 @@ function bootSaWorkspace(w,saInfo){
   updateSidebarLogo();
   loadAccentColor();
   renderNotifications();
+  // Los PEDIDOS ya no viven en db_data (Fase 3): traerlos de su tabla para la
+  // tienda que se está viendo. Requiere sql/07_superadmin.sql (lectura total SA).
+  try{
+    const{data:rows,error}=await _supabase.from('pedidos').select('id,numero,data')
+      .eq('workspace_id',w.id).order('numero',{ascending:true});
+    if(!error&&Array.isArray(rows)&&rows.length)DB.pedidos=rows.map(_rowToPedido);
+    else if(error)console.warn('[SA] No se pudieron leer los pedidos de la tienda:',error.message);
+    else if(!rows||!rows.length)console.warn('[SA] Tienda sin pedidos en tabla (o falta ejecutar sql/07_superadmin.sql)');
+  }catch(e){console.warn('[SA] pedidos:',e);}
+  _takePedidosSnapshot();
+  // Realtime de la tienda vista: ver cambios en vivo (requiere las políticas SA)
+  try{initRealtime();}catch(_){}
   showPage('dashboard',document.querySelector(".nav-item[onclick*=\"'dashboard'\"]"));
 }
 

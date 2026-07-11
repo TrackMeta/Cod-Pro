@@ -1136,7 +1136,7 @@ td{padding:11px 14px;font-size:13px}
   <!-- El selector de producto va SIEMPRE debajo de lo ya elegido -->
   <div id="p-add-row" style="margin-top:10px">
     <select id="p-add-prod" onchange="pickProductoPedido(this.value)" style="width:100%;background:var(--surface2);border:1.5px solid var(--accent);border-radius:9px;padding:11px 12px;color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;outline:none">
-      <option value="">➕ Agregar un producto principal…</option>
+      <option value="">➕ Agregar al pedido…</option>
     </select>
   </div>
   <div id="p-comolleva" style="display:none;margin-top:10px"></div>
@@ -6242,7 +6242,7 @@ function renderLineaProducto(it,idx){
       </div>`:'';
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;position:relative">
       <button type="button" onclick="eliminarItemPedido(${idx})" style="position:absolute;top:8px;right:8px;background:var(--redL);border:none;border-radius:5px;color:var(--red);cursor:pointer;font-size:13px;width:22px;height:22px;display:flex;align-items:center;justify-content:center">×</button>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Producto suelto</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">${it.esExtra?'Producto extra':'Producto suelto'}${it.esExtra?`<span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:9px;font-weight:800;padding:2px 8px;border-radius:12px;text-transform:none">EXTRA</span>`:''}</div>
       <div class="form-grid">
         <div class="fg"><label>Del catálogo</label>
           <select onchange="autoFillItem(${idx},this.value)">
@@ -6504,14 +6504,25 @@ function renderPedidoResumen(){
 // usan la lógica existente sin cambios.
 function fillAddProdSelect(){
   const sel=document.getElementById('p-add-prod');if(!sel)return;
-  sel.innerHTML='<option value="">➕ Elige un producto principal…</option>'+(DB.productos||[]).map(p=>`<option value="${p.id}">${escB(p.nombre)}</option>`).join('');
+  // Un solo selector con dos grupos: Principales y Extras. El valor lleva prefijo
+  // "p:" (principal) o "e:" (extra) para saber qué tipo se eligió.
+  const prods=(DB.productos||[]).map(p=>`<option value="p:${p.id}">${escB(p.nombre)}</option>`).join('');
+  const extras=(DB.upsells||[]).map(u=>`<option value="e:${u.id}">${escB(u.nombre)}</option>`).join('');
+  sel.innerHTML='<option value="">➕ Agregar al pedido…</option>'
+    +(prods?`<optgroup label="Principales">${prods}</optgroup>`:'')
+    +(extras?`<optgroup label="Extras (add-ons)">${extras}</optgroup>`:'');
   sel.value='';
 }
 function cerrarComoLleva(){const box=document.getElementById('p-comolleva');if(box){box.style.display='none';box.innerHTML='';}const sel=document.getElementById('p-add-prod');if(sel)sel.value='';}
-function pickProductoPedido(prodId){
+function pickProductoPedido(val){
   const box=document.getElementById('p-comolleva');if(!box)return;
-  if(!prodId){box.style.display='none';box.innerHTML='';return;}
-  const prod=DB.productos.find(p=>p.id===parseInt(prodId));if(!prod)return;
+  if(!val){box.style.display='none';box.innerHTML='';return;}
+  // "e:99" → extra suelto (se agrega directo); "p:1" → principal (abre panel)
+  const sep=String(val).indexOf(':');
+  const tipo=sep>=0?String(val).slice(0,sep):'p';
+  const id=sep>=0?String(val).slice(sep+1):String(val);
+  if(tipo==='e'){agregarExtraSolo(id);return;}
+  const prod=DB.productos.find(p=>p.id===parseInt(id));if(!prod)return;
   // Ofertas activas que contengan este producto como principal
   const ofertas=packsList().filter(o=>o.activa!==false&&(o.items||[]).some(it=>it.tipo==='prod'&&String(it.refId)===String(prod.id)));
   const qtyBtns=(prod.ofertas&&prod.ofertas.length)?prod.ofertas.map(of=>`<button type="button" onclick="agregarProductoSolo(${prod.id},${of.cantidad},${of.precio})" style="background:var(--surface3);border:1.5px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer">${of.cantidad}× S/${of.precio}</button>`).join(''):'';
@@ -6545,6 +6556,15 @@ function agregarProductoSolo(prodId,cantidad,precio){
   cerrarComoLleva();renderItemsPedido();recalcPend();
 }
 function agregarItemManual(){pedidoItems.push({productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''});cerrarComoLleva();renderItemsPedido();}
+// Extra suelto (à la carte, fuera de una oferta): línea marcada esExtra que
+// descuenta del stock del extra. Misma estructura que los extras dentro de packs.
+function agregarExtraSolo(extraId){
+  const u=(DB.upsells||[]).find(x=>String(x.id)===String(extraId));if(!u)return;
+  pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
+  pedidoItems.push({productoId:u.productoId||'',nombre:u.nombre,variante:'',desglose:[],cantidad:1,precio:parseFloat(u.precio)||0,cprod:parseFloat(u.costo)||0,sku:'',cali:'',esExtra:true,upsellId:u.id});
+  cerrarComoLleva();renderItemsPedido();recalcPend();
+  showToast('✅ Extra "'+(u.nombre||'')+'" agregado','success',1600);
+}
 function _nuevoPackInst(){return 'pk'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 // Valor de catálogo de una línea (para repartir el precio del pack)
 function lineaValorCatalogo(it){

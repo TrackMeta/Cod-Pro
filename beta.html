@@ -1014,7 +1014,7 @@ td{padding:11px 14px;font-size:13px}
         <div class="nav-section admin-only">Gestión</div>
         <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Inventario</div>
         <div class="nav-item admin-only" onclick="showPage('ofertas',this)"><span class="ico" data-ic="tag"></span>Ofertas</div>
-        <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico" data-ic="users"></span>Equipo & Usuarios</div>
+        <div class="nav-item admin-only" onclick="showPage('equipoMetricas',this)"><span class="ico" data-ic="users"></span>Equipo</div>
         <!-- SISTEMA (admin) -->
         <div class="nav-section admin-only">Sistema</div>
         <div class="nav-item admin-only" onclick="showPage('integraciones',this)"><span class="ico" data-ic="link"></span>Integraciones</div>
@@ -4108,7 +4108,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,ofertas:renderOfertas,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,ofertas:renderOfertas,equipoMetricas:renderEquipoMetricas,equipoComisiones:renderEquipoComisiones,equipoPermisos:renderEquipoPermisos,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -4431,6 +4431,7 @@ function subEstadoSelectHtml(r){
   return `<select onchange="setBrutoSubEstado(${r.id},this.value)" title="Estado del pedido — ¿en qué etapa está este cliente?" style="cursor:pointer;max-width:185px;background:${cur?col+'18':'var(--surface3)'};border:1.5px solid ${cur?col:'var(--border)'};color:${cur?col:'var(--text3)'};font-weight:700;font-size:11.5px;border-radius:8px;padding:5px 7px"><option value="">— Etapa…</option>${opts}</select>`;
 }
 async function setBrutoSubEstado(id,v){
+  if(!puede('editarEtapas')){alert('No tienes permiso para cambiar la etapa. Pídeselo al administrador (Equipo → Permisos).');refrescarBrutosUI();return;}
   const b=_brutosCache[id]; if(!b)return;
   const hist=Array.isArray(b.historial)?b.historial.slice():[];
   hist.push({accion:'sub_estado',valor:v||'(sin etapa)',asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
@@ -4615,6 +4616,7 @@ async function brutosAsignarSel(){
   alert('Asignados '+ids.length+' pedido(s)'+(asesorId?' a '+brutoNombreAsesor(asesorId):' al pool')+'.');
 }
 async function brutosEliminarSel(){
+  if(!puede('eliminarLeads')){alert('No tienes permiso para eliminar leads. Pídeselo al administrador (Equipo → Permisos).');return;}
   const ids=[..._brutosSel]; if(!ids.length)return;
   if(!confirm('¿Eliminar definitivamente '+ids.length+' pedido(s) bruto(s)?\nEsta acción no se puede deshacer.'))return;
   const{error}=await _supabase.from('pedidos_brutos').delete().in('id',ids).eq('workspace_id',SESSION.workspace_id);
@@ -5038,6 +5040,7 @@ async function brutoSetAsignacion(b,asesorId,accion,extra){
 function tomarBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;brutoSetAsignacion(b,miAsesorId(),'tomado');}
 // Devolver al pool exige un motivo (queda en el historial para auditoría)
 function devolverBruto(id){
+  if(!puede('devolverLeads')){alert('No tienes permiso para devolver leads al pool. Pídeselo al administrador (Equipo → Permisos).');return;}
   const b=_brutosCache[id]; if(!b)return;
   let ov=document.getElementById('bruto-dev-ov');
   if(!ov){ov=document.createElement('div');ov.id='bruto-dev-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
@@ -5297,6 +5300,7 @@ function brutoAccionesHtml(r){
 }
 
 async function brutoEliminar(id){
+  if(!puede('eliminarLeads')){alert('No tienes permiso para eliminar leads. Pídeselo al administrador (Equipo → Permisos).');return;}
   const b=_brutosCache[id]; if(!b)return;
   if(!confirm(`¿Eliminar definitivamente el pedido bruto de ${b.nombre||'—'}?\nEsta acción no se puede deshacer.`))return;
   const{error}=await _supabase.from('pedidos_brutos').delete().eq('id',id).eq('workspace_id',SESSION.workspace_id);
@@ -5351,6 +5355,25 @@ async function miDiaResumen(ws,mineId){
   const gest=reg+rech; const conv=gest?Math.round(reg/gest*100):0;
   const card=(label,val,color)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
   el.innerHTML=card('Total período',total,'var(--accent)')+card('Pendientes',pend,'var(--amber)')+card('Confirmados',reg,'var(--green)')+card('Rechazados',rech,'var(--red)')+card('Conversión',conv+'%','var(--blue)');
+  // ── Vista operativa de PEDIDOS del período (worker: solo los suyos) ──
+  try{
+    const rango=periodoRango(per);
+    const miA=(DB.asesores||[]).find(x=>String(x.workerId)===String(SESSION?.id));
+    const peds=(DB.pedidos||[]).filter(p=>{
+      if(!isAdmin()&&!(miA&&pedidoEsDeAsesor(p,miA)))return false;
+      if(rango.desde){const f=p.fecha?new Date(p.fecha+'T12:00:00'):null;if(!f||f<new Date(rango.desde))return false;if(rango.hasta&&f>=new Date(rango.hasta))return false;}
+      return true;
+    });
+    const cnt=e=>peds.filter(p=>p.estado===e).length;
+    const lima=peds.filter(p=>p.zona==='lima').length;
+    const chip=(l,v,c)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11.5px;color:var(--text2)"><b style="font-family:var(--mono);color:${c};font-size:13px">${v}</b> ${l}</span>`;
+    el.innerHTML+=`<div style="grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:2px">
+      <span style="font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${isAdmin()?'Pedidos del equipo':'Mis pedidos'} ·</span>
+      ${chip('Lima',lima,'var(--accent)')}${chip('Provincia',peds.length-lima,'var(--purple)')}
+      ${chip('Confirmados',cnt('confirmado'),'var(--green)')}${chip('Por entregar',cnt('confirmado')+cnt('enviado'),'var(--amber)')}
+      ${chip('Entregados',cnt('entregado'),'var(--blue)')}${chip('Devueltos',cnt('devuelto'),'var(--red)')}
+    </div>`;
+  }catch(_){}
 }
 
 async function miDiaCola(ws,mineId){
@@ -6286,7 +6309,7 @@ function renderLineaProducto(it,idx){
         <div class="fg"><label>Cantidad</label><input type="number" value="${cant}" min="1" oninput="actualizarCantidadItem(${idx},this.value)"></div>
         <div class="fg"><label><span data-ic-inline>${ic('wallet',12)}</span> Precio total S/</label><input type="number" value="${precioTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].precio=parseFloat(this.value)||0;recalcPend()"></div>
         ${cant>1&&precioTotal>0?`<div class="fg"><label style="color:var(--text3);font-size:11px">Precio unit. (ref.)</label><input type="number" value="${(precioTotal/cant).toFixed(2)}" readonly style="opacity:.55;cursor:not-allowed"></div>`:''}
-        ${isAdmin()?`<div class="fg"><label>Costo total S/</label><input type="number" value="${cprodTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].cprod=parseFloat(this.value)||0"></div>`:''}
+        ${(isAdmin()||puede('verCostos'))?`<div class="fg"><label>Costo total S/</label><input type="number" value="${cprodTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].cprod=parseFloat(this.value)||0"></div>`:''}
       </div>
       ${ofertasHtml}
       ${desgloseHtml}
@@ -6341,6 +6364,7 @@ function autoFillItem(idx,prodId){
   renderItemsPedido();
 }
 function openNuevoPedido(zonaDefault){
+  if(!puede('crearPedidos')){alert('No tienes permiso para crear pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   _brutoEnRegistro=null;brutoClearWarn();
   document.getElementById('mp-title').textContent='Nuevo Pedido';
   document.getElementById('p-id').value='';
@@ -6373,6 +6397,7 @@ function openNuevoPedido(zonaDefault){
 }
 
 function editarPedido(id){
+  if(!puede('editarPedidos')){alert('No tienes permiso para editar pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   _brutoEnRegistro=null;brutoClearWarn();
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   document.getElementById('mp-title').textContent='Editar #'+id;
@@ -6520,7 +6545,7 @@ function renderPedidoResumen(){
       ${zona==='provincia'?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-top:5px"><span>Adelanto</span><span style="font-family:var(--mono);color:var(--green)">${fmt(adv)}</span></div>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>Pendiente por cobrar</span><span style="font-family:var(--mono);color:var(--amber)">${fmt(Math.max(0,total-adv))}</span></div>`:''}
     </div>
-    ${isAdmin()?`<div style="background:${gan>=0?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border-radius:8px;padding:8px 10px;margin-top:10px">
+    ${(isAdmin()||puede('verGanancias'))?`<div style="background:${gan>=0?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border-radius:8px;padding:8px 10px;margin-top:10px">
       <div style="font-size:9.5px;color:${gan>=0?'var(--green)':'var(--red)'};text-transform:uppercase;font-weight:800">Ganancia estimada</div>
       <div style="font-family:var(--mono);font-weight:800;font-size:17px;color:${gan>=0?'var(--green)':'var(--red)'}">${fmt(gan)}</div>
       <div style="font-size:10px;color:var(--text3);margin-top:2px">precio − producto − envío − embalaje</div>
@@ -6905,6 +6930,7 @@ async function guardarPedido(){
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
 }
 function eliminarPedido(id){
+  if(!puede('eliminarPedidos')){alert('No tienes permiso para eliminar pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   const p=DB.pedidos.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('¿Eliminar pedido #'+id+'?'))return;
@@ -11209,6 +11235,7 @@ function eliminarWA(id){if(!confirm('¿Eliminar esta plantilla?'))return;DB.waTm
 // IMPORTAR CSV
 // =====================================================================
 function renderImportar(){
+  if(!puede('importarLeads')){setContent('<div class="empty">No tienes permiso para importar. Pídeselo al administrador (Equipo → Permisos).</div>');return;}
   const html=`
   <div class="section-header">
     <div><div class="section-title">${ic('download',20)} Importar CSV</div><div class="section-sub">Importa pedidos desde Shopify, ReleasIt, EasySell o CSV manual</div></div>
@@ -11631,9 +11658,324 @@ function renderConfig(){
 let usuPer='mes',usuDia='',usuDesde='',usuHasta='';
 function setUsuFiltro(k,v){if(k==='per')usuPer=v;if(k==='dia')usuDia=v;if(k==='desde')usuDesde=v;if(k==='hasta')usuHasta=v;renderUsuarios();}
 function setAdminColor(v){CFG.adminColor=v||'#64748b';save();renderUsuarios();}
+// =====================================================================
+// EQUIPO — pestañas: Métricas / Comisiones / Permisos / Usuarios
+// =====================================================================
+function equipoTabsHtml(act){
+  const tab=(id,page,icn,lbl)=>`<button class="tbtn ${act===id?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('${page}')">${ic(icn,14)} ${lbl}</button>`;
+  return `<div class="tgrp" style="margin-bottom:16px">
+    ${tab('metricas','equipoMetricas','trending-up','Métricas')}
+    ${tab('comisiones','equipoComisiones','banknote','Comisiones')}
+    ${tab('permisos','equipoPermisos','settings','Permisos')}
+    ${tab('usuarios','comisiones','users','Usuarios & Delivery')}
+  </div>`;
+}
+
+// ── MÉTRICAS DE EQUIPO ────────────────────────────────────────────────
+// Cohorte por fecha de ENTRADA del lead. Dos denominadores:
+//   negocio = ÷ importados · asesora = ÷ trabajados (lo que gestionó).
+let _eqPer='30d';
+async function renderEquipoMetricas(){
+  if(!isAdmin()){showPage('miDia');return;}
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Rendimiento, conversión y productividad por trabajador · cohorte por fecha de entrada del lead</div></div>
+    <div class="section-actions">${periodoSelectHtml('eq-per',_eqPer,'_eqPer=this.value;renderEquipoMetricas()')}<button class="btn btn-ghost btn-sm" onclick="renderEquipoMetricas()">${ic('repeat',14)} Actualizar</button></div></div>
+    ${equipoTabsHtml('metricas')}
+    <div id="eq-body"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando métricas…</div></div>`);
+  let q=_supabase.from('pedidos_brutos').select('id,estado,asesor_id,historial,pedido_numero,created_at').eq('workspace_id',SESSION.workspace_id);
+  q=periodoAplicar(q,_eqPer,'created_at').order('created_at',{ascending:false}).limit(3000);
+  let res;try{res=await q;}catch(e){res={error:e};}
+  const body=document.getElementById('eq-body');if(!body)return;
+  if(res.error){body.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudieron cargar los leads: ${escB(res.error.message||res.error)}</div></div>`;return;}
+  const M=calcMetricasEquipo(res.data||[]);
+  const g=M.g;
+  const convNeg=g.importados?Math.round(g.confirmados/g.importados*100):0;
+  const convFin=g.importados?Math.round(g.entregados/g.importados*100):0;
+  const card=(label,val,color,desc)=>`<div class="card" style="padding:13px 14px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700">${label}</div><div style="font-size:24px;font-weight:800;font-family:var(--mono);color:${color};margin:3px 0 4px">${val}</div><div style="font-size:10.5px;color:var(--text3);line-height:1.45">${desc}</div></div>`;
+  const r=periodoRango(_eqPer);
+  const dias=r.desde?Math.max(1,Math.ceil((Date.now()-new Date(r.desde).getTime())/86400000)):null;
+  const filas=M.workers.map((w,i)=>{
+    const convP=w.trabajados?Math.round(w.confirmados/w.trabajados*100):0;
+    const convE=w.confirmados?Math.round(w.entregados/w.confirmados*100):0;
+    const tProm=w.tiempos.length?brutoFmtDur(w.tiempos.reduce((a,b)=>a+b,0)/w.tiempos.length):'—';
+    const porDia=dias?(Math.round(w.trabajados/dias*10)/10):null;
+    const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+    const meta=asesorMeta(w.id);
+    return `<tr>
+      <td data-label="Trabajador"><span style="display:inline-flex;align-items:center;gap:7px;font-weight:700">${medal}<span style="width:9px;height:9px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(w.nombre)}</span></td>
+      <td data-label="Asignados" style="font-family:var(--mono);text-align:center">${w.asignados}</td>
+      <td data-label="Trabajados" style="font-family:var(--mono);text-align:center">${w.trabajados}</td>
+      <td data-label="Confirmados" style="font-family:var(--mono);text-align:center;color:var(--green);font-weight:700">${w.confirmados}</td>
+      <td data-label="% Conversión" style="text-align:center"><b style="font-family:var(--mono);color:${convP>=(CFG.metaEf||60)?'var(--green)':convP>=((CFG.metaEf||60)/2)?'var(--amber)':'var(--red)'}">${convP}%</b></td>
+      <td data-label="Entregados" style="font-family:var(--mono);text-align:center">${w.entregados}</td>
+      <td data-label="% Entrega" style="font-family:var(--mono);text-align:center">${convE}%</td>
+      <td data-label="Devueltos" style="font-family:var(--mono);text-align:center;color:${w.devueltosPed?'var(--red)':'var(--text3)'}">${w.devueltosPed}</td>
+      <td data-label="Al pool" style="font-family:var(--mono);text-align:center;color:var(--text3)">${w.devueltosPool}</td>
+      <td data-label="Cerró otro" style="font-family:var(--mono);text-align:center;color:var(--text3)" title="Leads que este trabajador tomó primero pero confirmó otra persona">${w.confirmadosPorOtro}</td>
+      <td data-label="T. confirmación" style="font-family:var(--mono);text-align:center;font-size:12px">${tProm}</td>
+      <td data-label="Leads/día" style="font-family:var(--mono);text-align:center;font-size:12px">${porDia==null?'—':porDia}</td>
+    </tr>`;
+  }).join('');
+  const th='padding:9px 10px;text-align:center;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap';
+  const legend=[
+    ['Asignados','Leads donde este trabajador fue el PRIMERO en tomarlos o recibirlos (Trabajador Original).'],
+    ['Trabajados','Leads en los que participó con cualquier gestión (tomar, llamar, notas, etapas…). Es su denominador justo.'],
+    ['Confirmados','Ventas que ÉL/ELLA cerró (marcó Registrado). La comisión y la conversión son de quien confirma.'],
+    ['% Conversión','Confirmados ÷ Trabajados. Su efectividad personal real.'],
+    ['Entregados','De sus confirmados, cuántos ya llegaron al cliente.'],
+    ['% Entrega','Entregados ÷ Confirmados. Qué tan bien "aterrizan" sus ventas.'],
+    ['Devueltos','De sus confirmados, cuántos terminaron devueltos (anulan comisión).'],
+    ['Al pool','Cuántas veces soltó un lead de vuelta a la bandeja.'],
+    ['Cerró otro','Leads que tomó primero pero otra persona terminó confirmando.'],
+    ['T. confirmación','Tiempo promedio desde que entró el lead hasta que él/ella lo confirmó.'],
+    ['Leads/día','Leads trabajados por día del período.']
+  ].map(([l,d])=>`<div style="display:flex;gap:8px;font-size:11px;padding:3px 0"><b style="min-width:110px;color:var(--text2)">${l}</b><span style="color:var(--text3)">${d}</span></div>`).join('');
+  body.innerHTML=`
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px">
+    ${card('Leads importados',g.importados,'var(--accent)','Todo lo que entró desde Shopify/Sheets en el período.')}
+    ${card('Confirmados',`${g.confirmados} <span style="font-size:13px;color:var(--text3)">· ${convNeg}%</span>`,'var(--green)','Ventas cerradas. El % es Confirmados ÷ Importados (conversión del negocio).')}
+    ${card('Entregados',`${g.entregados} <span style="font-size:13px;color:var(--text3)">· ${convFin}%</span>`,'var(--blue)','Ya en manos del cliente. El % es la CONVERSIÓN FINAL: Entregados ÷ Importados.')}
+    ${card('Pendientes',g.pendientes,'var(--amber)','Leads aún en gestión (sin confirmar ni rechazar).')}
+    ${card('Rechazados / Perdidos',g.rechazados+g.perdidos,'var(--red)','Leads que no se concretaron en el período.')}
+  </div>
+  <div class="card" style="padding:0;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${th};text-align:left">Trabajador</th><th style="${th}">Asignados</th><th style="${th}">Trabajados</th><th style="${th}">Confirmados</th><th style="${th}">% Conversión</th><th style="${th}">Entregados</th><th style="${th}">% Entrega</th><th style="${th}">Devueltos</th><th style="${th}">Al pool</th><th style="${th}">Cerró otro</th><th style="${th}">T. confirmación</th><th style="${th}">Leads/día</th></tr></thead>
+      <tbody>${filas||`<tr><td colspan="12" style="padding:26px;text-align:center;color:var(--text3)">Sin actividad de trabajadores en este período</td></tr>`}</tbody>
+    </table>
+  </div>
+  <div class="card" style="margin-top:12px;padding:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${ic('lightbulb',13)} Qué significa cada columna</div>
+    ${legend}
+  </div>`;
+}
+function calcMetricasEquipo(brutos){
+  const pedByNum={};(DB.pedidos||[]).forEach(p=>{if(p&&p.id!=null)pedByNum[p.id]=p;});
+  const GESTION=['tomado','no_contesta','no_responde_wa','rechazado','registrado','reactivar','sub_estado','nota','whatsapp','devuelto_al_pool'];
+  const workers={};
+  const W=id=>{const k=String(id);if(!workers[k]){const m=asesorMeta(k);workers[k]={id:k,nombre:m.nombre,color:m.color,asignados:0,trabajados:0,confirmados:0,entregados:0,devueltosPed:0,devueltosPool:0,confirmadosPorOtro:0,tiempos:[]};}return workers[k];};
+  const g={importados:brutos.length,confirmados:0,entregados:0,devueltos:0,pendientes:0,perdidos:0,rechazados:0};
+  brutos.forEach(b=>{
+    const est=brutoEstadoNorm(b.estado);
+    if(est==='registrado')g.confirmados++;else if(est==='rechazado')g.rechazados++;else if(est==='perdido')g.perdidos++;else g.pendientes++;
+    const conf=brutoAsesorConfirmo(b),orig=brutoAsesorOriginal(b);
+    const ped=b.pedido_numero!=null?pedByNum[b.pedido_numero]:null;
+    if(ped&&ped.estado==='entregado')g.entregados++;
+    if(ped&&(ped.estado==='devuelto'||ped.estado==='cancelado'))g.devueltos++;
+    if(orig&&orig.id!=null)W(orig.id).asignados++;
+    const parts=new Set();
+    (Array.isArray(b.historial)?b.historial:[]).forEach(h=>{
+      if(GESTION.includes(h.accion)&&h.asesor_id!=null)parts.add(String(h.asesor_id));
+      if(h.asesor_dest!=null)parts.add(String(h.asesor_dest));
+      if(h.accion==='devuelto_al_pool'&&h.asesor_id!=null)W(h.asesor_id).devueltosPool++;
+    });
+    parts.forEach(id=>{W(id).trabajados++;});
+    if(conf&&conf.id!=null){
+      const w=W(conf.id);w.confirmados++;
+      if(b.created_at&&conf.ts){const ms=new Date(conf.ts)-new Date(b.created_at);if(ms>0)w.tiempos.push(ms);}
+      if(ped&&ped.estado==='entregado')w.entregados++;
+      if(ped&&(ped.estado==='devuelto'||ped.estado==='cancelado'))w.devueltosPed++;
+    }
+    if(orig&&conf&&String(orig.id)!==String(conf.id))W(orig.id).confirmadosPorOtro++;
+  });
+  return {g,workers:Object.values(workers).sort((a,b)=>(b.trabajados?b.confirmados/b.trabajados:0)-(a.trabajados?a.confirmados/a.trabajados:0))};
+}
+
+// ── COMISIONES ────────────────────────────────────────────────────────
+// Regla (decisión del usuario): la comisión SE GENERA al confirmar y SE ANULA
+// si el pedido termina devuelto/cancelado/rechazado. Generada − Pagada = Pendiente.
+// (comisionDePedido queda intacta para Finanzas/Liquidación, que reportan sobre entregados.)
+function comisionGeneradaPedido(p){
+  if(!p||!p.vendedor)return 0;
+  if(!['confirmado','enviado','entregado'].includes(p.estado))return 0;
+  const a=(DB.asesores||[]).find(x=>pedidoEsDeAsesor(p,x));
+  if(!a)return 0;
+  return p.zona==='lima'?(parseFloat(a.comLima)||0):(parseFloat(a.comProv)||0);
+}
+function pagosDe(asesorId){return (DB.pagosComision||[]).filter(x=>String(x.asesorId)===String(asesorId));}
+function comisionResumenAsesor(a){
+  const peds=(DB.pedidos||[]).filter(p=>pedidoEsDeAsesor(p,a));
+  const generadores=peds.filter(p=>['confirmado','enviado','entregado'].includes(p.estado));
+  const anulados=peds.filter(p=>['devuelto','cancelado','rechazado'].includes(p.estado));
+  const generada=generadores.reduce((s,p)=>s+comisionGeneradaPedido(p),0);
+  const pagos=pagosDe(a.id);
+  const pagada=pagos.reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
+  const ultimo=pagos.length?pagos.slice().sort((x,y)=>String(y.fecha).localeCompare(String(x.fecha)))[0]:null;
+  return {generadores,anulados,generada,pagada,pendiente:Math.round((generada-pagada)*100)/100,pagos,ultimo};
+}
+function renderEquipoComisiones(){
+  if(!isAdmin()){showPage('miDia');return;}
+  const cards=(DB.asesores||[]).map(a=>{
+    const r=comisionResumenAsesor(a);
+    const meta=asesorMeta(a.id);
+    const cell=(l,v,c)=>`<div style="flex:1;min-width:86px;background:var(--surface3);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700">${l}</div><div style="font-family:var(--mono);font-weight:800;font-size:15px;color:${c||'var(--text)'}">${v}</div></div>`;
+    return `<div class="card" style="padding:16px;border-left:4px solid ${meta.color}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="font-weight:800;font-size:14.5px;display:inline-flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(a.nombre)}</div>
+        <span style="font-size:10.5px;color:var(--text3)">Lima S/${parseFloat(a.comLima)||0} · Prov S/${parseFloat(a.comProv)||0} por pedido</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        ${cell('Generada',fmt(r.generada))}
+        ${cell('Pagada',fmt(r.pagada),'var(--blue)')}
+        ${cell('Pendiente',fmt(r.pendiente),r.pendiente>0?'var(--green)':'var(--text3)')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px">
+        ${r.generadores.length} pedido(s) comisionable(s)${r.anulados.length?` · <span style="color:var(--red)">${r.anulados.length} anulado(s) por devolución/cancelación</span>`:''}
+        ${r.ultimo?` · Último pago: ${escB(r.ultimo.fecha||'')} (${fmt(r.ultimo.monto)})`:' · Sin pagos registrados'}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="openPagoComision('${escB(String(a.id))}')" ${r.pendiente<=0?'disabled style="opacity:.5"':''}>${ic('banknote',13)} Registrar pago</button>
+        <button class="btn btn-ghost btn-sm" onclick="verDesgloseComision('${escB(String(a.id))}')">${ic('clipboard-list',13)} Desglose</button>
+        <button class="btn btn-ghost btn-sm" onclick="verPagosComision('${escB(String(a.id))}')">${ic('clock',13)} Pagos</button>
+      </div>
+    </div>`;
+  }).join('');
+  const totPend=(DB.asesores||[]).reduce((s,a)=>s+comisionResumenAsesor(a).pendiente,0);
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Comisiones: se generan al <b>confirmar</b> y se anulan si el pedido se devuelve o cancela · Generada − Pagada = Pendiente</div></div>
+    <div class="section-actions"><span style="font-size:12px;color:var(--text3)">Total pendiente del equipo: <b style="color:var(--green);font-family:var(--mono)">${fmt(totPend)}</b></span></div></div>
+    ${equipoTabsHtml('comisiones')}
+    ${cards?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px">${cards}</div>`:'<div class="empty">Aún no hay asesores registrados. Créalos en la pestaña Usuarios & Delivery.</div>'}`);
+}
+function openPagoComision(asesorId){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  const r=comisionResumenAsesor(a);
+  let ov=document.getElementById('pago-com-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pago-com-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:380px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-weight:800;font-size:15px">${ic('banknote',16)} Registrar pago — ${escB(a.nombre)}</div><button onclick="document.getElementById('pago-com-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Pendiente actual: <b style="color:var(--green);font-family:var(--mono)">${fmt(r.pendiente)}</b></div>
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase">Monto S/</label>
+    <input id="pago-com-monto" type="number" min="0" step="0.5" value="${r.pendiente>0?r.pendiente:''}" style="width:100%;margin:5px 0 10px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:16px">
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase">Fecha</label>
+    <input id="pago-com-fecha" type="date" value="${hoy()}" style="width:100%;margin:5px 0 10px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase">Nota (opcional)</label>
+    <input id="pago-com-nota" placeholder="Ej. Yape, semana 27…" style="width:100%;margin:5px 0 14px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('pago-com-ov').remove()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarPagoComision('${escB(String(asesorId))}')">${ic('save',13)} Guardar pago</button>
+    </div>
+  </div>`;
+}
+function guardarPagoComision(asesorId){
+  const monto=parseFloat(document.getElementById('pago-com-monto')?.value)||0;
+  if(monto<=0){alert('Ingresa un monto válido.');return;}
+  const fecha=document.getElementById('pago-com-fecha')?.value||hoy();
+  const nota=(document.getElementById('pago-com-nota')?.value||'').trim();
+  if(!Array.isArray(DB.pagosComision))DB.pagosComision=[];
+  DB.pagosComision.push({id:Date.now(),asesorId,monto,fecha,nota,user:SESSION?.name||'',ts:new Date().toISOString()});
+  save();
+  document.getElementById('pago-com-ov')?.remove();
+  renderEquipoComisiones();
+  showToast('✅ Pago registrado: '+fmt(monto));
+}
+function eliminarPagoComision(id){
+  if(!confirm('¿Eliminar este pago del historial? El pendiente volverá a subir.'))return;
+  DB.pagosComision=(DB.pagosComision||[]).filter(x=>x.id!==id);
+  save();
+  document.getElementById('pagos-com-ov')?.remove();
+  renderEquipoComisiones();
+}
+function verPagosComision(asesorId){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  const pagos=pagosDe(asesorId).slice().sort((x,y)=>String(y.fecha).localeCompare(String(x.fecha)));
+  let ov=document.getElementById('pagos-com-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pagos-com-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:440px;width:100%;max-height:80vh;overflow:auto;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:800;font-size:15px">${ic('clock',16)} Pagos — ${escB(a.nombre)}</div><button onclick="document.getElementById('pagos-com-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    ${pagos.length?pagos.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-weight:700;font-family:var(--mono)">${fmt(p.monto)}</div><div style="font-size:11px;color:var(--text3)">${escB(p.fecha||'')}${p.nota?' · '+escB(p.nota):''}${p.user?' · por '+escB(p.user):''}</div></div>
+      <button class="btn btn-ghost btn-xs" onclick="eliminarPagoComision(${p.id})" title="Eliminar pago">${ic('trash',12)}</button>
+    </div>`).join(''):'<div style="color:var(--text3);padding:16px 0;text-align:center">Sin pagos registrados todavía.</div>'}
+  </div>`;
+}
+function verDesgloseComision(asesorId){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  const r=comisionResumenAsesor(a);
+  const fila=(p,anulado)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;${anulado?'opacity:.55':''}">
+    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${p.id} · ${escB(p.nombre||'')} <span style="color:var(--text3)">· ${escB(p.fecha||'')} · ${p.zona==='lima'?'Lima':'Prov'}</span>${anulado?` <span style="color:var(--red);font-weight:700">${escB(p.estado)}</span>`:''}</span>
+    <span style="font-family:var(--mono);font-weight:700;flex-shrink:0;${anulado?'text-decoration:line-through;color:var(--red)':''}">${fmt(anulado?(p.zona==='lima'?(parseFloat(a.comLima)||0):(parseFloat(a.comProv)||0)):comisionGeneradaPedido(p))}</span>
+  </div>`;
+  let ov=document.getElementById('desg-com-ov');
+  if(!ov){ov=document.createElement('div');ov.id='desg-com-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:800;font-size:15px">${ic('clipboard-list',16)} Desglose — ${escB(a.nombre)}</div><button onclick="document.getElementById('desg-com-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px">Cada pedido confirmado genera su comisión. Los devueltos/cancelados aparecen tachados (comisión anulada).</div>
+    ${r.generadores.slice().sort((x,y)=>(y.id||0)-(x.id||0)).map(p=>fila(p,false)).join('')}
+    ${r.anulados.slice().sort((x,y)=>(y.id||0)-(x.id||0)).map(p=>fila(p,true)).join('')}
+    ${!r.generadores.length&&!r.anulados.length?'<div style="color:var(--text3);padding:16px 0;text-align:center">Sin pedidos con comisión.</div>':''}
+    <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-weight:800"><span>Total generada</span><span style="font-family:var(--mono);color:var(--green)">${fmt(r.generada)}</span></div>
+  </div>`;
+}
+
+// ── PERMISOS (set esencial, a nivel de interfaz) ─────────────────────
+const PERMISOS_DEF=[
+  ['crearPedidos','Crear pedidos','Puede registrar pedidos nuevos y convertir leads',true],
+  ['editarPedidos','Editar pedidos','Puede modificar pedidos ya registrados',true],
+  ['eliminarPedidos','Eliminar pedidos','Borrar pedidos definitivamente',false],
+  ['eliminarLeads','Eliminar leads','Borrar pedidos brutos definitivamente',false],
+  ['importarLeads','Importar CSV','Acceso a la importación masiva de pedidos',false],
+  ['devolverLeads','Devolver leads al pool','Puede soltar leads que ya tomó',true],
+  ['editarEtapas','Cambiar etapa de atención','Puede mover el "Estado del pedido" de los leads',true],
+  ['verCostos','Ver costos internos','Ve el costo de producto al registrar/editar pedidos',false],
+  ['verGanancias','Ver ganancias','Ve la ganancia estimada en el registro de pedidos',false],
+  ['verComisionesAjenas','Ver comisiones de otros','Ve comisiones de los demás trabajadores',false]
+];
+function permisoDe(a,key){
+  const def=(PERMISOS_DEF.find(p=>p[0]===key)||[])[3]||false;
+  const v=a&&a.permisos?a.permisos[key]:undefined;
+  return v===undefined?def:!!v;
+}
+// ¿El usuario actual puede hacer X? Admin siempre puede.
+function puede(key){
+  if(isAdmin())return true;
+  const a=(DB.asesores||[]).find(x=>String(x.workerId)===String(SESSION?.id));
+  return permisoDe(a,key);
+}
+function renderEquipoPermisos(){
+  if(!isAdmin()){showPage('miDia');return;}
+  const asesores=(DB.asesores||[]).filter(a=>a.workerId); // solo con acceso real a la app
+  const sinAcceso=(DB.asesores||[]).filter(a=>!a.workerId).length;
+  const filas=asesores.map(a=>{
+    const meta=asesorMeta(a.id);
+    return `<tr>
+      <td style="padding:10px 12px;border-top:1px solid var(--border);white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:7px;font-weight:700"><span style="width:9px;height:9px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(a.nombre)}</span></td>
+      ${PERMISOS_DEF.map(([key])=>{
+        const on=permisoDe(a,key);
+        return `<td style="padding:10px 8px;border-top:1px solid var(--border);text-align:center">
+          <button onclick="togglePermiso('${escB(String(a.id))}','${key}')" title="Clic para ${on?'quitar':'dar'} este permiso" style="cursor:pointer;width:38px;height:21px;border-radius:11px;border:none;position:relative;transition:background .15s;background:${on?'var(--green)':'var(--surface3)'};box-shadow:inset 0 0 0 1px var(--border)">
+            <span style="position:absolute;top:2px;${on?'right:2px':'left:2px'};width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+          </button>
+        </td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+  const th='padding:9px 8px;color:var(--text3);font-size:9.5px;text-transform:uppercase;letter-spacing:.02em;text-align:center;vertical-align:bottom;line-height:1.3';
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Permisos por trabajador · todo lo sensible está desactivado por defecto; activa solo lo necesario</div></div></div>
+    ${equipoTabsHtml('permisos')}
+    ${asesores.length?`<div class="card" style="padding:0;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:820px">
+        <thead><tr><th style="${th};text-align:left;padding-left:12px">Trabajador</th>${PERMISOS_DEF.map(([k,l])=>`<th style="${th}" title="${escB(PERMISOS_DEF.find(p=>p[0]===k)[2])}">${escB(l)}</th>`).join('')}</tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:12px;padding:14px">
+      <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${ic('lightbulb',13)} Qué controla cada permiso</div>
+      ${PERMISOS_DEF.map(([k,l,d,def])=>`<div style="display:flex;gap:8px;font-size:11px;padding:3px 0"><b style="min-width:170px;color:var(--text2)">${escB(l)}</b><span style="color:var(--text3)">${escB(d)} · <i>por defecto: ${def?'permitido':'bloqueado'}</i></span></div>`).join('')}
+      <div style="font-size:10.5px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">Los permisos controlan lo que cada trabajador ve y puede hacer en la aplicación. Los cambios se aplican en tiempo real.</div>
+    </div>`
+    :`<div class="empty">No hay trabajadores con acceso a la app todavía.${sinAcceso?` (${sinAcceso} asesor(es) sin cuenta vinculada — invítalos desde Usuarios & Delivery.)`:''}</div>`}`);
+}
+function togglePermiso(asesorId,key){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  if(!a.permisos)a.permisos={};
+  a.permisos[key]=!permisoDe(a,key);
+  save();
+  renderEquipoPermisos();
+}
+
 async function renderUsuarios(){
   if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador del negocio.</div>');return;}
-  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo & Usuarios</div><div class="section-sub">Accesos y delivery · las métricas y la efectividad están en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer">Conversión</a></div></div></div>
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Usuarios, accesos y delivery · métricas y comisiones en sus pestañas</div></div></div>
+    ${equipoTabsHtml('usuarios')}
     <div id="usuarios-deliveries"></div>
     <div id="usuarios-workers"><div style="padding:24px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
   renderDeliveriesCard();

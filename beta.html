@@ -6286,9 +6286,9 @@ function renderBloqueOferta(g){
   const total=lines.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
   const mini=g.idxs.map(gi=>{
     const it=pedidoItems[gi];
-    const prod=(!it.esExtra&&it.productoId)?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
+    const prod=it.productoId?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
     const needsVar=prod&&prod.variantes&&prod.variantes.length;
-    const varSel=needsVar?`<select onchange="pedidoItems[${gi}].variante=this.value;renderItemsPedido()" style="background:var(--surface3);border:1px solid ${it.variante?'var(--border2)':'var(--red)'};border-radius:6px;padding:3px 7px;font-size:11px;color:var(--text);outline:none;max-width:120px">
+    const varSel=needsVar?`<select onchange="setVarianteBloque(${gi},this.value)" style="background:var(--surface3);border:1px solid ${it.variante?'var(--border2)':'var(--red)'};border-radius:6px;padding:3px 7px;font-size:11px;color:var(--text);outline:none;max-width:120px">
         <option value="">— color —</option>
         ${prod.variantes.map(v=>`<option value="${v.nombre}" ${it.variante===v.nombre?'selected':''}>${v.nombre}</option>`).join('')}
       </select>`:'';
@@ -6313,6 +6313,15 @@ function renderBloqueOferta(g){
       </div>
     </div>
   </div>`;
+}
+// Variante elegida desde el bloque de oferta: si la línea lleva 2+ unidades,
+// también llena el desglose (guardarPedido lo exige para cantidades > 1).
+function setVarianteBloque(gi,v){
+  const it=pedidoItems[gi];if(!it)return;
+  it.variante=v;
+  const c=parseInt(it.cantidad)||1;
+  it.desglose=(v&&c>1)?[{variante:v,cantidad:c}]:[];
+  renderItemsPedido();
 }
 // Línea editable de un producto suelto (idéntica a la de antes)
 function renderLineaProducto(it,idx){

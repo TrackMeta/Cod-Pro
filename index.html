@@ -57,7 +57,7 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v8';
+const CACHE='cod-pro-v9';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
@@ -898,6 +898,19 @@ td{padding:11px 14px;font-size:13px}
 .midia-tag-reg{display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.15);color:var(--green);border:1.5px solid var(--green);font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:20px;white-space:nowrap}
 .midia-tag-rech{display:inline-flex;align-items:center;gap:5px;background:rgba(239,68,68,.15);color:var(--red);border:1.5px solid var(--red);font-weight:800;font-size:11.5px;padding:4px 10px;border-radius:20px;white-space:nowrap}
 .evid-thumb{width:74px;height:74px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border2);cursor:pointer}
+/* ── Integraciones: tarjetas desplegables ── */
+.intg-card{padding:0!important;margin-bottom:12px;overflow:hidden}
+.intg-card summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 16px;user-select:none}
+.intg-card summary::-webkit-details-marker{display:none}
+.intg-card summary .intg-chev{margin-left:auto;color:var(--text3);transition:transform .18s;flex-shrink:0}
+.intg-card[open] summary .intg-chev{transform:rotate(180deg)}
+.intg-card[open] summary{border-bottom:1px solid var(--border)}
+.intg-card .intg-body{padding:14px 16px}
+/* ── Modal de pedido: 2 columnas con resumen fijo ── */
+#modal-pedido .modal{max-width:1020px}
+.mp-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
+.mp-resumen{position:sticky;top:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px}
+@media(max-width:920px){.mp-grid{grid-template-columns:1fr}.mp-resumen{position:static}}
 </style>
 </head>
 <body>
@@ -996,19 +1009,16 @@ td{padding:11px 14px;font-size:13px}
         <div class="nav-item" onclick="showPage('provincia',this)"><span class="ico" data-ic="package"></span>Provincia</div>
         <div class="nav-item" onclick="showPage('rotulos',this)"><span class="ico" data-ic="tag"></span>Rótulos de Envío</div>
         <div class="nav-item" onclick="showPage('whatsapp',this)"><span class="ico" data-ic="message-circle"></span>Plantillas WA</div>
-        <div class="nav-item" onclick="showPage('importar',this)"><span class="ico" data-ic="download"></span>Importar CSV</div>
         <!-- ANÁLISIS & FINANZAS (admin) -->
         <div class="nav-section admin-only">Análisis & Finanzas</div>
         <div class="nav-item active admin-only" onclick="showPage('dashboard',this)"><span class="ico" data-ic="dashboard"></span>Dashboard</div>
-        <div class="nav-item admin-only" onclick="showPage('conversion',this)"><span class="ico" data-ic="target"></span>Conversión</div>
         <div class="nav-item admin-only" onclick="showPage('finanzas',this)"><span class="ico" data-ic="wallet"></span>Finanzas</div>
         <div class="nav-item admin-only" onclick="showPage('flujo',this)"><span class="ico" data-ic="trending-up"></span>Flujo de Caja</div>
-        <div class="nav-item admin-only" onclick="showPage('liquidacion',this)"><span class="ico" data-ic="banknote"></span>Liquidación</div>
         <!-- GESTIÓN (admin) -->
         <div class="nav-section admin-only">Gestión</div>
-        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Catálogo & Stock</div>
-        <div class="nav-item admin-only" onclick="showPage('upsells',this)"><span class="ico" data-ic="arrow-up-circle"></span>Upsells / Bumps</div>
-        <div class="nav-item admin-only" onclick="showPage('comisiones',this)"><span class="ico" data-ic="users"></span>Equipo & Usuarios</div>
+        <div class="nav-item admin-only" onclick="showPage('productos',this)"><span class="ico" data-ic="store"></span>Inventario</div>
+        <div class="nav-item admin-only" onclick="showPage('ofertas',this)"><span class="ico" data-ic="tag"></span>Ofertas</div>
+        <div class="nav-item admin-only" onclick="showPage('equipoMetricas',this)"><span class="ico" data-ic="users"></span>Equipo</div>
         <!-- SISTEMA (admin) -->
         <div class="nav-section admin-only">Sistema</div>
         <div class="nav-item admin-only" onclick="showPage('integraciones',this)"><span class="ico" data-ic="link"></span>Integraciones</div>
@@ -1101,8 +1111,9 @@ td{padding:11px 14px;font-size:13px}
 ====================================================== -->
 <!-- MODAL PEDIDO -->
 <div class="overlay" id="modal-pedido">
-<div class="modal" style="max-width:780px">
+<div class="modal">
   <div class="modal-h"><div class="modal-title" id="mp-title">Nuevo Pedido</div><div class="mc" onclick="closeModal('modal-pedido')">×</div></div>
+  <div class="mp-grid"><div class="mp-left">
   <input type="hidden" id="p-id">
   <!-- Fecha de registro (solo en modo edición) -->
   <div id="fg-fecha-reg" style="display:none;margin-bottom:6px;padding:6px 10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)"><span data-ic="note" data-ic-size="12"></span> Registrado el: <span id="p-fecha-creado" style="color:var(--text2);font-weight:600"></span></div>
@@ -1122,37 +1133,37 @@ td{padding:11px 14px;font-size:13px}
   <div class="divider"></div>
 
   <!-- PRODUCTOS (multi-item) -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Productos del pedido</div>
-    <button class="btn btn-ghost btn-sm" type="button" onclick="agregarItemPedido()">+ Agregar producto</button>
+  <div style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:inline-flex;align-items:center;gap:6px"><span data-ic="cart" data-ic-size="14"></span> Qué lleva el pedido</div>
   </div>
   <div id="p-items-container"></div>
+  <!-- El selector de producto va SIEMPRE debajo de lo ya elegido -->
+  <div id="p-add-row" style="margin-top:10px">
+    <select id="p-add-prod" onchange="pickProductoPedido(this.value)" style="width:100%;background:var(--surface2);border:1.5px solid var(--accent);border-radius:9px;padding:11px 12px;color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;outline:none">
+      <option value="">➕ Agregar al pedido…</option>
+    </select>
+  </div>
+  <div id="p-comolleva" style="display:none;margin-top:10px"></div>
+
+  <!-- UPSELL (oculto: los extras ahora van dentro de las Ofertas; se conserva el markup
+       para no perder datos de pedidos antiguos que ya tenían un extra ofrecido) -->
+  <div style="display:none">
+    <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin producto extra —</option></select>
+    <select id="p-upsell-res" onchange="recalcPend()"><option value="">—</option><option value="aceptado">Aceptado</option><option value="rechazado">Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
+    <input type="hidden" id="p-upsell-precio" value="">
+    <div id="upsell-ofr-box"></div>
+  </div>
 
   <!-- COSTOS (stock propio) -->
   <div id="p-stock-c" style="margin-top:10px">
     <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Costos del envío</div>
     <div class="form-grid">
-      <div class="fg"><label>Costo envío S/</label><input type="number" id="p-cenv" placeholder="0"></div>
-      <div class="fg"><label>Embalaje S/</label><input type="number" id="p-emb" placeholder="0"></div>
+      <div class="fg"><label>Costo envío S/</label><input type="number" id="p-cenv" placeholder="0" oninput="renderPedidoResumen()"></div>
+      <div class="fg"><label>Embalaje S/</label><input type="number" id="p-emb" placeholder="0" oninput="renderPedidoResumen()"></div>
     </div>
   </div>
   <div id="p-ali-c" style="display:none;margin-top:10px">
     <div class="abox abox-blue"><span class="abox-icon" data-ic="link" data-ic-size="18"></span><div class="abox-text"><b>Aliclick:</b> El almacén gestiona el envío. Solo ingresa precio de venta y costo Aliclick por ítem.</div></div>
-  </div>
-
-  <!-- UPSELL -->
-  <div style="margin-top:10px;padding:11px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:7px;display:inline-flex;align-items:center;gap:6px"><span data-ic="arrow-up-circle" data-ic-size="14"></span> Upsell / Order Bump ofrecido</div>
-    <div class="form-grid">
-      <div class="fg"><label>Producto upsell</label>
-        <select id="p-upsell-prod" onchange="fillUpsellOfertas(this.value);recalcPend()"><option value="">— Sin upsell —</option></select>
-      </div>
-      <div class="fg"><label>Resultado</label>
-        <select id="p-upsell-res" onchange="recalcPend()"><option value="">—</option><option value="aceptado">✅ Aceptado</option><option value="rechazado">❌ Rechazado</option><option value="no-ofrecido">No ofrecido</option></select>
-      </div>
-    </div>
-    <input type="hidden" id="p-upsell-precio" value="">
-    <div id="upsell-ofr-box"></div>
   </div>
 
   <div class="divider"></div>
@@ -2236,6 +2247,9 @@ td{padding:11px 14px;font-size:13px}
   </div>
   <div class="fg" style="margin-top:10px"><label>Comentario de llamada</label><textarea id="p-comentario" placeholder="Notas, próximo contacto, instrucciones especiales..."></textarea></div>
   <div class="fg" style="margin-top:10px"><label>🧾 Testimonio / comprobante <span style="color:var(--text3);font-weight:400">(captura del chat o del pago)</span></label><div id="p-testi-box" style="margin-top:4px"></div></div>
+  </div>
+  <aside class="mp-resumen" id="mp-resumen"></aside>
+  </div>
   <div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="guardarPedido()"><span data-ic="save" data-ic-size="15"></span> Guardar pedido</button>
     <button class="btn btn-ghost" onclick="closeModal('modal-pedido')">Cancelar</button>
@@ -2344,12 +2358,12 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Ofertas por cantidad</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Precios por cantidad</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/79 · 2×S/119 · 3×S/149 — aparecen como botones al registrar pedidos</div>
       </div>
-      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaProd()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaProd()" style="border-color:var(--amber);color:var(--amber)">+ Precio</button>
     </div>
-    <div id="pr-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div></div>
+    <div id="pr-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
@@ -2361,16 +2375,16 @@ td{padding:11px 14px;font-size:13px}
 <!-- MODAL UPSELL -->
 <div class="overlay" id="modal-upsell">
 <div class="modal sm">
-  <div class="modal-h"><div><div class="modal-title"><span data-ic="arrow-up-circle" data-ic-size="18"></span> Upsell / Order Bump</div><div class="modal-sub">Producto extra que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
+  <div class="modal-h"><div><div class="modal-title"><span data-ic="arrow-up-circle" data-ic-size="18"></span> Producto Extra</div><div class="modal-sub">Producto adicional que ofreces al confirmar el pedido</div></div><div class="mc" onclick="closeModal('modal-upsell')">×</div></div>
   <input type="hidden" id="up-id">
   <div class="form-grid">
-    <div class="fg" style="grid-column:1/-1"><label>Nombre del upsell *</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF" autofocus></div>
-    <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option>Order Bump</option><option>Upsell</option><option>Cross-sell</option><option>Downsell</option></select></div>
+    <div class="fg" style="grid-column:1/-1"><label>Nombre del producto extra *</label><input type="text" id="up-nombre" placeholder="Ej: Segunda unidad 50% OFF" autofocus></div>
+    <div class="fg" style="grid-column:1/-1"><label>Tipo</label><select id="up-tipo"><option value="Order Bump">Producto Extra</option><option value="Cross-sell">Cross-sell</option><option value="Downsell">Downsell</option></select></div>
     <div class="fg"><label>Precio de oferta S/ *</label><input type="number" id="up-precio" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Costo S/</label><input type="number" id="up-costo" placeholder="0" min="0" step="0.01"></div>
     <div class="fg"><label>Stock propio (unidades) <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><input type="number" id="up-stock" placeholder="vacío = sin control" min="0" step="1"></div>
     <div class="fg"><label>Alerta stock mínimo</label><input type="number" id="up-stockmin" placeholder="5" min="0" step="1"></div>
-    <div class="fg" style="grid-column:1/-1"><label>…o compartir stock con un producto del catálogo <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Stock propio (arriba) —</option></select><div style="font-size:10px;color:var(--text3);margin-top:3px">Si vinculas un producto, el upsell descuenta del stock de ESE producto y se ignora el stock propio.</div></div>
+    <div class="fg" style="grid-column:1/-1"><label>…o compartir stock con un producto del catálogo <span style="font-size:10px;color:var(--text3);font-weight:400">opcional</span></label><select id="up-prodvinc"><option value="">— Stock propio (arriba) —</option></select><div style="font-size:10px;color:var(--text3);margin-top:3px">Si vinculas un producto, el extra descuenta del stock de ESE producto y se ignora el stock propio.</div></div>
     <div class="fg" style="grid-column:1/-1"><label>Guión de venta</label><textarea id="up-desc" rows="3" placeholder="Qué decirle al cliente al ofrecerlo... Ej: '¿Le agrego el estuche por solo S/ 15?'"></textarea></div>
     <div class="fg" style="grid-column:1/-1"><label>Imagen <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional)</span></label><div id="up-img-preview"></div></div>
   </div>
@@ -2378,12 +2392,12 @@ td{padding:11px 14px;font-size:13px}
   <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Ofertas por cantidad</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--amber);display:inline-flex;align-items:center;gap:6px"><span data-ic="tag" data-ic-size="14"></span> Precios por cantidad</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">Ej: 1×S/25 · 2×S/40 — aparecen como botones al registrar pedidos</div>
       </div>
-      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaUp()" style="border-color:var(--amber);color:var(--amber)">+ Oferta</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="agregarOfertaUp()" style="border-color:var(--amber);color:var(--amber)">+ Precio</button>
     </div>
-    <div id="up-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div></div>
+    <div id="up-ofertas-container"><div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div></div>
   </div>
   <div style="display:flex;gap:10px;margin-top:20px">
     <button class="btn btn-primary" onclick="guardarUpsell()">Guardar</button>
@@ -2543,7 +2557,7 @@ function upsellEntregados(upId){
   let t=0;
   (DB.pedidos||[]).forEach(p=>{
     if(p.estado!=='entregado')return;
-    (p.items||[]).forEach(it=>{if(it.esUpsell&&String(it.upsellId)===String(upId))t+=parseInt(it.cantidad)||1;});
+    (p.items||[]).forEach(it=>{if((it.esUpsell||it.esExtra)&&String(it.upsellId)===String(upId))t+=parseInt(it.cantidad)||1;});
   });
   return t;
 }
@@ -3140,7 +3154,7 @@ async function load(){
 }
 
 function saveConfig(){
-  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault','trackTransitoAviso','trackTransitoCritico','trackAgenciaAviso','trackAgenciaCritico'].forEach(k=>{
+  ['adelanto','courier','shalom','comLima','comProv','metaEf','horasAlerta','metaVentaDia','roas_min','dev_max','stockMinDefault','embDefault','trackTransitoAviso','trackTransitoCritico','trackAgenciaAviso','trackAgenciaCritico','maxLeadsActivos'].forEach(k=>{
     const el=document.getElementById('cfg-'+k);if(el)CFG[k]=parseFloat(el.value)||0;
   });
   save();
@@ -4098,7 +4112,7 @@ function showPage(id, navEl){
   const sb=document.getElementById('sidebar');
   if(sb&&sb.classList.contains('mob-open'))toggleSidebar();
   CURRENT_PAGE=id;
-  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
+  const renders={dashboard:renderDashboard,conversion:renderConversion,miDia:renderMiDia,brutos:renderBrutos,pedidos:renderPedidos,lima:renderLima,provincia:renderProvincia,liquidacion:renderLiquidacion,productos:renderProductos,upsells:renderUpsells,ofertas:renderOfertas,equipoMetricas:renderEquipoMetricas,equipoComisiones:renderEquipoComisiones,equipoPermisos:renderEquipoPermisos,finanzas:renderFinanzas,flujo:renderFlujo,comisiones:renderUsuarios,whatsapp:renderWhatsapp,importar:renderImportar,rotulos:renderRotulos,integraciones:renderIntegraciones,config:renderConfig,usuarios:renderUsuarios};
   if(renders[id])renders[id]();
 }
 
@@ -4125,7 +4139,10 @@ function renderDashboard(){
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
   const gastosArr=filtrarPeriodo(DB.gastos||[],filtro);
   const cgastos=gastosArr.reduce((s,g)=>s+(g.monto||0),0);
-  const cDev=dev.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
+  // Devoluciones: la pérdida real es el ENVÍO pagado. El producto REGRESA al
+  // stock (stock = base − entregados) y se puede revender; contar su costo aquí
+  // lo duplicaría cuando se revenda. Producto dañado → registrarlo como Gasto.
+  const cDev=dev.reduce((s,x)=>s+(x.cenv||0),0);
   const util=ing-cprod-cenv-cemb-pub-ccomEntregas-cgastos-cDev;
   const ef=p.length>0?Math.round(ent.length/p.length*100):0;
   const pctConf=p.length>0?Math.round(conf.length/p.length*100):0;
@@ -4158,7 +4175,7 @@ function renderDashboard(){
     const pCcom=pE.reduce((s,p)=>s+comisionDePedido(p),0);
     const pGastos=filtrarPeriodo(DB.gastos||[],prevFiltro).reduce((s,g)=>s+(g.monto||0),0);
     const pDevArr=filtrarPeriodo(DB.pedidos.filter(x=>x.estado==='devuelto'),prevFiltro);
-    const pCDev=pDevArr.reduce((s,x)=>s+(x.cprod||0)+(x.cenv||0),0);
+    const pCDev=pDevArr.reduce((s,x)=>s+(x.cenv||0),0);
     pUtil=pIng-pCp-pCe-pCm-pPub-pCcom-pGastos-pCDev;
     pEnt=pE.length; pEf=pAP.length>0?Math.round(pE.length/pAP.length*100):0;
     pDev=pAP.length>0?Math.round(pDv.length/pAP.length*100):0;
@@ -4298,7 +4315,7 @@ function renderDashboard(){
     <div class="fr"><span class="fr-label">${ic('megaphone',13)} Publicidad</span><span class="fr-val fv-neg">−${fmt(pub)}</span></div>
     <div class="fr" title="Suma de comisiones de cada asesor por sus entregas en el período. Detalle exacto en Equipo & Usuarios."><span class="fr-label">${ic('users',13)} Com. por entregas <span style="font-size:10px;color:var(--text3);font-weight:400">(${ent.filter(p=>comisionDePedido(p)>0).length}/${ent.length} con vendedor)</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
     ${cgastos>0?`<div class="fr"><span class="fr-label">${ic('banknote',13)} Gastos extras</span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>`:''}
-    ${cDev>0?`<div class="fr"><span class="fr-label">${ic('undo',13)} Costo devoluciones</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
+    ${cDev>0?`<div class="fr" title="Envíos pagados de pedidos devueltos. El producto regresa al stock, por eso no se cuenta su costo aquí."><span class="fr-label">${ic('undo',13)} Devoluciones (envíos perdidos)</span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
     ${sueldosTotal>0?`<div class="fr" style="opacity:.6"><span class="fr-label">${ic('users',13)} Sueldos fijos (info)</span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
     <div style="margin-top:8px;padding:10px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:7px">
       <div class="fr" style="border:none;padding:0"><span style="font-weight:700">UTILIDAD NETA</span><span class="mono" style="font-weight:700;font-size:16px;color:${util>=0?'var(--green)':'var(--red)'}">${fmtN(util)}</span></div>
@@ -4421,6 +4438,7 @@ function subEstadoSelectHtml(r){
   return `<select onchange="setBrutoSubEstado(${r.id},this.value)" title="Estado del pedido — ¿en qué etapa está este cliente?" style="cursor:pointer;max-width:185px;background:${cur?col+'18':'var(--surface3)'};border:1.5px solid ${cur?col:'var(--border)'};color:${cur?col:'var(--text3)'};font-weight:700;font-size:11.5px;border-radius:8px;padding:5px 7px"><option value="">— Etapa…</option>${opts}</select>`;
 }
 async function setBrutoSubEstado(id,v){
+  if(!puede('editarEtapas')){alert('No tienes permiso para cambiar la etapa. Pídeselo al administrador (Equipo → Permisos).');refrescarBrutosUI();return;}
   const b=_brutosCache[id]; if(!b)return;
   const hist=Array.isArray(b.historial)?b.historial.slice():[];
   hist.push({accion:'sub_estado',valor:v||'(sin etapa)',asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()});
@@ -4605,6 +4623,7 @@ async function brutosAsignarSel(){
   alert('Asignados '+ids.length+' pedido(s)'+(asesorId?' a '+brutoNombreAsesor(asesorId):' al pool')+'.');
 }
 async function brutosEliminarSel(){
+  if(!puede('eliminarLeads')){alert('No tienes permiso para eliminar leads. Pídeselo al administrador (Equipo → Permisos).');return;}
   const ids=[..._brutosSel]; if(!ids.length)return;
   if(!confirm('¿Eliminar definitivamente '+ids.length+' pedido(s) bruto(s)?\nEsta acción no se puede deshacer.'))return;
   const{error}=await _supabase.from('pedidos_brutos').delete().in('id',ids).eq('workspace_id',SESSION.workspace_id);
@@ -4706,7 +4725,7 @@ function brutosTabla(rows){
       <td style="${td};max-width:240px">${escB(r.producto_raw)||'—'}</td>
       <td style="${td};text-align:right;font-family:var(--mono)">${r.precio!=null?fmt(r.precio):'—'}</td>
       <td style="${td};font-size:12px;color:var(--text2);max-width:160px">${loc}</td>
-      <td style="${td};font-size:12px">${asesor}</td>
+      <td style="${td};font-size:12px">${asesor}${(function(){const o=brutoAsesorOriginal(r);if(!o)return '';const actual=r.asesor_id!=null?String(r.asesor_id):null;if(actual&&String(o.id)===actual)return '';return `<div style="font-size:10px;color:var(--text3);margin-top:2px" title="Primer trabajador que tomó este lead — nunca cambia">↳ Original: ${escB(o.nombre)}</div>`;})()}</td>
       <td style="${td}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${e.color};background:var(--surface3);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap">${ic(e.ic,12)} ${e.label}</span>${cont}</td>
       <td style="${td}">${est==='por_contactar'?subEstadoSelectHtml(r):subEstadoChip(r.sub_estado)}</td>
       <td style="${td};text-align:right;white-space:nowrap">${brutoAccionesHtml(r)}</td>
@@ -5016,14 +5035,34 @@ async function marcarBrutoRegistrado(b,numeroPedido){
 
 async function brutoSetAsignacion(b,asesorId,accion,extra){
   const hist=Array.isArray(b.historial)?b.historial.slice():[];
-  hist.push(Object.assign({accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()},extra||{}));
+  // asesor_id = quien EJECUTA la acción; asesor_dest = a quién QUEDA asignado
+  // (clave para "Trabajador Original": el primer destinatario nunca se pierde)
+  const ev={accion,asesor_id:miAsesorId(),asesor_nombre:SESSION?.name||'',ts:new Date().toISOString()};
+  if(asesorId!=null){ev.asesor_dest=asesorId;ev.asesor_dest_nombre=asesorMeta(asesorId).nombre;}
+  hist.push(Object.assign(ev,extra||{}));
   const{error}=await _supabase.from('pedidos_brutos').update({asesor_id:asesorId,historial:hist}).eq('id',b.id).eq('workspace_id',SESSION.workspace_id);
   if(error){alert('No se pudo actualizar: '+error.message);return;}
   refrescarBrutosUI();
 }
-function tomarBruto(id){const b=_brutosCache[id];if(!b)return;if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;brutoSetAsignacion(b,miAsesorId(),'tomado');}
+async function tomarBruto(id){
+  const b=_brutosCache[id];if(!b)return;
+  // Límite configurable de leads activos por trabajador (Config → Operaciones).
+  // Evita que un trabajador acapare el pool. 0 = sin límite. No aplica al admin.
+  const lim=parseInt(CFG.maxLeadsActivos)||0;
+  if(lim>0&&!isAdmin()){
+    try{
+      const{count}=await _supabase.from('pedidos_brutos').select('id',{count:'exact',head:true})
+        .eq('workspace_id',SESSION.workspace_id).eq('asesor_id',miAsesorId())
+        .not('estado','in','("rechazado","registrado","perdido")');
+      if((count||0)>=lim){alert(`Ya tienes ${count} lead(s) activos — el límite es ${lim}.\nConfirma, rechaza o devuelve alguno antes de tomar otro.\n(El administrador puede cambiar el límite en Configuración.)`);return;}
+    }catch(_){/* si el conteo falla, no bloquear la operación */}
+  }
+  if(!confirm(`¿Tomar el pedido de ${b.nombre||'—'}? Quedará asignado a ti.`))return;
+  brutoSetAsignacion(b,miAsesorId(),'tomado');
+}
 // Devolver al pool exige un motivo (queda en el historial para auditoría)
 function devolverBruto(id){
+  if(!puede('devolverLeads')){alert('No tienes permiso para devolver leads al pool. Pídeselo al administrador (Equipo → Permisos).');return;}
   const b=_brutosCache[id]; if(!b)return;
   let ov=document.getElementById('bruto-dev-ov');
   if(!ov){ov=document.createElement('div');ov.id='bruto-dev-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
@@ -5149,6 +5188,26 @@ function brutoFmtDur(ms){
   if(h<24)return h+'h'+(m?' '+m+'min':'');
   const d=Math.floor(h/24); return d+'d '+(h%24)+'h';
 }
+// ── Trazabilidad: Trabajador Original y Trabajador que Confirmó ──────
+// Original = PRIMER destinatario de un "tomado"/"asignado" en el historial.
+// Nunca cambia aunque el lead se devuelva o reasigne (se deriva del historial,
+// que es inmutable). Confirmó = quien marcó "registrado" (cierra la venta).
+function brutoAsesorOriginal(b){
+  const h=Array.isArray(b&&b.historial)?b.historial:[];
+  const ev=h.find(x=>x.accion==='tomado'||x.accion==='asignado');
+  if(!ev)return null;
+  // Eventos nuevos guardan asesor_dest (destinatario). Legacy: 'tomado' el actor
+  // es el destinatario; 'asignado' de repartirPool guardaba al destinatario en asesor_id.
+  const id=ev.asesor_dest!=null?ev.asesor_dest:ev.asesor_id;
+  const nombre=ev.asesor_dest_nombre||ev.asesor_nombre||asesorMeta(id).nombre;
+  return {id,nombre,ts:ev.ts||null};
+}
+function brutoAsesorConfirmo(b){
+  const h=Array.isArray(b&&b.historial)?b.historial:[];
+  const ev=h.filter(x=>x.accion==='registrado').pop();
+  if(!ev)return null;
+  return {id:ev.asesor_id,nombre:ev.asesor_nombre||asesorMeta(ev.asesor_id).nombre,ts:ev.ts||null};
+}
 // Tiempo de 1ª respuesta = desde que entró el lead hasta el primer "tomado/asignado"
 function brutoPrimeraRespuesta(b){
   const hist=Array.isArray(b.historial)?b.historial:[];
@@ -5161,7 +5220,12 @@ function verBrutoHistorial(id){
   const b=_brutosCache[id]; if(!b)return;
   const hist=Array.isArray(b.historial)?b.historial:[];
   const pr=brutoPrimeraRespuesta(b);
-  const prHtml=pr?`<div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:12px;font-size:12px"><span style="color:var(--text3)">⏱ 1ª respuesta:</span> <b>${brutoFmtDur(pr.ms)}</b>${pr.quien?` <span style="color:var(--text3)">· ${escB(pr.quien)}</span>`:''}</div>`:'';
+  const _orig=brutoAsesorOriginal(b),_conf=brutoAsesorConfirmo(b);
+  const trazaHtml=(_orig||_conf)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+    ${_orig?`<span title="Primer trabajador que tomó este lead — nunca cambia" style="display:inline-flex;align-items:center;gap:5px;background:rgba(59,130,246,.12);color:var(--accent);border:1px solid var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">👤 Original: ${escB(_orig.nombre)}</span>`:''}
+    ${_conf?`<span title="Quien cerró la venta (se lleva la conversión y la comisión)" style="display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.12);color:var(--green);border:1px solid var(--green);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">✅ Confirmó: ${escB(_conf.nombre)}</span>`:''}
+  </div>`:'';
+  const prHtml=(trazaHtml||'')+(pr?`<div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:12px;font-size:12px"><span style="color:var(--text3)">⏱ 1ª respuesta:</span> <b>${brutoFmtDur(pr.ms)}</b>${pr.quien?` <span style="color:var(--text3)">· ${escB(pr.quien)}</span>`:''}</div>`:'');
   const rows=hist.length?hist.slice().reverse().map(h=>{
     const lbl=BRUTO_ACCION_LBL[h.accion]||h.accion;
     const t=h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
@@ -5205,7 +5269,9 @@ function verBrutoDetalle(id){
     ${row('Ciudad / Distrito',b.ciudad)}
     ${row('Provincia / Depto',b.provincia_raw)}
     ${row('Zona detectada',zona==='provincia'?'Provincia':'Lima')}
-    ${row('Asesor',asesor)}
+    ${row('Asesor actual',asesor)}
+    ${(function(){const o=brutoAsesorOriginal(b);return o?row('Trabajador original',o.nombre+(o.ts?' · '+new Date(o.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'}):''),true):'';})()}
+    ${(function(){const c=brutoAsesorConfirmo(b);return c?row('Confirmado por',c.nombre+(c.ts?' · '+new Date(c.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit'}):''),true):'';})()}
     ${row('Order ID',b.order_id)}
     ${row('Ingreso al sistema',ingreso,true)}
     ${lead?row('Fecha del lead',lead):''}
@@ -5256,6 +5322,7 @@ function brutoAccionesHtml(r){
 }
 
 async function brutoEliminar(id){
+  if(!puede('eliminarLeads')){alert('No tienes permiso para eliminar leads. Pídeselo al administrador (Equipo → Permisos).');return;}
   const b=_brutosCache[id]; if(!b)return;
   if(!confirm(`¿Eliminar definitivamente el pedido bruto de ${b.nombre||'—'}?\nEsta acción no se puede deshacer.`))return;
   const{error}=await _supabase.from('pedidos_brutos').delete().eq('id',id).eq('workspace_id',SESSION.workspace_id);
@@ -5308,8 +5375,31 @@ async function miDiaResumen(ws,mineId){
     const r3=await q3; pend=r3.count||0;
   }catch(_){}
   const gest=reg+rech; const conv=gest?Math.round(reg/gest*100):0;
-  const card=(label,val,color)=>`<div class="card" style="padding:14px"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
-  el.innerHTML=card('Total período',total,'var(--accent)')+card('Pendientes',pend,'var(--amber)')+card('Confirmados',reg,'var(--green)')+card('Rechazados',rech,'var(--red)')+card('Conversión',conv+'%','var(--blue)');
+  const card=(label,val,color,tip)=>`<div class="card" style="padding:14px" title="${tip||''}"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:${color||'var(--text)'};margin-top:4px">${val}</div></div>`;
+  el.innerHTML=card('Total período',total,'var(--accent)','Leads que entraron al sistema en el período seleccionado')
+    +card('Pendientes',pend,'var(--amber)','Leads aún en gestión (sin confirmar, rechazar ni perder) — no depende del período')
+    +card('Confirmados',reg,'var(--green)','Leads convertidos en pedido en el período')
+    +card('Rechazados',rech,'var(--red)','Leads marcados como rechazados en el período')
+    +(isAdmin()?card('Conversión',conv+'%','var(--blue)','Confirmados ÷ (confirmados + rechazados) del período — solo visible para el administrador'):'');
+  // ── Vista operativa de PEDIDOS del período (worker: solo los suyos) ──
+  try{
+    const rango=periodoRango(per);
+    const miA=(DB.asesores||[]).find(x=>String(x.workerId)===String(SESSION?.id));
+    const peds=(DB.pedidos||[]).filter(p=>{
+      if(!isAdmin()&&!(miA&&pedidoEsDeAsesor(p,miA)))return false;
+      if(rango.desde){const f=p.fecha?new Date(p.fecha+'T12:00:00'):null;if(!f||f<new Date(rango.desde))return false;if(rango.hasta&&f>=new Date(rango.hasta))return false;}
+      return true;
+    });
+    const cnt=e=>peds.filter(p=>p.estado===e).length;
+    const lima=peds.filter(p=>p.zona==='lima').length;
+    const chip=(l,v,c)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11.5px;color:var(--text2)"><b style="font-family:var(--mono);color:${c};font-size:13px">${v}</b> ${l}</span>`;
+    el.innerHTML+=`<div style="grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:2px">
+      <span style="font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.04em">${isAdmin()?'Pedidos del equipo':'Mis pedidos'} ·</span>
+      ${chip('Lima',lima,'var(--accent)')}${chip('Provincia',peds.length-lima,'var(--purple)')}
+      ${chip('Confirmados',cnt('confirmado'),'var(--green)')}${chip('Por entregar',cnt('confirmado')+cnt('enviado'),'var(--amber)')}
+      ${chip('Entregados',cnt('entregado'),'var(--blue)')}${chip('Devueltos',cnt('devuelto'),'var(--red)')}
+    </div>`;
+  }catch(_){}
 }
 
 async function miDiaCola(ws,mineId){
@@ -5546,29 +5636,23 @@ async function renderIntegraciones(){
   const token=row.token;
   const shopUrl=`${INGEST_URL}?src=shopify&token=${token}`;
   const script=genScriptSheets(token);
+  const nTiendas=_shopTiendas().length;
+  const tgOn=!!(row.telegram_token&&row.telegram_chat_id);
+  const secHead=(logo,titulo,sub,badge)=>`<summary>
+    <span style="width:38px;height:38px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center">${logo}</span>
+    <span style="min-width:0"><span style="display:block;font-weight:800;font-size:14px">${titulo}</span><span style="display:block;font-size:11px;color:var(--text3);margin-top:1px">${sub}</span></span>
+    ${badge||''}
+    <span class="intg-chev">${ic('chevron-down'in ICONS?'chevron-down':'undo',16)}</span>
+  </summary>`;
+  const bOn=(txt)=>`<span style="flex-shrink:0;font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(34,197,94,.14);color:var(--green);border:1px solid var(--green)">${txt}</span>`;
+  const bOff=(txt)=>`<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--surface3);color:var(--text3);border:1px solid var(--border)">${txt}</span>`;
   body.innerHTML=`
   <div class="abox" style="background:var(--surface3);border:1px solid var(--border);margin-bottom:14px"><span class="abox-icon">${ic('inbox',18)}</span><div class="abox-text">Los pedidos entran solos a <b>Pedidos Brutos</b>. Tu token es privado de esta tienda: no lo compartas.</div></div>
 
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-title">${ic('download',14)} Google Sheets</div>
-    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">1) Abre tu Sheet → <b>Extensiones → Apps Script</b>. 2) Pega este script. 3) Ejecuta <b>setupTriggers</b> ▶ y autoriza. 4) Verifica el mapeo de columnas (COL).</p>
-    <div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📋 Orden de columnas esperado (fila 1 = encabezados, los datos empiezan en la fila 2):</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;font-size:11.5px">
-        ${[['A','Fecha y hora','del lead'],['B','Nombre','del cliente'],['C','Celular','con o sin +51'],['D','Dirección',''],['E','Ciudad','/ distrito'],['F','Provincia','/ departamento'],['G','Producto','texto libre'],['H','Precio','número']].map(([c,t,s])=>`<div style="display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-weight:800;color:var(--accent);min-width:14px">${c}</span><span><b>${t}</b>${s?` <span style="color:var(--text3)">${s}</span>`:''}</span></div>`).join('')}
-      </div>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">No importa cómo titules las columnas: lo que cuenta es el <b>orden</b> (A→H). Si tu hoja usa otro orden, ajusta el objeto <code>COL</code> dentro del script (1=A, 2=B…). Nombre y Celular no pueden ir ambos vacíos. Las filas duplicadas (mismo celular + producto + día) se ignoran solas.</div>
-    </div>
-    <textarea id="intg-script" readonly style="width:100%;height:150px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto">${escB(script)}</textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-script',this)">${ic('copy',13)} Copiar script</button>
-      <button class="btn btn-ghost btn-sm" onclick="intgProbar(this)">${ic('check-circle',13)} Probar conexión</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">${ic('store',14)} Shopify · varias tiendas (incluye Releasit y EasySell)</div>
-    <div class="abox abox-blue" style="margin:8px 0 12px"><span class="abox-icon">${ic('info',16)}</span><div class="abox-text"><b>Para conectar todas tus tiendas solo necesitas 1 cosa:</b> copiar la URL de abajo y pegarla como webhook en <b>cada</b> tienda Shopify. Los pedidos de todas llegarán juntos a <b>Pedidos Brutos</b>. Esta URL es la misma para todas.</div></div>
+  <details class="card intg-card" ${nTiendas?'':'open'}>
+    ${secHead(INTG_LOGOS.shopify,'Shopify','Pedidos de tus tiendas (incluye Releasit y EasySell)',nTiendas?bOn(nTiendas+' TIENDA'+(nTiendas>1?'S':'')+' CONECTADA'+(nTiendas>1?'S':'')):bOff('SIN CONECTAR'))}
+    <div class="intg-body">
+    <div class="abox abox-blue" style="margin:0 0 12px"><span class="abox-icon">${ic('info',16)}</span><div class="abox-text"><b>Para conectar todas tus tiendas solo necesitas 1 cosa:</b> copiar la URL de abajo y pegarla como webhook en <b>cada</b> tienda Shopify. Los pedidos de todas llegarán juntos a <b>Pedidos Brutos</b>. Esta URL es la misma para todas.</div></div>
     <p style="font-size:13px;color:var(--text2);margin:6px 0 6px"><b>Paso 1.</b> Copia esta URL (es la misma para todas tus tiendas):</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input id="intg-shopurl" readonly value="${escB(shopUrl)}" style="flex:1;min-width:240px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
@@ -5582,11 +5666,32 @@ async function renderIntegraciones(){
       <input id="intg-tienda-secret" type="text" placeholder="Secreto del webhook (opcional)" style="flex:1.4;min-width:200px;font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
       <button class="btn btn-primary btn-sm" onclick="intgAgregarTienda(this)">${ic('plus',13)} Agregar tienda</button>
     </div>
-  </div>
+    </div>
+  </details>
 
-  <div class="card" style="margin-top:14px">
-    <div class="card-title">${ic('send',14)} Telegram (aviso de pedido confirmado)</div>
-    <p style="font-size:13px;color:var(--text2);margin:6px 0 10px">Crea un bot con <b>@BotFather</b> y pega su <b>token</b>. Recibirás un aviso cada vez que se confirme un pedido.</p>
+  <details class="card intg-card">
+    ${secHead(INTG_LOGOS.sheets,'Google Sheets','Importa leads desde tu hoja de cálculo cada minuto','')}
+    <div class="intg-body">
+    <p style="font-size:13px;color:var(--text2);margin:0 0 10px">1) Abre tu Sheet → <b>Extensiones → Apps Script</b>. 2) Pega este script. 3) Ejecuta <b>setupTriggers</b> ▶ y autoriza. 4) Verifica el mapeo de columnas (COL).</p>
+    <div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📋 Orden de columnas esperado (fila 1 = encabezados, los datos empiezan en la fila 2):</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;font-size:11.5px">
+        ${[['A','Fecha y hora','del lead'],['B','Nombre','del cliente'],['C','Celular','con o sin +51'],['D','Dirección',''],['E','Ciudad','/ distrito'],['F','Provincia','/ departamento'],['G','Producto','texto libre'],['H','Precio','número']].map(([c,t,s])=>`<div style="display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-weight:800;color:var(--accent);min-width:14px">${c}</span><span><b>${t}</b>${s?` <span style="color:var(--text3)">${s}</span>`:''}</span></div>`).join('')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:7px">No importa cómo titules las columnas: lo que cuenta es el <b>orden</b> (A→H). Si tu hoja usa otro orden, ajusta el objeto <code>COL</code> dentro del script (1=A, 2=B…). Nombre y Celular no pueden ir ambos vacíos. Las filas duplicadas (mismo celular + producto + día) se ignoran solas.</div>
+    </div>
+    <textarea id="intg-script" readonly style="width:100%;height:150px;font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre;overflow:auto">${escB(script)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="intgCopiar('intg-script',this)">${ic('copy',13)} Copiar script</button>
+      <button class="btn btn-ghost btn-sm" onclick="intgProbar(this)">${ic('check-circle',13)} Probar conexión</button>
+    </div>
+    </div>
+  </details>
+
+  <details class="card intg-card">
+    ${secHead(INTG_LOGOS.telegram,'Telegram','Aviso instantáneo cuando se confirma un pedido',tgOn?bOn('ACTIVO'):bOff('SIN CONFIGURAR'))}
+    <div class="intg-body">
+    <p style="font-size:13px;color:var(--text2);margin:0 0 10px">Crea un bot con <b>@BotFather</b> y pega su <b>token</b>. Recibirás un aviso cada vez que se confirme un pedido.</p>
     <div class="abox abox-blue" style="margin-bottom:10px"><span class="abox-icon">${ic('info',16)}</span><div class="abox-text"><b>¿Por qué el Chat ID?</b> Telegram no deja que un bot escriba a alguien que no le habló primero, y solo sabe enviar a chats con un <b>ID</b> (no a un "admin"). Por eso, <b>una sola vez</b>: escríbele cualquier mensaje a tu bot y pulsa <b>"Detectar Chat ID"</b>. Después el bot avisa solo, para siempre.</div></div>
     <div style="display:flex;flex-direction:column;gap:8px;max-width:480px">
       <input id="intg-tg-token" type="text" placeholder="Bot token (123456:ABC...)" value="${escB(row.telegram_token||'')}" style="font-family:var(--mono);font-size:12px;background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px">
@@ -5599,9 +5704,16 @@ async function renderIntegraciones(){
         <button class="btn btn-ghost btn-sm" onclick="intgProbarTelegram(this)">${ic('send',13)} Enviar prueba</button>
       </div>
     </div>
-  </div>`;
+    </div>
+  </details>`;
   intgRenderTiendas();
 }
+// Logos de marca embebidos (SVG, sin depender de archivos externos)
+const INTG_LOGOS={
+  shopify:`<svg width="34" height="34" viewBox="0 0 24 24"><path fill="#95BF47" d="M17.7 5.9c0-.1-.1-.2-.2-.2-.1 0-1.6-.1-1.6-.1s-1.1-1.1-1.2-1.2c-.1-.1-.3-.1-.5-.1l-.6.2c-.4-1-1-2-2.1-2h-.1c-.3-.4-.7-.6-1.1-.6C8 1.9 6.9 4.8 6.5 6.3l-1.9.6c-.6.2-.6.2-.7.8-.1.4-1.6 12-1.6 12l11.7 2.2 6.3-1.4S17.7 6 17.7 5.9zM12.4 4.6l-1 .3v-.2c0-.6-.1-1.2-.2-1.6.5.1.9.7 1.2 1.5zm-1.9.6l-2.1.6c.3-1.2 1-2.4 1.8-2.6.2.5.3 1.2.3 2zm-.5-2.7c.2 0 .3 0 .5.1-.9.5-1.6 1.7-1.9 3.1l-1.7.5c.5-1.6 1.6-3.7 3.1-3.7z"/><path fill="#5E8E3E" d="M17.5 5.7c-.1 0-1.6-.1-1.6-.1s-1.1-1.1-1.2-1.2c0 0-.1-.1-.2-.1l-.9 17.6 6.3-1.4S17.8 6 17.7 5.9c0-.1-.1-.2-.2-.2z"/><path fill="#fff" d="M12.4 8.2l-.8 2.3s-.7-.4-1.5-.4c-1.2 0-1.3.8-1.3 1 0 1 2.7 1.4 2.7 3.9 0 1.9-1.2 3.2-2.9 3.2-2 0-3-1.2-3-1.2l.5-1.8s1 .9 1.9.9c.6 0 .8-.4.8-.8 0-1.3-2.2-1.4-2.2-3.7 0-1.9 1.4-3.7 4.1-3.7 1.1 0 1.7.3 1.7.3z"/></svg>`,
+  sheets:`<svg width="30" height="30" viewBox="0 0 24 24"><path fill="#188648" d="M14.7 1.5H6.8c-.9 0-1.6.7-1.6 1.6v17.8c0 .9.7 1.6 1.6 1.6h10.4c.9 0 1.6-.7 1.6-1.6V6L14.7 1.5z"/><path fill="#8ED1B1" d="M14.7 1.5V6h4.1z"/><path fill="#fff" d="M8.2 10.7h7.6v7.3H8.2v-7.3zm1.2 1.2v1.2h2v-1.2h-2zm3.2 0v1.2h2v-1.2h-2zm-3.2 2.4v1.2h2v-1.2h-2zm3.2 0v1.2h2v-1.2h-2zm-3.2 2.4v1.2h2v-1.2h-2zm3.2 0v1.2h2v-1.2h-2z"/></svg>`,
+  telegram:`<svg width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#29A9EB"/><path fill="#fff" d="M5.4 11.7l11.2-4.3c.5-.2 1 .1.8.9l-1.9 9c-.1.6-.5.8-1.1.5l-2.9-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.5-4.9c.2-.2-.1-.3-.4-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.2-.8z"/></svg>`
+};
 
 // ── Shopify: gestión de múltiples tiendas ──
 // Se guardan en CFG.shopifyTiendas (blob de la app, se sincroniza con save()).
@@ -5614,14 +5726,17 @@ function intgRenderTiendas(){
   // Migra una sola vez el secreto legado (columna shopify_secret) a la lista de la app
   if(!tiendas.length && _intg?.shopify_secret){tiendas.push({id:Date.now(),nombre:'Tienda principal',secret:_intg.shopify_secret});save();}
   if(!tiendas.length){el.innerHTML=`<div style="font-size:12.5px;color:var(--text3);padding:8px 0">Aún no agregaste tiendas. Puedes agregar la primera abajo (o simplemente pega la URL en tu Shopify y los pedidos ya llegarán).</div>`;return;}
-  el.innerHTML=tiendas.map(t=>{
-    const secShort=t.secret?(String(t.secret).slice(0,6)+'…'+String(t.secret).slice(-4)):'sin secreto (igual llegan los pedidos)';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--surface3);border:1px solid var(--border);border-radius:9px;margin-bottom:7px">
-      <span style="width:30px;height:30px;border-radius:7px;background:var(--accentL);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${ic('store',15)}</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escB(t.nombre||'Tienda')}</div><div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${escB(secShort)}</div></div>
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">`+tiendas.map(t=>{
+    const secShort=t.secret?('🔒 '+String(t.secret).slice(0,6)+'…'+String(t.secret).slice(-4)):'sin secreto (igual llegan los pedidos)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(149,191,71,.07);border:1.5px solid #95BF47;border-radius:10px">
+      <span style="width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${INTG_LOGOS.shopify}</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(t.nombre||'Tienda')}</span><span style="flex-shrink:0;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green)">CONECTADA</span></div>
+        <div style="font-size:10.5px;color:var(--text3);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(secShort)}</div>
+      </div>
       <button class="btn btn-danger btn-xs" onclick="intgEliminarTienda(${t.id})" title="Eliminar tienda">${ic('trash',13)}</button>
     </div>`;
-  }).join('');
+  }).join('')+`</div>`;
 }
 async function intgAgregarTienda(btn){
   const nombre=(document.getElementById('intg-tienda-nombre')?.value||'').trim();
@@ -5746,7 +5861,9 @@ async function intgProbarTelegram(btn){
 let convPer='todo',convDesde='',convHasta='';
 function setConvFiltro(k,v){if(k==='per')convPer=v;if(k==='desde')convDesde=v;if(k==='hasta')convHasta=v;renderConversion();}
 async function renderConversion(){
-  if(!isAdmin()){setContent('<div class="abox abox-red"><span class="abox-icon">'+ic('x-circle',18)+'</span><div class="abox-text">Solo administradores.</div></div>');return;}
+  // FUSIONADA: la página "Conversión" se unificó con Equipo → Métricas para no
+  // tener las mismas cifras en dos lugares. Los enlaces antiguos redirigen.
+  showPage('equipoMetricas');return;
   const ws=SESSION?.workspace_id; if(!ws)return;
   const filtro=convPer==='custom'?{tipo:'custom',desde:convDesde,hasta:convHasta||hoy()}:convPer;
   const perLbl=convPer==='mes'?'30 días':convPer==='semana'?'7 días':convPer==='hoy'?'hoy':convPer==='custom'?`${convDesde||'?'} → ${convHasta||hoy()}`:'todo';
@@ -6080,7 +6197,7 @@ function renderPedidosContent(){
     <td data-label="#" class="mono" style="color:var(--text3)">#${p.id}</td>
     <td data-label="Cliente"><div style="font-weight:600">${p.nombre}${detectarDuplicado(p.celular,p.id)?' <span class="dup-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('alert-triangle',10)+' DUP</span>':''}</div><div style="font-size:11px;color:var(--text3)">${p.celular}</div></td>
     <td data-label="Producto">${pedidoProductoMain(p)}</td>
-    <td data-label="Upsell / Order Bump">${(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':(p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':'<span style="font-size:10.5px;color:var(--text3)">—</span>');})()}</td>
+    <td data-label="Producto Extra">${(function(){const u=pedidoUpsellTxt(p);return u?'<span class="upsell-badge" style="display:inline-flex;align-items:center;gap:3px">'+ic('arrow-up-circle',11)+' '+u+'</span>':(p.upsellRes==='rechazado'?'<span class="bdg bdg-rechazado" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('x-circle',11)+' Rechazado</span>':'<span style="font-size:10.5px;color:var(--text3)">—</span>');})()}</td>
     <td data-label="Modalidad">${bdgMod(p.modalidad||'stock')}</td>
     <td data-label="Zona" style="color:${p.zona==='lima'?'var(--blue)':'var(--accent)'}"><b style="display:inline-flex;align-items:center;gap:4px">${p.zona==='lima'?ic('building',13)+' Lima':ic('package',13)+' Prov.'}</b></td>
     <td data-label="Precio" class="mono" style="font-weight:700">${fmt(p.precio)}</td>
@@ -6098,7 +6215,7 @@ function renderPedidosContent(){
   </tr>`).join('');
     return sepRow+rows;
   }).join(''):`<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text3)">Sin pedidos</td></tr>`;
-  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Upsell / Order Bump</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
+  view.innerHTML=selBar+`<div class="tw ts tw-cards"><table><thead><tr><th></th><th>#</th><th>Cliente</th><th>Producto</th><th>Producto Extra</th><th>Modalidad</th><th>Zona</th><th>Precio</th><th>Adelanto</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead>
   <tbody>${tableBody}</tbody></table></div>`;
 }
 
@@ -6147,10 +6264,66 @@ function eliminarItemPedido(idx){
 function renderItemsPedido(){
   const c=document.getElementById('p-items-container');if(!c)return;
   if(!pedidoItems.length){
-    c.innerHTML=`<div style="text-align:center;padding:18px;color:var(--text3);border:1px dashed var(--border2);border-radius:8px;font-size:12px">Sin productos. Usa "+ Agregar producto"</div>`;
-    return;
+    c.innerHTML=`<div style="text-align:center;padding:18px;color:var(--text3);border:1px dashed var(--border2);border-radius:8px;font-size:12px">Aún no hay productos. Elige uno con el selector de abajo 👇</div>`;
+    recalcPend();return;
   }
-  c.innerHTML=pedidoItems.map((it,idx)=>{
+  // Agrupar por instancia de oferta (packInst): las líneas de un mismo pack se
+  // muestran como UN bloque compacto; las líneas sueltas como línea editable.
+  const groups=[];const seen={};
+  pedidoItems.forEach((it,idx)=>{
+    if(it.packInst){
+      if(seen[it.packInst]==null){seen[it.packInst]=groups.length;groups.push({pack:true,packInst:it.packInst,nombre:it.packNombre||'Oferta',idxs:[idx]});}
+      else groups[seen[it.packInst]].idxs.push(idx);
+    } else groups.push({plain:true,idx});
+  });
+  c.innerHTML=groups.map(g=>g.pack?renderBloqueOferta(g):renderLineaProducto(pedidoItems[g.idx],g.idx)).join('');
+  recalcPend();
+}
+// Bloque compacto de una oferta dentro del pedido (con lápiz para editar)
+function renderBloqueOferta(g){
+  const lines=g.idxs.map(i=>pedidoItems[i]);
+  const total=lines.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+  const mini=g.idxs.map(gi=>{
+    const it=pedidoItems[gi];
+    const prod=it.productoId?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
+    const needsVar=prod&&prod.variantes&&prod.variantes.length;
+    const varSel=needsVar?`<select onchange="setVarianteBloque(${gi},this.value)" style="background:var(--surface3);border:1px solid ${it.variante?'var(--border2)':'var(--red)'};border-radius:6px;padding:3px 7px;font-size:11px;color:var(--text);outline:none;max-width:120px">
+        <option value="">— color —</option>
+        ${prod.variantes.map(v=>`<option value="${v.nombre}" ${it.variante===v.nombre?'selected':''}>${v.nombre}</option>`).join('')}
+      </select>`:'';
+    return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:3px 0">
+      <span style="font-size:12.5px;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(it.nombre)}${it.variante?' · '+escB(it.variante):''} ×${parseInt(it.cantidad)||1}${it.esExtra?' <span style="font-size:9px;color:var(--amber);font-weight:800">EXTRA</span>':''}${needsVar&&!it.variante?' <span style="font-size:9px;color:var(--red);font-weight:800">falta color</span>':''}</span>
+      ${varSel}
+    </div>`;
+  }).join('');
+  return `<div style="border:1.5px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:8px;background:rgba(59,130,246,.05)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:7px;font-weight:800;font-size:13.5px;color:var(--accent);min-width:0"><span style="flex-shrink:0">${ic('tag',15)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(g.nombre)}</span></div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openEditOfertaPedido('${g.packInst}')" title="Editar esta oferta solo para este pedido">${ic('pencil',13)}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="quitarBloqueOferta('${g.packInst}')" title="Quitar la oferta del pedido" style="color:var(--red)">✕</button>
+      </div>
+    </div>
+    <div style="margin:8px 0;padding-left:2px">${mini}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px">
+      <span style="font-size:11.5px;color:var(--text3)">Precio del pack</span>
+      <div style="display:flex;align-items:center;gap:5px"><span style="font-size:12px;color:var(--text3)">S/</span>
+        <input type="number" value="${Math.round(total*100)/100}" min="0" step="0.5" onchange="setPrecioBloqueOferta('${g.packInst}',this.value)" style="width:82px;background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:6px 9px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:14px;text-align:right">
+      </div>
+    </div>
+  </div>`;
+}
+// Variante elegida desde el bloque de oferta: si la línea lleva 2+ unidades,
+// también llena el desglose (guardarPedido lo exige para cantidades > 1).
+function setVarianteBloque(gi,v){
+  const it=pedidoItems[gi];if(!it)return;
+  it.variante=v;
+  const c=parseInt(it.cantidad)||1;
+  it.desglose=(v&&c>1)?[{variante:v,cantidad:c}]:[];
+  renderItemsPedido();
+}
+// Línea editable de un producto suelto (idéntica a la de antes)
+function renderLineaProducto(it,idx){
     const prod=it.productoId?DB.productos.find(p=>p.id===parseInt(it.productoId)):null;
     const variantes=prod&&prod.variantes&&prod.variantes.length?prod.variantes:[];
     const variantesHtml=variantes.length?variantes.map(v=>`<option value="${v.nombre}" ${it.variante===v.nombre?'selected':''}>${v.nombre} (Stock: ${v.stock})</option>`).join(''):'';
@@ -6178,14 +6351,14 @@ function renderItemsPedido(){
       </div>`:'';
     const ofertasHtml=prod&&prod.ofertas&&prod.ofertas.length?`
       <div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:7px">
-        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Seleccionar oferta</div>
+        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Elegir precio por cantidad</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${prod.ofertas.map(of=>{const activa=cant==of.cantidad&&precioTotal==of.precio;return `<button type="button" onclick="aplicarOferta(${idx},${of.cantidad},${of.precio},${prod.costo})" style="background:${activa?'var(--accent)':'var(--surface3)'};border:2px solid ${activa?'var(--accent)':'var(--border2)'};border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;color:${activa?'#fff':'var(--text)'};cursor:pointer;transition:all .15s;line-height:1.4;text-align:center">${of.cantidad}x<br><span style="font-size:11px;opacity:.85">S/${of.precio}</span></button>`;}).join('')}
         </div>
       </div>`:'';
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;position:relative">
       <button type="button" onclick="eliminarItemPedido(${idx})" style="position:absolute;top:8px;right:8px;background:var(--redL);border:none;border-radius:5px;color:var(--red);cursor:pointer;font-size:13px;width:22px;height:22px;display:flex;align-items:center;justify-content:center">×</button>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Producto ${idx+1}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">${it.esExtra?'Producto extra':'Producto suelto'}${it.esExtra?`<span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:9px;font-weight:800;padding:2px 8px;border-radius:12px;text-transform:none">EXTRA</span>`:''}</div>
       <div class="form-grid">
         <div class="fg"><label>Del catálogo</label>
           <select onchange="autoFillItem(${idx},this.value)">
@@ -6198,13 +6371,11 @@ function renderItemsPedido(){
         <div class="fg"><label>Cantidad</label><input type="number" value="${cant}" min="1" oninput="actualizarCantidadItem(${idx},this.value)"></div>
         <div class="fg"><label><span data-ic-inline>${ic('wallet',12)}</span> Precio total S/</label><input type="number" value="${precioTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].precio=parseFloat(this.value)||0;recalcPend()"></div>
         ${cant>1&&precioTotal>0?`<div class="fg"><label style="color:var(--text3);font-size:11px">Precio unit. (ref.)</label><input type="number" value="${(precioTotal/cant).toFixed(2)}" readonly style="opacity:.55;cursor:not-allowed"></div>`:''}
-        ${isAdmin()?`<div class="fg"><label>Costo total S/</label><input type="number" value="${cprodTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].cprod=parseFloat(this.value)||0"></div>`:''}
+        ${(isAdmin()||puede('verCostos'))?`<div class="fg"><label>Costo total S/</label><input type="number" value="${cprodTotal||''}" placeholder="0" oninput="pedidoItems[${idx}].cprod=parseFloat(this.value)||0"></div>`:''}
       </div>
       ${ofertasHtml}
       ${desgloseHtml}
     </div>`;
-  }).join('');
-  recalcPend();
 }
 function actualizarCantidadItem(idx,val){
   const cant=parseInt(val)||1;
@@ -6255,6 +6426,7 @@ function autoFillItem(idx,prodId){
   renderItemsPedido();
 }
 function openNuevoPedido(zonaDefault){
+  if(!puede('crearPedidos')){alert('No tienes permiso para crear pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   _brutoEnRegistro=null;brutoClearWarn();
   document.getElementById('mp-title').textContent='Nuevo Pedido';
   document.getElementById('p-id').value='';
@@ -6276,8 +6448,9 @@ function openNuevoPedido(zonaDefault){
   const felEl=document.getElementById('p-fecha-entrega-lima');if(felEl)felEl.value='';
   const fregBox=document.getElementById('fg-fecha-reg');if(fregBox)fregBox.style.display='none';
   window.pedidoTestimonio=null;renderTestimonioPreview();
+  fillAddProdSelect();cerrarComoLleva();
   pedidoItems=[];
-  agregarItemPedido();
+  renderItemsPedido(); // arranca vacío: el usuario elige un producto con el selector
   fillUpsellSelect();
   fillUpsellOfertas('');
   if(isAdmin()){fillVendedorSelect('');}else{const ma=DB.asesores.find(a=>a.workerId===SESSION.id);fillVendedorSelect(ma?ma.id:SESSION.id);}
@@ -6286,6 +6459,7 @@ function openNuevoPedido(zonaDefault){
 }
 
 function editarPedido(id){
+  if(!puede('editarPedidos')){alert('No tienes permiso para editar pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   _brutoEnRegistro=null;brutoClearWarn();
   const p=DB.pedidos.find(x=>x.id===id);if(!p)return;
   document.getElementById('mp-title').textContent='Editar #'+id;
@@ -6329,14 +6503,16 @@ function editarPedido(id){
   fillUpsellOfertas(p.upsellProd,p.upsellPrecio);
   fillVendedorSelect(p.vendedor);
   window.pedidoTestimonio=p.testimonio||null;renderTestimonioPreview();
+  fillAddProdSelect();cerrarComoLleva();
   toggleZona();
   renderItemsPedido();
+  recalcPend();
   document.getElementById('modal-pedido').classList.add('open');
 }
 
 function fillUpsellSelect(selId){
   const sel=document.getElementById('p-upsell-prod');
-  sel.innerHTML='<option value="">— Sin upsell —</option>'+DB.upsells.map(u=>{
+  sel.innerHTML='<option value="">— Sin producto extra —</option>'+DB.upsells.map(u=>{
     const disp=upsellDisponible(u);
     const stk=disp==null?'':(disp<=0?' · AGOTADO':` · stock ${disp}`);
     return `<option value="${u.id}" ${u.id==selId?'selected':''}>${u.nombre} — S/${u.precio}${stk}</option>`;
@@ -6374,6 +6550,7 @@ function toggleZona(){
     const cenvEl=document.getElementById('p-cenv');
     if(cenvEl)cenvEl.value=z==='lima'?(CFG.courier||14):(CFG.shalom||12);
   }
+  renderPedidoResumen();
 }
 function toggleModalidad(){
   const m=document.getElementById('p-modalidad')?.value||'stock';
@@ -6388,7 +6565,276 @@ function recalcPend(){
   const adv=parseFloat(document.getElementById('p-adelanto')?.value)||0;
   const pend=document.getElementById('p-pendiente');
   if(pend)pend.value=Math.max(0,totalPrecio-adv).toFixed(2);
+  renderPedidoResumen();
 }
+// ── Resumen en vivo del pedido (columna derecha del modal) ──
+function renderPedidoResumen(){
+  const box=document.getElementById('mp-resumen');if(!box)return;
+  const upItem=typeof itemUpsellActual==='function'?itemUpsellActual():null;
+  const items=pedidoItems.filter(it=>!it.esUpsell).concat(upItem?[upItem]:[]);
+  // Agrupar por oferta (packInst): la oferta se muestra como título + desglose.
+  const groups=[];const seen={};
+  items.forEach(it=>{
+    if(it.packInst){
+      if(seen[it.packInst]==null){seen[it.packInst]=groups.length;groups.push({pack:true,nombre:it.packNombre||'Oferta',its:[it]});}
+      else groups[seen[it.packInst]].its.push(it);
+    } else groups.push({plain:true,it});
+  });
+  const lineas=groups.map(g=>{
+    if(g.pack){
+      const sub=g.its.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+      const desglose=g.its.map(it=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--text3);padding:1px 0 1px 12px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(it.nombre)}${it.variante?' · '+escB(it.variante):''} ×${parseInt(it.cantidad)||1}${it.esExtra?' <span style="color:var(--amber);font-weight:800">extra</span>':''}</span></div>`).join('');
+      return `<div style="padding:4px 0">
+        <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;color:var(--accent)"><span style="display:inline-flex;align-items:center;gap:4px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ic('tag',12)} ${escB(g.nombre)}</span><span style="font-family:var(--mono);flex-shrink:0">${fmt(sub)}</span></div>
+        ${desglose}
+      </div>`;
+    }
+    const it=g.it;if(!it.nombre)return '';
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${escB(it.nombre)} ×${parseInt(it.cantidad)||1}${(it.esUpsell||it.esExtra)?' <span style="font-size:9px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span><span style="font-family:var(--mono);flex-shrink:0">${fmt(parseFloat(it.precio)||0)}</span></div>`;
+  }).join('');
+  const total=items.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+  const cprod=items.reduce((s,it)=>s+(parseFloat(it.cprod)||0),0);
+  const cant=items.reduce((s,it)=>s+(parseInt(it.cantidad)||1),0);
+  const zona=document.getElementById('p-zona')?.value||'lima';
+  const cenv=parseFloat(document.getElementById('p-cenv')?.value)||0;
+  const emb=(parseFloat(document.getElementById('p-emb')?.value)||0)*cant;
+  const adv=zona==='provincia'?(parseFloat(document.getElementById('p-adelanto')?.value)||0):0;
+  const gan=total-cprod-cenv-emb;
+  box.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Resumen del pedido</div>
+    ${lineas||'<div style="font-size:12px;color:var(--text3);padding:6px 0">Agrega productos para ver el resumen…</div>'}
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800"><span>Total cliente</span><span style="font-family:var(--mono)">${fmt(total)}</span></div>
+      ${zona==='provincia'?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-top:5px"><span>Adelanto</span><span style="font-family:var(--mono);color:var(--green)">${fmt(adv)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>Pendiente por cobrar</span><span style="font-family:var(--mono);color:var(--amber)">${fmt(Math.max(0,total-adv))}</span></div>`:''}
+    </div>
+    ${(isAdmin()||puede('verGanancias'))?`<div style="background:${gan>=0?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};border-radius:8px;padding:8px 10px;margin-top:10px">
+      <div style="font-size:9.5px;color:${gan>=0?'var(--green)':'var(--red)'};text-transform:uppercase;font-weight:800">Ganancia estimada</div>
+      <div style="font-family:var(--mono);font-weight:800;font-size:17px;color:${gan>=0?'var(--green)':'var(--red)'}">${fmt(gan)}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">precio − producto − envío − embalaje</div>
+    </div>`:''}
+    <button class="btn btn-primary" type="button" style="width:100%;margin-top:12px;justify-content:center" onclick="guardarPedido()">${ic('save',14)} Guardar pedido</button>`;
+}
+// ── OFERTAS en el registro de pedido: flujo PRODUCTO-PRIMERO ──
+// Eliges un producto arriba → aparece "¿cómo lo lleva?" con la opción de llevarlo
+// solo o dentro de una oferta que lo contenga. La oferta queda como un BLOQUE
+// compacto (packInst) con lápiz para editarla solo en este pedido. Al guardar,
+// cada bloque son líneas normales (packId/packInst/esExtra) → stock y finanzas
+// usan la lógica existente sin cambios.
+function fillAddProdSelect(){
+  const sel=document.getElementById('p-add-prod');if(!sel)return;
+  // Un solo selector con dos grupos: Principales y Extras. El valor lleva prefijo
+  // "p:" (principal) o "e:" (extra) para saber qué tipo se eligió.
+  const prods=(DB.productos||[]).map(p=>`<option value="p:${p.id}">${escB(p.nombre)}</option>`).join('');
+  const extras=(DB.upsells||[]).map(u=>`<option value="e:${u.id}">${escB(u.nombre)}</option>`).join('');
+  sel.innerHTML='<option value="">➕ Agregar al pedido…</option>'
+    +(prods?`<optgroup label="Principales">${prods}</optgroup>`:'')
+    +(extras?`<optgroup label="Extras">${extras}</optgroup>`:'');
+  sel.value='';
+}
+function cerrarComoLleva(){const box=document.getElementById('p-comolleva');if(box){box.style.display='none';box.innerHTML='';}const sel=document.getElementById('p-add-prod');if(sel)sel.value='';}
+function pickProductoPedido(val){
+  const box=document.getElementById('p-comolleva');if(!box)return;
+  if(!val){box.style.display='none';box.innerHTML='';return;}
+  // "e:99" → extra suelto (se agrega directo); "p:1" → principal (abre panel)
+  const sep=String(val).indexOf(':');
+  const tipo=sep>=0?String(val).slice(0,sep):'p';
+  const id=sep>=0?String(val).slice(sep+1):String(val);
+  if(tipo==='e'){
+    const u=(DB.upsells||[]).find(x=>String(x.id)===String(id));
+    if(!u){box.style.display='none';box.innerHTML='';return;}
+    // Si el extra tiene precios por cantidad, mostrar el panel para elegir; si no, agregar directo.
+    if(u.ofertas&&u.ofertas.length){
+      const qb=u.ofertas.map(of=>`<button type="button" onclick="agregarExtraSolo('${String(u.id)}',${of.cantidad},${of.precio})" style="background:var(--surface3);border:1.5px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer">${of.cantidad}× S/${of.precio}</button>`).join('');
+      box.style.display='block';
+      box.innerHTML=`<div style="border:1px solid var(--border2);border-radius:10px;padding:12px;background:var(--surface2)">
+        <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:8px">Agregar <b style="color:var(--text)">${escB(u.nombre)}</b> <span style="color:var(--amber);font-weight:800">· EXTRA</span></div>
+        <div style="max-width:300px"><div style="border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--surface)">
+          <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('package',14)} Solo el extra</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${qb}</div>
+          <button type="button" class="btn btn-primary btn-sm" style="width:100%;justify-content:center" onclick="agregarExtraSolo('${String(u.id)}',1,${u.precio||0})">Agregar 1 unidad</button>
+        </div></div>
+      </div>`;
+      return;
+    }
+    agregarExtraSolo(id);return;
+  }
+  const prod=DB.productos.find(p=>p.id===parseInt(id));if(!prod)return;
+  // Ofertas activas que contengan este producto como principal
+  const ofertas=packsList().filter(o=>o.activa!==false&&(o.items||[]).some(it=>it.tipo==='prod'&&String(it.refId)===String(prod.id)));
+  const qtyBtns=(prod.ofertas&&prod.ofertas.length)?prod.ofertas.map(of=>`<button type="button" onclick="agregarProductoSolo(${prod.id},${of.cantidad},${of.precio})" style="background:var(--surface3);border:1.5px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer">${of.cantidad}× S/${of.precio}</button>`).join(''):'';
+  box.style.display='block';
+  box.innerHTML=`<div style="border:1px solid var(--border2);border-radius:10px;padding:12px;background:var(--surface2)">
+    <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:8px">¿Cómo lleva <b style="color:var(--text)">${escB(prod.nombre)}</b>?</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px">
+      <div style="border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--surface)">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('package',14)} Solo el producto</div>
+        ${qtyBtns?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${qtyBtns}</div>`:''}
+        <button type="button" class="btn btn-primary btn-sm" style="width:100%;justify-content:center" onclick="agregarProductoSolo(${prod.id},1,${prod.precio||0})">Agregar${qtyBtns?' 1 unidad':''}</button>
+      </div>
+      ${ofertas.map(o=>{
+        const t=packTotales(o);const agot=t.packsPosibles!=null&&t.packsPosibles<=0;
+        const det=(o.items||[]).map(it=>escB(packItemInfo(it).nombre)+' ×'+(parseInt(it.cantidad)||1)).join(' + ');
+        return `<div style="border:1.5px solid var(--accent);border-radius:9px;padding:10px;background:var(--surface)">
+          <div style="font-size:12.5px;font-weight:800;color:var(--accent);margin-bottom:2px;display:inline-flex;align-items:center;gap:5px">${ic('tag',14)} ${escB(o.nombre)} · ${fmt(o.precio||0)}</div>
+          <div style="font-size:10.5px;color:var(--text3);margin-bottom:8px">${det}${agot?' · <span style="color:var(--red);font-weight:700">SIN STOCK</span>':''}</div>
+          <button type="button" class="btn btn-sm" style="width:100%;justify-content:center;background:var(--accent);color:#fff;font-weight:700" onclick="agregarPackAlPedido(${o.id})">Agregar oferta</button>
+        </div>`;
+      }).join('')}
+    </div>
+    ${ofertas.length?'':'<div style="font-size:11px;color:var(--text3);margin-top:8px">Este producto no está en ninguna oferta — se agrega como producto suelto.</div>'}
+  </div>`;
+}
+function agregarProductoSolo(prodId,cantidad,precio){
+  const prod=DB.productos.find(p=>p.id===parseInt(prodId));if(!prod)return;
+  cantidad=parseInt(cantidad)||1;
+  pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
+  pedidoItems.push({productoId:prod.id,nombre:prod.nombre,variante:'',desglose:cantidad>1?[{variante:'',cantidad:1},{variante:'',cantidad:cantidad-1}]:[],cantidad,precio:(precio!=null?precio:prod.precio)||0,cprod:(prod.costo||0)*cantidad,sku:prod.sku||'',cali:''});
+  cerrarComoLleva();renderItemsPedido();recalcPend();
+}
+function agregarItemManual(){pedidoItems.push({productoId:'',nombre:'',variante:'',cantidad:1,precio:'',cprod:'',cali:'',sku:''});cerrarComoLleva();renderItemsPedido();}
+// Extra suelto (à la carte, fuera de una oferta): línea marcada esExtra que
+// descuenta del stock del extra. Misma estructura que los extras dentro de packs.
+function agregarExtraSolo(extraId,cantidad,precio){
+  const u=(DB.upsells||[]).find(x=>String(x.id)===String(extraId));if(!u)return;
+  cantidad=parseInt(cantidad)||1;
+  pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
+  pedidoItems.push({productoId:u.productoId||'',nombre:u.nombre,variante:'',desglose:[],cantidad,precio:(precio!=null?precio:u.precio)||0,cprod:(parseFloat(u.costo)||0)*cantidad,sku:'',cali:'',esExtra:true,upsellId:u.id});
+  cerrarComoLleva();renderItemsPedido();recalcPend();
+  showToast('✅ Extra "'+(u.nombre||'')+'" agregado','success',1600);
+}
+function _nuevoPackInst(){return 'pk'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+// Valor de catálogo de una línea (para repartir el precio del pack)
+function lineaValorCatalogo(it){
+  const cant=parseInt(it.cantidad)||1;
+  if(it.esExtra){const u=(DB.upsells||[]).find(x=>String(x.id)===String(it.upsellId));return (u?parseFloat(u.precio)||0:0)*cant;}
+  if(it.productoId){const p=DB.productos.find(x=>x.id===parseInt(it.productoId));if(p)return (parseFloat(p.precio)||0)*cant;}
+  return parseFloat(it.precio)||0;
+}
+// Expande una oferta en líneas de pedido, repartiendo el precio en SOLES ENTEROS
+function _expandirPackALineas(o,packInst){
+  const precio=parseFloat(o.precio)||0;
+  const infos=(o.items||[]).map(it=>({it,inf:packItemInfo(it),cant:parseInt(it.cantidad)||1}));
+  const valorTotal=infos.reduce((s,x)=>s+x.inf.precio*x.cant,0);
+  let asignado=0;
+  return infos.map((x,i)=>{
+    let share;
+    if(valorTotal>0){
+      if(i===infos.length-1)share=Math.round((precio-asignado)*100)/100;
+      else{share=Math.round((x.inf.precio*x.cant/valorTotal)*precio);asignado+=share;}
+    }else share=i===0?precio:0;
+    const base={nombre:x.inf.nombre,variante:'',desglose:[],cantidad:x.cant,precio:share,cprod:Math.round(x.inf.costo*x.cant*100)/100,sku:'',cali:'',packId:o.id,packInst,packNombre:o.nombre};
+    if(x.it.tipo==='extra'){const u=x.inf.ref;return Object.assign(base,{productoId:(u&&u.productoId)||'',esExtra:true,upsellId:x.it.refId});}
+    return Object.assign(base,{productoId:parseInt(x.it.refId)||''});
+  });
+}
+function agregarPackAlPedido(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  const t=packTotales(o);
+  if(t.rotos){alert('Esta oferta incluye productos que ya no existen en el inventario. Edítala en la sección Ofertas antes de usarla.');return;}
+  if(t.packsPosibles!=null&&t.packsPosibles<=0&&!confirm('Esta oferta está AGOTADA según el stock actual.\n¿Agregarla de todas formas?'))return;
+  pedidoItems=pedidoItems.filter(it=>it.nombre||it.productoId||it.packInst); // limpia línea en blanco
+  pedidoItems=pedidoItems.concat(_expandirPackALineas(o,_nuevoPackInst()));
+  cerrarComoLleva();renderItemsPedido();recalcPend();
+  showToast('✅ Oferta "'+(o.nombre||'')+'" agregada','success',2000);
+}
+function quitarBloqueOferta(packInst){
+  pedidoItems=pedidoItems.filter(it=>String(it.packInst)!==String(packInst));
+  renderItemsPedido();recalcPend();
+}
+function _redistribuirPack(packInst,P){
+  const idxs=[];pedidoItems.forEach((it,i)=>{if(String(it.packInst)===String(packInst))idxs.push(i);});
+  const vals=idxs.map(i=>lineaValorCatalogo(pedidoItems[i]));
+  const tot=vals.reduce((s,v)=>s+v,0);
+  let asignado=0;
+  idxs.forEach((gi,k)=>{
+    let share;
+    if(tot>0){if(k===idxs.length-1)share=Math.round((P-asignado)*100)/100;else{share=Math.round(vals[k]/tot*P);asignado+=share;}}
+    else share=k===0?P:0;
+    pedidoItems[gi].precio=share;
+  });
+}
+function setPrecioBloqueOferta(packInst,val){_redistribuirPack(packInst,parseFloat(val)||0);renderItemsPedido();recalcPend();}
+
+// ── Editor de una oferta SOLO para este pedido (lápiz) ──
+let _pedPackEdit=null;
+function openEditOfertaPedido(packInst){
+  const lines=pedidoItems.filter(it=>String(it.packInst)===String(packInst));
+  if(!lines.length)return;
+  const total=lines.reduce((s,it)=>s+(parseFloat(it.precio)||0),0);
+  _pedPackEdit={packInst,packId:lines[0].packId,nombre:lines[0].packNombre||'Oferta',precio:Math.round(total*100)/100,q:'',
+    items:lines.map(it=>({tipo:it.esExtra?'extra':'prod',refId:it.esExtra?it.upsellId:it.productoId,cantidad:parseInt(it.cantidad)||1}))};
+  renderEditOfertaPedido();
+}
+function cerrarEditOfertaPedido(){const ov=document.getElementById('pedpack-ov');if(ov)ov.remove();_pedPackEdit=null;}
+function renderEditOfertaPedido(){
+  const e=_pedPackEdit;if(!e)return;
+  let ov=document.getElementById('pedpack-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pedpack-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10002;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto';ov.onclick=ev=>{if(ev.target===ov)cerrarEditOfertaPedido();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:720px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0"><span style="color:var(--accent);flex-shrink:0">${ic('tag',18)}</span>
+        <input value="${escB(e.nombre)}" oninput="_pedPackEdit.nombre=this.value" style="flex:1;min-width:0;max-width:300px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:14px;font-weight:700">
+        <span style="font-size:11px;color:var(--text3);flex-shrink:0">solo este pedido</span>
+      </div>
+      <button onclick="cerrarEditOfertaPedido()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:12px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:400px;overflow:auto">
+        <input value="${escB(e.q)}" placeholder="🔎 Buscar producto…" oninput="_pedPackEdit.q=this.value;_renderPedPackListas()" style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12.5px;margin-bottom:8px">
+        <div id="pedpack-listas">${_pedPackListasHtml()}</div>
+      </div>
+      <div style="background:var(--surface2);border:1.5px solid var(--accent);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;margin-bottom:8px">Contenido · ${e.items.length}</div>
+        <div id="pedpack-items">${_pedPackItemsHtml()}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
+          <label style="font-size:12.5px;color:var(--text2);font-weight:700">Precio del pack S/</label>
+          <input type="number" value="${e.precio}" min="0" step="0.5" oninput="_pedPackEdit.precio=parseFloat(this.value)||0" style="width:100px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:15px">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn btn-primary" onclick="guardarEditOfertaPedido()">${ic('save',14)} Aplicar al pedido</button>
+          <button class="btn btn-ghost" onclick="cerrarEditOfertaPedido()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function _pedPackListasHtml(){
+  const q=brutoNorm(_pedPackEdit.q);
+  const fila=(nombre,onclk)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px"><span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(nombre)}</span><button class="btn btn-sm" style="background:var(--accent);color:#fff;font-weight:800;padding:2px 11px" onclick="${onclk}">+</button></div>`;
+  const prods=(DB.productos||[]).filter(p=>!q||brutoNorm(p.nombre).includes(q));
+  const extras=(DB.upsells||[]).filter(u=>!q||brutoNorm(u.nombre).includes(q));
+  return `<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:4px 0 6px">${ic('store',12)} Principales</div>
+    ${prods.length?prods.map(p=>fila(p.nombre,`_pedPackAdd('prod',${p.id})`)).join(''):'<div style="font-size:11.5px;color:var(--text3)">Sin resultados</div>'}
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:10px 0 6px">${ic('arrow-up-circle',12)} Extras</div>
+    ${extras.length?extras.map(u=>fila(u.nombre,`_pedPackAdd('extra','${String(u.id)}')`)).join(''):'<div style="font-size:11.5px;color:var(--text3)">Sin resultados</div>'}`;
+}
+function _pedPackItemsHtml(){
+  const items=_pedPackEdit.items;
+  if(!items.length)return '<div style="font-size:12px;color:var(--text3);padding:14px 0;text-align:center">Agrega productos 👈</div>';
+  return items.map((it,i)=>{const inf=packItemInfo(it);return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface3);border-radius:8px;padding:7px 9px;margin-bottom:5px"><span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${inf.ok?'':'color:var(--red)'}">${escB(inf.nombre)} ${inf.extra?'<span style="font-size:9.5px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span><span style="display:flex;align-items:center;gap:5px;flex-shrink:0"><button class="btn btn-ghost btn-xs" onclick="_pedPackQty(${i},-1)" style="padding:1px 8px;font-weight:800">−</button><b style="font-family:var(--mono);min-width:18px;text-align:center">${parseInt(it.cantidad)||1}</b><button class="btn btn-ghost btn-xs" onclick="_pedPackQty(${i},1)" style="padding:1px 8px;font-weight:800">+</button><button class="btn btn-ghost btn-xs" onclick="_pedPackDel(${i})">${ic('trash',12)}</button></span></div>`;}).join('');
+}
+function _renderPedPackListas(){const el=document.getElementById('pedpack-listas');if(el)el.innerHTML=_pedPackListasHtml();}
+function _renderPedPackItems(){const a=document.getElementById('pedpack-items');if(a)a.innerHTML=_pedPackItemsHtml();}
+function _pedPackAdd(tipo,refId){const ex=_pedPackEdit.items.find(it=>it.tipo===tipo&&String(it.refId)===String(refId));if(ex)ex.cantidad=(parseInt(ex.cantidad)||1)+1;else _pedPackEdit.items.push({tipo,refId,cantidad:1});_renderPedPackItems();}
+function _pedPackQty(i,d){const it=_pedPackEdit.items[i];if(!it)return;it.cantidad=Math.max(1,(parseInt(it.cantidad)||1)+d);_renderPedPackItems();}
+function _pedPackDel(i){_pedPackEdit.items.splice(i,1);_renderPedPackItems();}
+function guardarEditOfertaPedido(){
+  const e=_pedPackEdit;if(!e)return;
+  if(!e.items.length){alert('La oferta debe tener al menos un producto.');return;}
+  if(!(parseFloat(e.precio)>0)){alert('Define el precio del pack.');return;}
+  const prevLines=pedidoItems.filter(it=>String(it.packInst)===String(e.packInst));
+  const nuevas=_expandirPackALineas({id:e.packId,nombre:e.nombre,precio:e.precio,items:e.items},e.packInst);
+  // Preservar variantes ya elegidas cuando el producto coincide
+  nuevas.forEach(nl=>{const prev=prevLines.find(pl=>(nl.esExtra?String(pl.upsellId)===String(nl.upsellId):String(pl.productoId)===String(nl.productoId))&&pl.variante);if(prev)nl.variante=prev.variante;});
+  const firstIdx=pedidoItems.findIndex(it=>String(it.packInst)===String(e.packInst));
+  const insertPos=pedidoItems.slice(0,firstIdx<0?0:firstIdx).filter(it=>String(it.packInst)!==String(e.packInst)).length;
+  const resto=pedidoItems.filter(it=>String(it.packInst)!==String(e.packInst));
+  resto.splice(insertPos,0,...nuevas);
+  pedidoItems=resto;
+  cerrarEditOfertaPedido();renderItemsPedido();recalcPend();
+  showToast('✅ Oferta actualizada para este pedido','success',2000);
+}
+
 // ── Upsell / Order Bump como línea de pedido (cuenta igual que un producto) ──
 // Lee el upsell del modal; si fue ACEPTADO, devuelve un item marcado esUpsell
 // (con productoId del catálogo si está vinculado → descuenta stock). Devuelve
@@ -6444,7 +6890,7 @@ async function guardarPedido(){
   // Combinar productos principales + upsell aceptado (cuenta igual que un producto)
   const baseItems=pedidoItems.filter(it=>!it.esUpsell);
   const upItem=itemUpsellActual();
-  if(upItem){const _u=(DB.upsells||[]).find(x=>String(x.id)===String(upItem.upsellId));const _d=upsellDisponible(_u);if(_d!=null&&_d<=0&&!id){if(!confirm('El upsell "'+upItem.nombre+'" está AGOTADO (stock 0).\n¿Registrar el pedido de todas formas?'))return;}}
+  if(upItem){const _u=(DB.upsells||[]).find(x=>String(x.id)===String(upItem.upsellId));const _d=upsellDisponible(_u);if(_d!=null&&_d<=0&&!id){if(!confirm('El producto extra "'+upItem.nombre+'" está AGOTADO (stock 0).\n¿Registrar el pedido de todas formas?'))return;}}
   const allItems=upItem?baseItems.concat([upItem]):baseItems.slice();
   const totalPrecio=allItems.reduce((s,it)=>(s+(parseFloat(it.precio)||0)),0);
   const totalCprod=allItems.reduce((s,it)=>(s+(parseFloat(it.cprod)||0)),0);
@@ -6546,6 +6992,7 @@ async function guardarPedido(){
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
 }
 function eliminarPedido(id){
+  if(!puede('eliminarPedidos')){alert('No tienes permiso para eliminar pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   const p=DB.pedidos.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('¿Eliminar pedido #'+id+'?'))return;
@@ -7080,6 +7527,13 @@ async function exportarExcelShalom(){
   }catch(err){console.error('Error Shalom Excel:',err);alert('Error al generar el Excel: '+err.message);}
 }
 
+// Pestañas de la sección Lima: pedidos + liquidación del courier (solo admin ve la 2ª)
+function limaTabsHtml(act){
+  return `<div class="tgrp" style="margin-bottom:16px">
+    <button class="tbtn ${act==='pedidos'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('lima')">${ic('package',14)} Pedidos Lima</button>
+    ${isAdmin()?`<button class="tbtn ${act==='liquidacion'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('liquidacion')">${ic('banknote',14)} Liquidación courier</button>`:''}
+  </div>`;
+}
 function renderLima(){
   const arr=DB.pedidos.filter(p=>p.zona==='lima'&&['confirmado','enviado','entregado','devuelto'].includes(p.estado));
   const ent=arr.filter(p=>p.estado==='entregado'),dev=arr.filter(p=>p.estado==='devuelto');
@@ -7093,14 +7547,15 @@ function renderLima(){
     </button>
     <button class="btn btn-primary" onclick="openNuevoPedido('lima')">+ Pedido Lima</button>
   </div></div>
+  ${limaTabsHtml('pedidos')}
   ${(()=>{const activos=conf.concat(env);const sinCourier=activos.filter(p=>!p.courier||!p.courier.trim());const valActivo=activos.reduce((s,p)=>s+p.precio,0);return sinCourier.length?`<div class="abox abox-amber"><span class="abox-icon">${ic('bike',18)}</span><div class="abox-text"><b>${sinCourier.length} pedido(s) sin delivery asignado</b> — Asigna un courier para que aparezcan en Liquidación</div></div>`:'';})()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Lima</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
-    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Valor activo</div><div class="mcard-val mv-green" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+p.precio,0))}</div><div class="mcard-sub">en entregas pendientes</div></div>
+    <div class="mcard mc-accent" title="Pedidos confirmados + enviados que aún no llegan al cliente"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
+    <div class="mcard mc-green" title="Pedidos ya entregados al cliente (el monto es la suma de sus precios)"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
+    <div class="mcard mc-red" title="Pedidos que el cliente no recibió (la tasa es devueltos ÷ total)"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
+    ${isAdmin()?`<div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}" title="Entregados ÷ (entregados + devueltos) de Lima. Solo visible para el administrador."><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-green" title="Suma de los precios de los pedidos confirmados y enviados que aún no se entregan. Solo visible para el administrador."><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Valor activo</div><div class="mcard-val mv-green" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+p.precio,0))}</div><div class="mcard-sub">en entregas pendientes</div></div>`:''}
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -7324,11 +7779,11 @@ function renderProvincia(){
   })()}
   <div class="metrics-grid">
     <div class="mcard mc-blue"><div class="mcard-label">Total Provincia</div><div class="mcard-val mv-blue">${arr.length}</div><div class="mcard-sub">histórico</div></div>
-    <div class="mcard mc-accent"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
-    <div class="mcard mc-green"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
-    <div class="mcard mc-red"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
-    <div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}"><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+(p.pendiente||0),0))}</div><div class="mcard-sub">pendiente en tránsito</div></div>
+    <div class="mcard mc-accent" title="Pedidos confirmados + enviados que aún no llegan al cliente"><div class="mcard-label">Por entregar</div><div class="mcard-val mv-accent">${conf.length+env.length}</div><div class="mcard-sub">${conf.length} conf · ${env.length} env</div></div>
+    <div class="mcard mc-green" title="Pedidos ya entregados al cliente (el monto es la suma de sus precios)"><div class="mcard-label">Entregados</div><div class="mcard-val mv-green">${ent.length}</div><div class="mcard-sub">${fmt(ent.reduce((s,p)=>s+p.precio,0))}</div></div>
+    <div class="mcard mc-red" title="Pedidos que el cliente no recibió (la tasa es devueltos ÷ total)"><div class="mcard-label">Devueltos</div><div class="mcard-val mv-red">${dev.length}</div><div class="mcard-sub">${arr.length>0?Math.round(dev.length/arr.length*100):0}% tasa</div></div>
+    ${isAdmin()?`<div class="mcard mc-${ef>=CFG.metaEf?'green':'red'}" title="Entregados ÷ (entregados + devueltos) de Provincia. Solo visible para el administrador."><div class="mcard-label">% Efectividad</div><div class="mcard-val mv-${ef>=CFG.metaEf?'green':'red'}">${ef}%</div><div class="mcard-sub">meta: ${CFG.metaEf}%</div></div>
+    <div class="mcard mc-amber" title="Suma de los saldos pendientes (precio − adelanto) de pedidos en tránsito. Solo visible para el administrador."><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Por cobrar</div><div class="mcard-val mv-amber" style="font-size:19px">${fmt([...conf,...env].reduce((s,p)=>s+(p.pendiente||0),0))}</div><div class="mcard-sub">pendiente en tránsito</div></div>`:''}
   </div>
   <div class="fbar">
     <div class="fg-filter">
@@ -8161,6 +8616,212 @@ Margen: ${margen.toFixed(1)}%`;
 let prodVista='cards'; // 'cards' | 'tabla'
 let prodOrden='vendidos'; // 'vendidos'|'stock_bajo'|'ganancia'|'nombre'|'agotado'
 
+// =====================================================================
+// INVENTARIO — pestañas compartidas (Productos Principales / Productos Extras)
+// =====================================================================
+function inventarioTabsHtml(act){
+  return `<div class="tgrp" style="margin-bottom:16px">
+    <button class="tbtn ${act==='prod'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('productos')">${ic('store',14)} Productos Principales</button>
+    <button class="tbtn ${act==='extras'?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('upsells')">${ic('arrow-up-circle',14)} Productos Extras</button>
+  </div>`;
+}
+// Etiqueta visible del tipo de extra. Los datos históricos guardan 'Order Bump'/
+// 'Upsell' — NO se tocan; solo cambia cómo se muestran.
+function tipoExtraLbl(t){if(!t||t==='Order Bump'||t==='Upsell')return 'Producto Extra';return t;}
+
+// =====================================================================
+// OFERTAS — packs que combinan productos principales + extras.
+// DB.packs=[{id,nombre,activa,precio,items:[{tipo:'prod'|'extra',refId,cantidad}]}]
+// Al usarse en un pedido se EXPANDEN en líneas normales → stock y finanzas
+// funcionan con la lógica existente, sin tocarla.
+// =====================================================================
+function packsList(){return Array.isArray(DB.packs)?DB.packs:[];}
+function packItemInfo(it){
+  if(it.tipo==='extra'){
+    const u=(DB.upsells||[]).find(x=>String(x.id)===String(it.refId));
+    if(!u)return {nombre:'(extra eliminado)',costo:0,precio:0,stock:null,extra:true,ok:false};
+    return {nombre:u.nombre,costo:parseFloat(u.costo)||0,precio:parseFloat(u.precio)||0,stock:upsellDisponible(u),extra:true,ok:true,ref:u};
+  }
+  const p=(DB.productos||[]).find(x=>x.id===parseInt(it.refId));
+  if(!p)return {nombre:'(producto eliminado)',costo:0,precio:0,stock:null,extra:false,ok:false};
+  return {nombre:p.nombre,costo:parseFloat(p.costo)||0,precio:parseFloat(p.precio)||0,stock:p.modalidad==='stock'?(p.stock||0):null,extra:false,ok:true,ref:p};
+}
+function packTotales(o){
+  let costo=0,valor=0,packsPosibles=null,rotos=0;
+  (o.items||[]).forEach(it=>{
+    const inf=packItemInfo(it);const c=parseInt(it.cantidad)||1;
+    costo+=inf.costo*c;valor+=inf.precio*c;if(!inf.ok)rotos++;
+    if(inf.stock!=null){const n=Math.floor(inf.stock/c);packsPosibles=packsPosibles==null?n:Math.min(packsPosibles,n);}
+  });
+  return {costo,valor,packsPosibles,rotos,gan:(parseFloat(o.precio)||0)-costo};
+}
+function renderOfertas(){
+  if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador.</div>');return;}
+  const packs=packsList();
+  const activas=packs.filter(o=>o.activa!==false).length;
+  setContent(`
+  <div class="section-header"><div><div class="section-title">${ic('tag',20)} Ofertas</div><div class="section-sub">${packs.length} oferta(s) · ${activas} activa(s) — combina productos del inventario en packs</div></div>
+  <div class="section-actions"><button class="btn btn-primary" onclick="openPackBuilder()">+ Crear oferta</button></div></div>
+  ${packs.length
+    ?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${packs.map(packCardHtml).join('')}</div>`
+    :`<div class="card" style="text-align:center;padding:44px 24px">
+        <div style="display:flex;justify-content:center;margin-bottom:12px">${ic('tag',34)}</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes ofertas</div>
+        <div style="font-size:13px;color:var(--text3);max-width:420px;margin:0 auto 16px">Una <b>oferta</b> combina productos principales y extras en un pack con precio propio (ej. 1 Lector + 2 Fundas a S/129). Al registrar un pedido, eliges la oferta con un clic y todo se completa solo.</div>
+        <button class="btn btn-primary" onclick="openPackBuilder()">+ Crear primera oferta</button>
+      </div>`}`);
+}
+function packCardHtml(o){
+  const t=packTotales(o);
+  const activa=o.activa!==false;
+  const items=(o.items||[]).map(it=>{
+    const inf=packItemInfo(it);
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="${inf.ok?'':'color:var(--red)'}">${escB(inf.nombre)} ${inf.extra?'<span style="font-size:10px;color:var(--accent);font-weight:700">EXTRA</span>':''}</span>
+      <span style="font-family:var(--mono);color:var(--text2)">×${parseInt(it.cantidad)||1}</span>
+    </div>`;
+  }).join('');
+  return `<div class="card" style="padding:16px;${activa?'':'opacity:.55'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div style="font-weight:800;font-size:14.5px">${escB(o.nombre||'—')}</div>
+      <span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;${activa?'background:rgba(34,197,94,.15);color:var(--green);border:1px solid var(--green)':'background:var(--surface3);color:var(--text3);border:1px solid var(--border)'}">${activa?'ACTIVA':'PAUSADA'}</span>
+    </div>
+    <div style="margin:10px 0 8px">${items||'<span style="font-size:12px;color:var(--text3)">Sin productos</span>'}</div>
+    ${t.rotos?`<div style="font-size:11px;color:var(--red);margin-bottom:6px">⚠️ ${t.rotos} producto(s) del pack ya no existe(n) en el inventario</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:80px;background:var(--surface3);border-radius:8px;padding:7px 9px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">Precio pack</div><div style="font-family:var(--mono);font-weight:800;font-size:15px">${fmt(o.precio||0)}</div></div>
+      <div style="flex:1;min-width:80px;background:var(--surface3);border-radius:8px;padding:7px 9px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">Ganancia</div><div style="font-family:var(--mono);font-weight:800;font-size:15px;color:${t.gan>=0?'var(--green)':'var(--red)'}">${fmt(t.gan)}</div></div>
+      <div style="flex:1;min-width:80px;background:var(--surface3);border-radius:8px;padding:7px 9px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">Stock packs</div><div style="font-family:var(--mono);font-weight:800;font-size:15px;color:${t.packsPosibles!=null&&t.packsPosibles<=0?'var(--red)':'var(--text)'}">${t.packsPosibles==null?'∞':t.packsPosibles}</div></div>
+    </div>
+    ${t.valor>(parseFloat(o.precio)||0)&&o.precio?`<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Cliente ahorra <b style="color:var(--green)">${fmt(t.valor-o.precio)}</b> vs comprar por separado (${fmt(t.valor)})</div>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="openPackBuilder(${o.id})">${ic('pencil',13)} Editar</button>
+      <button class="btn btn-ghost btn-sm" onclick="duplicarPack(${o.id})">📋 Duplicar</button>
+      <button class="btn btn-ghost btn-sm" onclick="togglePack(${o.id})">${activa?'⏸ Pausar':'▶ Activar'}</button>
+      <button class="btn btn-danger btn-sm" onclick="eliminarPack(${o.id})">${ic('trash',13)}</button>
+    </div>
+  </div>`;
+}
+// ── Constructor visual de ofertas ──
+let _pack=null,_packQ='';
+function openPackBuilder(id){
+  const base=id?packsList().find(x=>x.id===id):null;
+  _pack=base?JSON.parse(JSON.stringify(base)):{id:null,nombre:'',activa:true,precio:'',items:[]};
+  _packQ='';
+  renderPackBuilder();
+}
+function cerrarPackBuilder(){const ov=document.getElementById('pack-ov');if(ov)ov.remove();_pack=null;}
+function renderPackBuilder(){
+  if(!_pack)return;
+  let ov=document.getElementById('pack-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pack-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto';ov.onclick=e=>{if(e.target===ov)cerrarPackBuilder();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:760px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        ${ic('tag',18)}
+        <input id="pack-nombre" value="${escB(_pack.nombre)}" placeholder="Nombre de la oferta (ej. Pack Regalo)" oninput="_pack.nombre=this.value" style="flex:1;max-width:320px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:14px;font-weight:700">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer"><input type="checkbox" ${_pack.activa!==false?'checked':''} onchange="_pack.activa=this.checked" style="accent-color:var(--green);width:16px;height:16px;cursor:pointer"> Activa</label>
+      </div>
+      <button onclick="cerrarPackBuilder()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.25fr;gap:12px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:430px;overflow:auto">
+        <input id="pack-q" value="${escB(_packQ)}" placeholder="🔎 Buscar producto…" oninput="_packQ=this.value;renderPackListas()" style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12.5px;margin-bottom:8px">
+        <div id="pack-listas">${packListasHtml()}</div>
+      </div>
+      <div style="background:var(--surface2);border:1.5px solid var(--accent);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Tu oferta · ${(_pack.items||[]).length} producto(s)</div>
+        <div id="pack-items">${packItemsHtml()}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
+          <label style="font-size:12.5px;color:var(--text2);font-weight:700">Precio del pack S/</label>
+          <input type="number" value="${_pack.precio}" min="0" step="0.5" oninput="_pack.precio=parseFloat(this.value)||'';renderPackResumen()" style="width:100px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:15px">
+        </div>
+        <div id="pack-resumen">${packResumenHtml()}</div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary" onclick="guardarPack()">${ic('save',14)} Guardar oferta</button>
+          <button class="btn btn-ghost" onclick="cerrarPackBuilder()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function packListasHtml(){
+  const q=brutoNorm(_packQ);
+  const fila=(nombre,stock,onclk,extra)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px">
+    <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escB(nombre)}${stock!=null?` <span style="color:var(--text3);font-size:11px">· stock ${stock}</span>`:''}</span>
+    <button class="btn btn-sm" style="background:var(--accent);color:#fff;font-weight:800;padding:2px 11px" onclick="${onclk}" title="Agregar a la oferta">+</button>
+  </div>`;
+  const prods=(DB.productos||[]).filter(p=>!q||brutoNorm(p.nombre).includes(q));
+  const extras=(DB.upsells||[]).filter(u=>!q||brutoNorm(u.nombre).includes(q));
+  return `<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:4px 0 6px">${ic('store',12)} Productos principales</div>
+    ${prods.length?prods.map(p=>fila(p.nombre,p.modalidad==='stock'?(p.stock||0):null,`packAdd('prod',${p.id})`)).join(''):'<div style="font-size:11.5px;color:var(--text3);padding:4px 0 8px">Sin resultados</div>'}
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px">${ic('arrow-up-circle',12)} Productos extras</div>
+    ${extras.length?extras.map(u=>fila(u.nombre,upsellDisponible(u),`packAdd('extra','${String(u.id)}')`)).join(''):'<div style="font-size:11.5px;color:var(--text3);padding:4px 0">Sin resultados</div>'}`;
+}
+function packItemsHtml(){
+  const items=_pack.items||[];
+  if(!items.length)return '<div style="font-size:12px;color:var(--text3);padding:14px 0;text-align:center">Agrega productos desde el buscador de la izquierda 👈</div>';
+  return items.map((it,i)=>{
+    const inf=packItemInfo(it);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface3);border-radius:8px;padding:7px 9px;margin-bottom:5px">
+      <span style="font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${inf.ok?'':'color:var(--red)'}">${escB(inf.nombre)} ${inf.extra?'<span style="font-size:9.5px;color:var(--accent);font-weight:800">EXTRA</span>':''}</span>
+      <span style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <button class="btn btn-ghost btn-xs" onclick="packQty(${i},-1)" style="padding:1px 8px;font-weight:800">−</button>
+        <b style="font-family:var(--mono);min-width:18px;text-align:center">${parseInt(it.cantidad)||1}</b>
+        <button class="btn btn-ghost btn-xs" onclick="packQty(${i},1)" style="padding:1px 8px;font-weight:800">+</button>
+        <button class="btn btn-ghost btn-xs" onclick="packDelItem(${i})" title="Quitar">${ic('trash',12)}</button>
+      </span>
+    </div>`;
+  }).join('');
+}
+function packResumenHtml(){
+  const t=packTotales(_pack);
+  const precio=parseFloat(_pack.precio)||0;
+  const cell=(l,v,c)=>`<div style="flex:1;background:var(--surface3);border-radius:8px;padding:8px 10px"><div style="font-size:9.5px;color:var(--text3);text-transform:uppercase">${l}</div><div style="font-family:var(--mono);font-weight:800;font-size:14.5px;color:${c||'var(--text)'}">${v}</div></div>`;
+  return `<div style="display:flex;gap:8px">
+    ${cell('Valor separado',fmt(t.valor))}
+    ${cell('Costo total',fmt(t.costo))}
+    ${cell('Ganancia est.',fmt(precio-t.costo),(precio-t.costo)>=0?'var(--green)':'var(--red)')}
+  </div>
+  ${precio&&t.valor>precio?`<div style="font-size:11px;color:var(--text3);margin-top:6px">El cliente ahorra <b style="color:var(--green)">${fmt(t.valor-precio)}</b> comprando el pack</div>`:''}`;
+}
+function renderPackListas(){const el=document.getElementById('pack-listas');if(el)el.innerHTML=packListasHtml();}
+function renderPackItemsUI(){const a=document.getElementById('pack-items');if(a)a.innerHTML=packItemsHtml();renderPackResumen();}
+function renderPackResumen(){const r=document.getElementById('pack-resumen');if(r)r.innerHTML=packResumenHtml();}
+function packAdd(tipo,refId){
+  if(!_pack)return;
+  const ex=(_pack.items||[]).find(it=>it.tipo===tipo&&String(it.refId)===String(refId));
+  if(ex)ex.cantidad=(parseInt(ex.cantidad)||1)+1;
+  else _pack.items.push({tipo,refId,cantidad:1});
+  renderPackItemsUI();
+}
+function packQty(i,d){const it=_pack.items[i];if(!it)return;it.cantidad=Math.max(1,(parseInt(it.cantidad)||1)+d);renderPackItemsUI();}
+function packDelItem(i){_pack.items.splice(i,1);renderPackItemsUI();}
+function guardarPack(){
+  if(!_pack)return;
+  _pack.nombre=(_pack.nombre||'').trim();
+  if(!_pack.nombre){alert('Ponle un nombre a la oferta.');return;}
+  if(!(_pack.items||[]).length){alert('Agrega al menos un producto.');return;}
+  if(!(parseFloat(_pack.precio)>0)){alert('Define el precio del pack.');return;}
+  if(!Array.isArray(DB.packs))DB.packs=[];
+  if(_pack.id){const idx=DB.packs.findIndex(x=>x.id===_pack.id);if(idx>=0)DB.packs[idx]=_pack;else DB.packs.push(_pack);}
+  else{_pack.id=Date.now();DB.packs.push(_pack);}
+  save();cerrarPackBuilder();renderOfertas();
+  showToast('✅ Oferta guardada');
+}
+function duplicarPack(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  const copia=JSON.parse(JSON.stringify(o));copia.id=Date.now();copia.nombre=(o.nombre||'Oferta')+' (copia)';
+  if(!Array.isArray(DB.packs))DB.packs=[];
+  DB.packs.push(copia);save();renderOfertas();showToast('✅ Oferta duplicada');
+}
+function togglePack(id){const o=packsList().find(x=>x.id===id);if(!o)return;o.activa=o.activa===false;save();renderOfertas();}
+function eliminarPack(id){
+  const o=packsList().find(x=>x.id===id);if(!o)return;
+  if(!confirm('¿Eliminar la oferta "'+(o.nombre||'')+'"?\nLos pedidos ya registrados con ella NO se ven afectados.'))return;
+  DB.packs=packsList().filter(x=>x.id!==id);save();renderOfertas();
+}
+
 function renderProductos(){
   const cats=[...new Set(DB.productos.map(p=>p.categoria||'General'))].sort();
   const agotados=DB.productos.filter(p=>p.modalidad==='stock'&&p.stock<=0).length;
@@ -8170,10 +8831,11 @@ function renderProductos(){
   const valVenta=DB.productos.reduce((s,p)=>s+p.precio*(p.stock||0),0);
 
   const html=`
-  <div class="section-header"><div><div class="section-title">Catálogo & Stock</div><div class="section-sub">${DB.productos.length} producto(s) registrado(s)</div></div>
+  <div class="section-header"><div><div class="section-title">Inventario</div><div class="section-sub">${DB.productos.length} producto(s) principal(es) registrado(s)</div></div>
   <div class="section-actions">
     <button class="btn btn-primary" onclick="openModalProd()">+ Agregar producto</button>
   </div></div>
+  ${inventarioTabsHtml('prod')}
 
   <div class="metrics-grid" style="margin-bottom:14px">
     <div class="mcard mc-blue"><div class="mcard-label">Total productos</div><div class="mcard-val mv-blue">${DB.productos.length}</div><div class="mcard-sub">${cats.length} categoría(s)</div></div>
@@ -8445,7 +9107,7 @@ function agregarOfertaProd(){prodOfertas.push({cantidad:1,precio:0});renderOfert
 function eliminarOfertaProd(idx){prodOfertas.splice(idx,1);renderOfertasProd();}
 function renderOfertasProd(){
   const c=document.getElementById('pr-ofertas-container');if(!c)return;
-  if(!prodOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div>';return;}
+  if(!prodOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div>';return;}
   const inp='background:var(--surface3);border:1.5px solid var(--amber);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--mono);text-align:center';
   c.innerHTML=prodOfertas.map((o,i)=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -8582,7 +9244,7 @@ function renderUpsells(){
 
   const html=`
   <div class="section-header">
-    <div><div class="section-title">${ic('arrow-up-circle',20)} Upsells / Order Bumps</div><div class="section-sub">Aumenta el ticket promedio ofreciendo productos adicionales al confirmar</div></div>
+    <div><div class="section-title">Inventario</div><div class="section-sub">Productos extras: aumenta el ticket ofreciéndolos al confirmar el pedido</div></div>
     <div class="section-actions" style="flex-wrap:wrap;gap:8px">
       <select onchange="upsellPer=this.value;toggleUpsellFechas(this.value);renderUpsells()" style="${fbarStyle}">
         <option value="todo" ${upsellPer==='todo'?'selected':''}>Todo el historial</option>
@@ -8595,17 +9257,18 @@ function renderUpsells(){
         <span style="color:var(--text3)">→</span>
         <input type="date" id="up-hasta" onchange="renderUpsells()" style="${dateStyle}">
       </span>
-      <button class="btn btn-primary" onclick="openModalUpsell()">+ Nuevo upsell</button>
+      <button class="btn btn-primary" onclick="openModalUpsell()">+ Nuevo producto extra</button>
     </div>
   </div>
+  ${inventarioTabsHtml('extras')}
 
   <div class="metrics-grid" style="margin-bottom:14px">
     <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('wallet',13)} Ingresos extra</div><div class="mcard-val mv-green" style="font-size:19px">${fmt(upsellRev)}</div><div class="mcard-sub">precio cobrado × aceptados</div></div>
     ${tieneCostos?`<div class="mcard mc-accent"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('sparkle',13)} Ganancia real</div><div class="mcard-val mv-accent" style="font-size:19px">${fmt(upsellGan)}</div><div class="mcard-sub">precio − costo × aceptados</div></div>`:`<div class="mcard mc-blue"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('ticket',13)} Ticket con upsell</div><div class="mcard-val mv-blue" style="font-size:18px">${fmt(ticketConUp)}</div><div class="mcard-sub">${ticketSinUp>0?`vs ${fmt(ticketSinUp)} sin upsell`:'pedidos entregados'}</div></div>`}
     <div class="mcard mc-${convRate>=30?'green':convRate>=15?'amber':'red'}"><div class="mcard-label">% Conversión</div><div class="mcard-val mv-${convRate>=30?'green':convRate>=15?'amber':'red'}">${convRate}%</div><div class="mcard-sub">${aceptados.length} de ${todosOfrecidos.length} ofrecidos</div></div>
-    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">upsells cobrados</div></div>
+    <div class="mcard mc-green"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('check-circle',13)} Aceptados</div><div class="mcard-val mv-green">${aceptados.length}</div><div class="mcard-sub">extras cobrados</div></div>
     <div class="mcard mc-red"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('x-circle',13)} Rechazados</div><div class="mcard-val mv-red">${rechazados.length}</div><div class="mcard-sub">${todosOfrecidos.length>0?Math.round(rechazados.length/todosOfrecidos.length*100):0}% de ofrecidos</div></div>
-    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('arrow-up-circle',13)} Upsells activos</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
+    <div class="mcard mc-amber"><div class="mcard-label" style="display:inline-flex;align-items:center;gap:5px">${ic('arrow-up-circle',13)} Productos extras</div><div class="mcard-val mv-amber">${DB.upsells.length}</div><div class="mcard-sub">creados en el sistema</div></div>
   </div>
 
   ${ticketConUp>0&&ticketSinUp>0?`
@@ -8613,8 +9276,8 @@ function renderUpsells(){
     <span class="abox-icon">${ticketConUp>ticketSinUp?ic('trending-up',18):ic('dashboard',18)}</span>
     <div class="abox-text">
       ${ticketConUp>ticketSinUp
-        ?`<b>Los upsells aumentan el ticket en ${fmt(ticketConUp-ticketSinUp)} (+${((ticketConUp-ticketSinUp)/ticketSinUp*100).toFixed(0)}%)</b> — de ${fmt(ticketSinUp)} sin upsell a ${fmt(ticketConUp)} con upsell`
-        :`Ticket con upsell: ${fmt(ticketConUp)} · Sin upsell: ${fmt(ticketSinUp)}`}
+        ?`<b>Los productos extras aumentan el ticket en ${fmt(ticketConUp-ticketSinUp)} (+${((ticketConUp-ticketSinUp)/ticketSinUp*100).toFixed(0)}%)</b> — de ${fmt(ticketSinUp)} sin extra a ${fmt(ticketConUp)} con extra`
+        :`Ticket con extra: ${fmt(ticketConUp)} · Sin extra: ${fmt(ticketSinUp)}`}
     </div>
   </div>`:''}
 
@@ -8622,13 +9285,13 @@ function renderUpsells(){
   <div class="fbar" style="margin-bottom:14px">
     <div class="fg-filter">
       <label>Buscar</label>
-      <input type="text" value="${upsellQ}" placeholder="Nombre del upsell..." oninput="upsellQ=this.value;renderUpsells()">
+      <input type="text" value="${upsellQ}" placeholder="Nombre del producto extra..." oninput="upsellQ=this.value;renderUpsells()">
     </div>
     ${tipos.length>1?`<div class="fg-filter"><label>Tipo</label><select onchange="upsellTipoF=this.value;renderUpsells()">
       <option value="" ${upsellTipoF===''?'selected':''}>Todos</option>
-      ${tipos.map(t=>`<option value="${t}" ${upsellTipoF===t?'selected':''}>${t}</option>`).join('')}
+      ${tipos.map(t=>`<option value="${t}" ${upsellTipoF===t?'selected':''}>${tipoExtraLbl(t)}</option>`).join('')}
     </select></div>`:''}
-    <span style="font-size:12px;color:var(--text3);align-self:flex-end;padding-bottom:8px">${upsellsFilt.length} upsell(s)</span>
+    <span style="font-size:12px;color:var(--text3);align-self:flex-end;padding-bottom:8px">${upsellsFilt.length} producto(s) extra</span>
   </div>`:''}
 
   ${DB.upsells.length?`
@@ -8652,7 +9315,7 @@ function renderUpsells(){
         <div style="flex:1;min-width:0;display:flex;gap:10px;align-items:flex-start">
           ${u.imagen?`<img src="${u.imagen}" alt="${(u.nombre||'').replace(/"/g,'&quot;')}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;border:1px solid var(--border);flex-shrink:0">`:''}
           <div style="min-width:0">
-            <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${u.tipo||'Order Bump'}</span>
+            <span class="upsell-badge" style="display:inline-flex;align-items:center;gap:4px">${ic('arrow-up-circle',12)} ${tipoExtraLbl(u.tipo)}</span>
             <div style="font-size:15px;font-weight:700;margin-top:7px;line-height:1.3">${u.nombre}</div>
           </div>
         </div>
@@ -8665,7 +9328,7 @@ function renderUpsells(){
       <!-- Precio / Costo / Ganancia -->
       ${u.ofertas&&u.ofertas.length?`
       <div style="margin-bottom:10px;padding:9px 11px;background:rgba(240,165,32,.08);border:1px solid rgba(240,165,32,.22);border-radius:9px">
-        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Ofertas por cantidad</div>
+        <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Precios por cantidad</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${u.ofertas.map(o=>`<span style="background:var(--surface3);border:1.5px solid rgba(240,165,32,.35);border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;color:var(--text);text-align:center;line-height:1.4">${o.cantidad}×<div style="font-size:11px;color:var(--amber)">${fmt(o.precio)}</div></span>`).join('')}
         </div>
@@ -8681,7 +9344,7 @@ function renderUpsells(){
         if(disp===null)return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock</span><span class="fr-val" style="font-size:11px;color:var(--text3)">Sin control · <a onclick="openModalUpsell(${u.id})" style="color:var(--accent);cursor:pointer;text-decoration:underline">agregar stock</a></span></div>`;
         const bajo=disp<=(u.stockMin||5);
         const pv=u.productoId?(DB.productos||[]).find(x=>x.id===u.productoId):null;
-        const editBtn=pv?`<button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Stock compartido con ${(pv.nombre||'').replace(/"/g,'')}">${ic('pencil',11)}</button>`:`<button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})" title="Editar stock del upsell">${ic('pencil',11)}</button>`;
+        const editBtn=pv?`<button class="btn btn-ghost btn-xs" onclick="openModalProd(${pv.id})" title="Stock compartido con ${(pv.nombre||'').replace(/"/g,'')}">${ic('pencil',11)}</button>`:`<button class="btn btn-ghost btn-xs" onclick="openModalUpsell(${u.id})" title="Editar stock del producto extra">${ic('pencil',11)}</button>`;
         return `<div class="fr" style="padding:5px 0"><span class="fr-label">${ic('package',13)} Stock${pv?' (compartido)':''}</span><span class="fr-val" style="display:inline-flex;align-items:center;gap:6px"><span style="color:${disp<=0?'var(--red)':bajo?'var(--amber)':'var(--text)'};font-weight:700">${disp} u.${disp<=0?' · AGOTADO':bajo?' · bajo':''}</span>${editBtn}</span></div>${pv?`<div style="font-size:10px;color:var(--text3);margin-top:-2px;margin-bottom:4px">Comparte stock con: ${pv.nombre}</div>`:''}`;
       })()}
 
@@ -8720,16 +9383,16 @@ function renderUpsells(){
       ${u.desc?`<div style="margin-top:10px;padding:9px 11px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--border2);font-size:11.5px;color:var(--text2);line-height:1.6">"${u.desc}"</div>`:''}
     </div>`;
   }).join(''):
-  `<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Sin upsells que coincidan con los filtros.</div>`}
+  `<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text3)">Sin productos extras que coincidan con los filtros.</div>`}
   </div>`
   :`<div class="card" style="text-align:center;padding:40px 24px">
     <div style="margin-bottom:12px;color:var(--text3)">${ic('arrow-up-circle',40)}</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes upsells</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aún no tienes productos extras</div>
     <div style="font-size:13px;color:var(--text3);max-width:440px;margin:0 auto 20px;line-height:1.6">
-      Un <b>upsell / order bump</b> es un producto extra que ofreces al cliente justo al confirmar su pedido.<br><br>
+      Un <b>producto extra</b> es un producto adicional que ofreces al cliente justo al confirmar su pedido.<br><br>
       Ejemplo: <i>"¿Le agrego el estuche protector por solo S/ 15 más?"</i> — si acepta, se suma al ticket.
     </div>
-    <button class="btn btn-primary" onclick="openModalUpsell()">+ Crear primer upsell</button>
+    <button class="btn btn-primary" onclick="openModalUpsell()">+ Crear primer producto extra</button>
   </div>`}`;
   setContent(html);
 }
@@ -8795,16 +9458,16 @@ function guardarUpsell(){
   if(id){const idx=DB.upsells.findIndex(x=>x.id===parseInt(id));DB.upsells[idx]=u;}
   else DB.upsells.push(u);
   save();closeModal('modal-upsell');renderUpsells();
-  showToast(id?'✅ Upsell actualizado':'✅ Upsell creado');
+  showToast(id?'✅ Producto extra actualizado':'✅ Producto extra creado');
 }
-function eliminarUpsell(id){if(!confirm('¿Eliminar upsell?'))return;DB.upsells=DB.upsells.filter(x=>x.id!==id);save();renderUpsells();}
+function eliminarUpsell(id){if(!confirm('¿Eliminar producto extra?'))return;DB.upsells=DB.upsells.filter(x=>x.id!==id);save();renderUpsells();}
 
 // ── OFERTAS POR CANTIDAD (Upsells) ────────────────────────────────────
 function agregarOfertaUp(){upsellOfertas.push({cantidad:1,precio:0});renderOfertasUp();}
 function eliminarOfertaUp(idx){upsellOfertas.splice(idx,1);renderOfertasUp();}
 function renderOfertasUp(){
   const c=document.getElementById('up-ofertas-container');if(!c)return;
-  if(!upsellOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin ofertas. Haz clic en "+ Oferta" para agregar.</div>';return;}
+  if(!upsellOfertas.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Sin precios por cantidad. Haz clic en "+ Precio" para agregar (ej. 2× S/139).</div>';return;}
   const inp='background:var(--surface3);border:1.5px solid var(--amber);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--mono);text-align:center';
   c.innerHTML=upsellOfertas.map((o,i)=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -8824,7 +9487,7 @@ function fillUpsellOfertas(upId,savedPrecio){
   if(!u||!u.ofertas||!u.ofertas.length){box.innerHTML='';if(hidden)hidden.value='';return;}
   if(hidden)hidden.value='';
   box.innerHTML=`<div style="margin-top:8px;padding:9px 11px;background:rgba(240,165,32,.07);border:1px solid rgba(240,165,32,.22);border-radius:8px">
-    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Seleccionar oferta</div>
+    <div style="font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px">${ic('tag',13)} Elegir precio por cantidad</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">
       ${u.ofertas.map(of=>`<button type="button" id="uofr-${of.cantidad}" onclick="seleccionarOfertaUp(${of.cantidad},${of.precio})" style="background:var(--surface3);border:2px solid var(--border2);border-radius:9px;padding:7px 16px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;transition:all .15s;line-height:1.4;text-align:center">${of.cantidad}×<br><span style="font-size:11px;opacity:.85">S/${of.precio}</span></button>`).join('')}
     </div>
@@ -8877,10 +9540,9 @@ function renderFinanzas(){
   // Comisiones reales por asesor (cada vendedor tiene su tarifa en Equipo & Usuarios)
   const ccomEntregas=ent.reduce((s,p)=>s+comisionDePedido(p),0);
   const sueldosTotal=DB.asesores.reduce((s,a)=>s+(a.sueldo||0),0);
-  // ✅ NEW: impacto de devoluciones (costo sin ingreso)
-  const cDevProd=dev.reduce((s,p)=>s+(p.cprod||0),0);
-  const cDevEnv=dev.reduce((s,p)=>s+(p.cenv||0),0);
-  const cDev=cDevProd+cDevEnv;
+  // Devoluciones: solo el ENVÍO es pérdida real (el producto regresa al stock
+  // y se revende; contar su costo lo duplicaría). Producto dañado → Gasto manual.
+  const cDev=dev.reduce((s,p)=>s+(p.cenv||0),0);
 
   const totalCosts=cprod+cenv+cemb+cpub+cgastos+ccomEntregas+cDev;
   const util=ing-totalCosts;
@@ -8912,7 +9574,7 @@ function renderFinanzas(){
     const pCp=pE.reduce((s,p)=>s+(p.cprod||0),0),pCe=pE.reduce((s,p)=>s+(p.cenv||0),0),pCm=pE.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const pCpub=pPub.reduce((s,p)=>s+p.monto,0),pCg=pGas.reduce((s,g)=>s+(g.monto||0),0);
     const pCcom=pE.reduce((s,p)=>s+comisionDePedido(p),0);
-    const pCdev=pDev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+    const pCdev=pDev.reduce((s,p)=>s+(p.cenv||0),0);
     pUtil=pIng-(pCp+pCe+pCm+pCpub+pCg+pCcom+pCdev);
     pEnt=pE.length;pEf=pAP.length>0?Math.round(pE.length/pAP.length*100):0;
     pTicket=pE.length>0?pIng/pE.length:0;
@@ -8935,7 +9597,7 @@ function renderFinanzas(){
       {label:'Envío+Emb',val:cenv+cemb,color:'#f97316'},
       {label:'Publicidad',val:cpub,color:'#a855f7'},
       {label:'Comisiones',val:ccomEntregas,color:'#3b82f6'},
-      {label:'Devoluciones',val:cDev,color:'#64748b'},
+      {label:'Devoluciones (envíos)',val:cDev,color:'#64748b'},
       {label:'Gastos extras',val:cgastos,color:'#f59e0b'},
       {label:'Utilidad',val:Math.max(util,0),color:'#22c55e'},
     ].filter(s=>s.val>0);
@@ -9051,7 +9713,7 @@ function renderFinanzas(){
       <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('megaphone',13)} Publicidad <span style="font-size:10px">${ing>0?((cpub/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cpub)}</span></div>
       <div class="fr" style="border-top:1px dashed var(--border2);margin-top:4px;padding-top:4px"><span class="fr-label" style="font-style:italic">= Margen post-pub</span><span class="fr-val" style="color:${(ing-cprod-cenv-cemb-cpub)>=0?'var(--blue)':'var(--red)'}">${fmt(ing-cprod-cenv-cemb-cpub)} <span style="font-size:10px">(${margenPostPub.toFixed(1)}%)</span></span></div>
       <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('users',13)} Comisiones entregas <span style="font-size:10px">${ing>0?((ccomEntregas/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(ccomEntregas)}</span></div>
-      ${cDev>0?`<div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--red)">${ic('undo',13)} Devoluciones (${dev.length}) <span style="font-size:10px">costo sin ingreso</span></span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
+      ${cDev>0?`<div class="fr" style="padding-left:16px" title="Envíos pagados de pedidos devueltos. El producto regresa al stock."><span class="fr-label" style="color:var(--red)">${ic('undo',13)} Devoluciones (${dev.length}) <span style="font-size:10px">envíos perdidos</span></span><span class="fr-val fv-neg">−${fmt(cDev)}</span></div>`:''}
       <div class="fr" style="padding-left:16px"><span class="fr-label" style="color:var(--text3)">${ic('note',13)} Gastos extras <span style="font-size:10px">${ing>0?((cgastos/ing)*100).toFixed(0):0}%</span></span><span class="fr-val fv-neg">−${fmt(cgastos)}</span></div>
       ${sueldosTotal>0?`<div class="fr" style="padding-left:16px;opacity:.6"><span class="fr-label" style="color:var(--text3)">${ic('users',13)} Sueldos asesores <span style="font-size:10px">(no filtrado por período)</span></span><span class="fr-val" style="color:var(--text3)">−${fmt(sueldosTotal)}</span></div>`:''}
       <div style="margin-top:10px;padding:14px;background:${util>=0?'var(--greenL)':'var(--redL)'};border-radius:8px;border:1px solid ${util>=0?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)'}">
@@ -9070,7 +9732,7 @@ function renderFinanzas(){
         <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Ingresos por zona</div>
         <div class="fr"><span class="fr-label">${ic('building',13)} Lima</span><span class="fr-val" style="color:var(--blue)">${fmt(ingLima)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingLima/ing)*100).toFixed(0):0}%</span></span></div>
         <div class="fr"><span class="fr-label">${ic('package',13)} Provincia</span><span class="fr-val" style="color:var(--accent)">${fmt(ingProv)} <span style="font-size:10px;color:var(--text3)">${ing>0?((ingProv/ing)*100).toFixed(0):0}%</span></span></div>
-        ${upsellRev>0?`<div class="fr"><span class="fr-label">${ic('arrow-up-circle',13)} Upsells</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
+        ${upsellRev>0?`<div class="fr"><span class="fr-label">${ic('arrow-up-circle',13)} Productos Extras</span><span class="fr-val" style="color:var(--purple)">${fmt(upsellRev)}</span></div>`:''}
       </div>`:''}
     </div>
     <div class="card">
@@ -9694,7 +10356,7 @@ function renderFlujoContent(){
     const cenvD=entDia.reduce((s,p)=>s+(p.cenv||0),0);
     const cembD=entDia.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
     const ccomD=entDia.reduce((s,p)=>s+comisionDePedido(p),0);
-    const cDevD=devDia.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+    const cDevD=devDia.reduce((s,p)=>s+(p.cenv||0),0); // solo envío: el producto vuelve al stock
     const pub=DB.publicidad.filter(p=>p.fecha===dia).reduce((s,p)=>s+(p.monto||0),0);
     const gastosDia=(DB.gastos||[]).filter(g=>g.fecha===dia).reduce((s,g)=>s+(g.monto||0),0);
     // Entradas reales del día: adelantos cobrados de pedidos nuevos de provincia
@@ -9973,6 +10635,7 @@ function renderFlujoContent(){
 // LIQUIDACIÓN COURIER
 // =====================================================================
 function renderLiquidacion(){
+  if(!isAdmin()){showPage('lima');return;}
   const hoyStr=hoy();
   // Helper: costo de envío efectivo de un pedido (0 si fue marcado como no cobrado)
   const cenvOf=p=>p.cenvCobrado===false?0:(parseFloat(p.cenv)||0);
@@ -10019,9 +10682,10 @@ function renderLiquidacion(){
 
   const html=`
   <div class="section-header">
-    <div><div class="section-title">${ic('banknote',20)} Liquidación Courier</div>
+    <div><div class="section-title">${ic('building',20)} Lima — Liquidación Courier</div>
     <div class="section-sub">Control del efectivo que los motorizados Lima deben entregarte</div></div>
   </div>
+  ${limaTabsHtml('liquidacion')}
 
   <!-- MÉTRICAS GLOBALES -->
   <div class="metrics-grid">
@@ -10327,22 +10991,45 @@ function checkDuplicado(){
   }
 }
 
-function renderHistorial(pedidoId){
+async function renderHistorial(pedidoId){
   const p=DB.pedidos.find(x=>x.id===pedidoId);
   if(!p){alert('Pedido no encontrado');return;}
-  const hist=p.historial||[];
   const colores={nuevo:'var(--blue)',confirmado:'var(--green)','no-contesta':'var(--amber)',rechazado:'var(--red)',enviado:'var(--purple)',entregado:'var(--green)',devuelto:'var(--red)',reprogramado:'var(--amber)'};
+  // ── LÍNEA DE TIEMPO UNIFICADA: etapa de lead (bruto) + etapa de pedido ──
+  // Si el pedido nació de un lead (pedidos_brutos.pedido_numero = p.id), se
+  // traen sus eventos (tomado, devuelto, notas, etc.) y se mezclan por fecha.
+  const eventos=[];
+  try{
+    const{data:b}=await _supabase.from('pedidos_brutos').select('historial,created_at,fecha_hora,raw')
+      .eq('workspace_id',SESSION.workspace_id).eq('pedido_numero',pedidoId).limit(1).maybeSingle();
+    if(b){
+      const fuente=(b.raw&&b.raw.tienda)?('Shopify · '+b.raw.tienda):(b.raw&&b.raw.shopify_name?'Shopify':'Integración');
+      if(b.created_at)eventos.push({ts:b.created_at,lead:true,label:'Lead ingresó al sistema',sub:fuente});
+      (Array.isArray(b.historial)?b.historial:[]).forEach(h=>{
+        const quien=h.asesor_dest_nombre||h.asesor_nombre||'';
+        const extra=[h.texto,h.valor,h.motivo,h.nota].filter(Boolean).join(' — ');
+        eventos.push({ts:h.ts,lead:true,label:BRUTO_ACCION_LBL[h.accion]||h.accion,sub:[quien,extra].filter(Boolean).join(' · ')});
+      });
+    }
+  }catch(_){/* sin lead vinculado o sin conexión: se muestra solo el historial del pedido */}
+  (p.historial||[]).forEach(h=>eventos.push({ts:h.ts,estado:h.estado,user:h.user||'',motivo:h.motivo||''}));
+  eventos.sort((a,b)=>new Date(a.ts||0)-new Date(b.ts||0));
   const mod=document.createElement('div');mod.className='overlay open';mod.id='modal-hist';
   mod.innerHTML=`<div class="modal sm">
     <div class="modal-h">
-      <div><div class="modal-title">${ic('clock',18)} Historial #${p.id}</div><div class="modal-sub">${p.nombre} · ${p.producto}</div></div>
+      <div><div class="modal-title">${ic('clock',18)} Historial #${p.id}</div><div class="modal-sub">${escB(p.nombre)} · ${escB(p.producto||'')}</div></div>
       <div class="mc" onclick="document.getElementById('modal-hist').remove()">×</div>
     </div>
-    ${hist.length?hist.map((h,i)=>`
-      <div class="hist-line">
-        <div class="hist-dot" style="background:${colores[h.estado]||'var(--text3)'}"></div>
-        <div class="hist-time">${h.ts?new Date(h.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
-        <div style="flex:1">${badge(h.estado)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${h.user||''}</span>${h.motivo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">↳ ${h.motivo}</div>`:''}</div>
+    ${eventos.length?eventos.map(e=>e.lead
+      ?`<div class="hist-line">
+        <div class="hist-dot" style="background:var(--accent);opacity:.65"></div>
+        <div class="hist-time">${e.ts?new Date(e.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
+        <div style="flex:1"><span style="font-size:12px;font-weight:600;color:var(--text2)">${escB(e.label)}</span>${e.sub?`<div style="font-size:11px;color:var(--text3);margin-top:1px">↳ ${escB(e.sub)}</div>`:''}</div>
+      </div>`
+      :`<div class="hist-line">
+        <div class="hist-dot" style="background:${colores[e.estado]||'var(--text3)'}"></div>
+        <div class="hist-time">${e.ts?new Date(e.ts).toLocaleString('es-PE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
+        <div style="flex:1">${badge(e.estado)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${escB(e.user)}</span>${e.motivo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">↳ ${escB(e.motivo)}</div>`:''}</div>
       </div>`).join('')
     :`<div class="empty" style="padding:20px">Sin historial registrado</div>`}
     <div style="margin-top:16px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-hist').remove()">Cerrar</button></div>
@@ -10619,6 +11306,7 @@ function eliminarWA(id){if(!confirm('¿Eliminar esta plantilla?'))return;DB.waTm
 // IMPORTAR CSV
 // =====================================================================
 function renderImportar(){
+  if(!puede('importarLeads')){setContent('<div class="empty">No tienes permiso para importar. Pídeselo al administrador (Equipo → Permisos).</div>');return;}
   const html=`
   <div class="section-header">
     <div><div class="section-title">${ic('download',20)} Importar CSV</div><div class="section-sub">Importa pedidos desde Shopify, ReleasIt, EasySell o CSV manual</div></div>
@@ -10895,6 +11583,10 @@ function renderConfig(){
         <div><div class="cfg-label">Horas sin enviar</div><div class="cfg-sub">Alerta si pedido confirmado no se envía</div></div>
         <div style="display:flex;align-items:center;gap:4px"><input class="cfg-input" type="number" id="cfg-horasAlerta" value="${CFG.horasAlerta}" onchange="saveConfig()" style="width:64px"><span style="color:var(--text2)">h</span></div>
       </div>
+      <div class="cfg-row">
+        <div><div class="cfg-label">Máx. leads activos por trabajador</div><div class="cfg-sub">Tope de leads que un trabajador puede tener tomados a la vez · 0 = sin límite (no aplica al admin)</div></div>
+        <input class="cfg-input" type="number" id="cfg-maxLeadsActivos" min="0" value="${CFG.maxLeadsActivos||0}" onchange="saveConfig()" style="width:64px">
+      </div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px;display:inline-flex;align-items:center;gap:5px">${ic('package',12)} Tracking Provincia</div>
       <div class="cfg-row">
@@ -11010,7 +11702,6 @@ function renderConfig(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <button class="btn btn-success btn-sm" onclick="exportarExcel()">📊 Pedidos CSV</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarFinanzasExcel()">💰 Finanzas CSV</button>
-        <button class="btn btn-ghost btn-sm" onclick="showPage('importar')">📥 Importar CSV</button>
       </div>
 
       <!-- Info datos actuales -->
@@ -11041,9 +11732,367 @@ function renderConfig(){
 let usuPer='mes',usuDia='',usuDesde='',usuHasta='';
 function setUsuFiltro(k,v){if(k==='per')usuPer=v;if(k==='dia')usuDia=v;if(k==='desde')usuDesde=v;if(k==='hasta')usuHasta=v;renderUsuarios();}
 function setAdminColor(v){CFG.adminColor=v||'#64748b';save();renderUsuarios();}
+// =====================================================================
+// EQUIPO — pestañas: Métricas / Comisiones / Permisos / Usuarios
+// =====================================================================
+function equipoTabsHtml(act){
+  const tab=(id,page,icn,lbl)=>`<button class="tbtn ${act===id?'active':''}" style="display:inline-flex;align-items:center;gap:6px" onclick="showPage('${page}')">${ic(icn,14)} ${lbl}</button>`;
+  return `<div class="tgrp" style="margin-bottom:16px">
+    ${tab('metricas','equipoMetricas','trending-up','Métricas')}
+    ${tab('comisiones','equipoComisiones','banknote','Comisiones')}
+    ${tab('permisos','equipoPermisos','settings','Permisos')}
+    ${tab('usuarios','comisiones','users','Usuarios & Delivery')}
+  </div>`;
+}
+
+// ── MÉTRICAS DE EQUIPO ────────────────────────────────────────────────
+// Cohorte por fecha de ENTRADA del lead. Dos denominadores:
+//   negocio = ÷ importados · asesora = ÷ trabajados (lo que gestionó).
+let _eqPer='30d';
+async function renderEquipoMetricas(){
+  if(!isAdmin()){showPage('miDia');return;}
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Rendimiento, conversión y productividad por trabajador · cohorte por fecha de entrada del lead</div></div>
+    <div class="section-actions">${periodoSelectHtml('eq-per',_eqPer,'_eqPer=this.value;renderEquipoMetricas()')}<button class="btn btn-ghost btn-sm" onclick="renderEquipoMetricas()">${ic('repeat',14)} Actualizar</button></div></div>
+    ${equipoTabsHtml('metricas')}
+    <div id="eq-body"><div style="padding:30px;text-align:center;color:var(--text3)">Cargando métricas…</div></div>`);
+  let q=_supabase.from('pedidos_brutos').select('id,estado,asesor_id,historial,pedido_numero,created_at').eq('workspace_id',SESSION.workspace_id);
+  q=periodoAplicar(q,_eqPer,'created_at').order('created_at',{ascending:false}).limit(3000);
+  let res;try{res=await q;}catch(e){res={error:e};}
+  const body=document.getElementById('eq-body');if(!body)return;
+  if(res.error){body.innerHTML=`<div class="abox abox-red"><span class="abox-icon">${ic('x-circle',18)}</span><div class="abox-text">No se pudieron cargar los leads: ${escB(res.error.message||res.error)}</div></div>`;return;}
+  const M=calcMetricasEquipo(res.data||[]);
+  const g=M.g;
+  const convNeg=g.importados?Math.round(g.confirmados/g.importados*100):0;
+  const convFin=g.importados?Math.round(g.entregados/g.importados*100):0;
+  const card=(label,val,color,desc)=>`<div class="card" style="padding:13px 14px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700">${label}</div><div style="font-size:24px;font-weight:800;font-family:var(--mono);color:${color};margin:3px 0 4px">${val}</div><div style="font-size:10.5px;color:var(--text3);line-height:1.45">${desc}</div></div>`;
+  const r=periodoRango(_eqPer);
+  const dias=r.desde?Math.max(1,Math.ceil((Date.now()-new Date(r.desde).getTime())/86400000)):null;
+  const filas=M.workers.map((w,i)=>{
+    const convP=w.trabajados?Math.round(w.confirmados/w.trabajados*100):0;
+    const convE=w.confirmados?Math.round(w.entregados/w.confirmados*100):0;
+    const tResp=w.tiemposResp.length?brutoFmtDur(w.tiemposResp.reduce((a,b)=>a+b,0)/w.tiemposResp.length):'—';
+    const tGest=w.tiemposGest.length?brutoFmtDur(w.tiemposGest.reduce((a,b)=>a+b,0)/w.tiemposGest.length):'—';
+    const porDia=dias?(Math.round(w.trabajados/dias*10)/10):null;
+    const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+    const meta=asesorMeta(w.id);
+    return `<tr>
+      <td data-label="Trabajador"><span style="display:inline-flex;align-items:center;gap:7px;font-weight:700">${medal}<span style="width:9px;height:9px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(w.nombre)}</span></td>
+      <td data-label="Asignados" style="font-family:var(--mono);text-align:center">${w.asignados}</td>
+      <td data-label="Trabajados" style="font-family:var(--mono);text-align:center">${w.trabajados}</td>
+      <td data-label="Confirmados" style="font-family:var(--mono);text-align:center;color:var(--green);font-weight:700">${w.confirmados}</td>
+      <td data-label="% Conversión" style="text-align:center"><b style="font-family:var(--mono);color:${convP>=(CFG.metaEf||60)?'var(--green)':convP>=((CFG.metaEf||60)/2)?'var(--amber)':'var(--red)'}">${convP}%</b></td>
+      <td data-label="Entregados" style="font-family:var(--mono);text-align:center">${w.entregados}</td>
+      <td data-label="% Entrega" style="font-family:var(--mono);text-align:center">${convE}%</td>
+      <td data-label="Devueltos" style="font-family:var(--mono);text-align:center;color:${w.devueltosPed?'var(--red)':'var(--text3)'}">${w.devueltosPed}</td>
+      <td data-label="Al pool" style="font-family:var(--mono);text-align:center;color:var(--text3)">${w.devueltosPool}</td>
+      <td data-label="Cerró otro" style="font-family:var(--mono);text-align:center;color:var(--text3)" title="Leads que este trabajador tomó primero pero confirmó otra persona">${w.confirmadosPorOtro}</td>
+      <td data-label="T. respuesta" style="font-family:var(--mono);text-align:center;font-size:12px">${tResp}</td>
+      <td data-label="T. gestión" style="font-family:var(--mono);text-align:center;font-size:12px">${tGest}</td>
+      <td data-label="Leads/día" style="font-family:var(--mono);text-align:center;font-size:12px">${porDia==null?'—':porDia}</td>
+    </tr>`;
+  }).join('');
+  const th='padding:9px 10px;text-align:center;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap';
+  const legend=[
+    ['Asignados','Leads donde este trabajador fue el PRIMERO en tomarlos o recibirlos (Trabajador Original).'],
+    ['Trabajados','Leads en los que participó con cualquier gestión (tomar, llamar, notas, etapas…). Es su denominador justo.'],
+    ['Confirmados','Ventas que ÉL/ELLA cerró (marcó Registrado). La comisión y la conversión son de quien confirma.'],
+    ['% Conversión','Confirmados ÷ Trabajados. Su efectividad personal real.'],
+    ['Entregados','De sus confirmados, cuántos ya llegaron al cliente.'],
+    ['% Entrega','Entregados ÷ Confirmados. Qué tan bien "aterrizan" sus ventas.'],
+    ['Devueltos','De sus confirmados, cuántos terminaron devueltos (anulan comisión).'],
+    ['Al pool','Cuántas veces soltó un lead de vuelta a la bandeja.'],
+    ['Cerró otro','Leads que tomó primero pero otra persona terminó confirmando.'],
+    ['T. respuesta','Desde que el lead ENTRÓ (Shopify/Sheets) hasta que este trabajador lo tomó. Mide velocidad de reacción.'],
+    ['T. gestión','Desde que ÉL/ELLA tomó el lead hasta que lo confirmó. Mide velocidad de cierre, sin contar la espera en el pool.'],
+    ['Leads/día','Leads trabajados por día del período.']
+  ].map(([l,d])=>`<div style="display:flex;gap:8px;font-size:11px;padding:3px 0"><b style="min-width:110px;color:var(--text2)">${l}</b><span style="color:var(--text3)">${d}</span></div>`).join('');
+  body.innerHTML=`
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px">
+    ${card('Leads importados',g.importados,'var(--accent)','Todo lo que entró desde Shopify/Sheets en el período.')}
+    ${card('Confirmados',`${g.confirmados} <span style="font-size:13px;color:var(--text3)">· ${convNeg}%</span>`,'var(--green)','Ventas cerradas. El % es Confirmados ÷ Importados (conversión del negocio).')}
+    ${card('Entregados',`${g.entregados} <span style="font-size:13px;color:var(--text3)">· ${convFin}%</span>`,'var(--blue)','Ya en manos del cliente. El % es la CONVERSIÓN FINAL: Entregados ÷ Importados.')}
+    ${card('Pendientes',g.pendientes,'var(--amber)','Leads aún en gestión (sin confirmar ni rechazar).')}
+    ${card('Rechazados / Perdidos',g.rechazados+g.perdidos,'var(--red)','Leads que no se concretaron en el período.')}
+  </div>
+  <div class="card" style="padding:0;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="${th};text-align:left">Trabajador</th><th style="${th}">Asignados</th><th style="${th}">Trabajados</th><th style="${th}">Confirmados</th><th style="${th}">% Conversión</th><th style="${th}">Entregados</th><th style="${th}">% Entrega</th><th style="${th}">Devueltos</th><th style="${th}">Al pool</th><th style="${th}">Cerró otro</th><th style="${th}">T. respuesta</th><th style="${th}">T. gestión</th><th style="${th}">Leads/día</th></tr></thead>
+      <tbody>${filas||`<tr><td colspan="13" style="padding:26px;text-align:center;color:var(--text3)">Sin actividad de trabajadores en este período</td></tr>`}</tbody>
+    </table>
+  </div>
+  ${(function(){
+    // ── Efectividad de couriers (antes vivía en la página "Conversión") ──
+    const rng=periodoRango(_eqPer);
+    const peds=(DB.pedidos||[]).filter(p=>{
+      if(!rng.desde)return true;
+      const f=p.fecha?new Date(p.fecha+'T12:00:00'):null;
+      return f&&f>=new Date(rng.desde)&&(!rng.hasta||f<new Date(rng.hasta));
+    });
+    const crows=(DB.deliveries||[]).map(d=>{
+      const dP=peds.filter(p=>p.courier===d.nombre);
+      const ent=dP.filter(p=>p.estado==='entregado').length;
+      const dev=dP.filter(p=>p.estado==='devuelto').length;
+      return {n:d.nombre,ped:dP.length,ent,dev,ef:dP.length?Math.round(ent/dP.length*100):0};
+    }).sort((a,b)=>b.ef-a.ef||b.ped-a.ped);
+    if(!crows.length)return `<div class="card" style="margin-top:12px;padding:16px;text-align:center;color:var(--text3);font-size:12.5px">${ic('bike',18)} Sin couriers registrados todavía — agrégalos en <a onclick="showPage('comisiones')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Equipo → Usuarios & Delivery</a> y sus métricas aparecerán aquí.</div>`;
+    return `<div class="card" style="margin-top:12px;padding:0;overflow-x:auto">
+      <div style="padding:12px 14px 0;font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">${ic('bike',13)} Efectividad de couriers (delivery Lima) · % de sus pedidos que terminaron entregados</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px">
+        <thead><tr><th style="${th};text-align:left;padding-left:14px">Courier</th><th style="${th}">Pedidos</th><th style="${th}">Entregados</th><th style="${th}">Devueltos</th><th style="${th}">Efectividad</th></tr></thead>
+        <tbody>${crows.map(r=>`<tr>
+          <td style="padding:9px 14px;border-top:1px solid var(--border);font-weight:600">${escB(r.n)}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center;font-family:var(--mono)">${r.ped}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center;font-family:var(--mono);color:var(--green)">${r.ent}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center;font-family:var(--mono);color:var(--red)">${r.dev}</td>
+          <td style="padding:9px;border-top:1px solid var(--border);text-align:center"><b style="font-family:var(--mono);color:${r.ef>=75?'var(--green)':r.ef>=50?'var(--amber)':'var(--red)'}">${r.ef}%</b></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  })()}
+  <div class="card" style="margin-top:12px;padding:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${ic('lightbulb',13)} Qué significa cada columna</div>
+    ${legend}
+  </div>`;
+}
+function calcMetricasEquipo(brutos){
+  const pedByNum={};(DB.pedidos||[]).forEach(p=>{if(p&&p.id!=null)pedByNum[p.id]=p;});
+  const GESTION=['tomado','no_contesta','no_responde_wa','rechazado','registrado','reactivar','sub_estado','nota','whatsapp','devuelto_al_pool'];
+  const workers={};
+  const W=id=>{const k=String(id);if(!workers[k]){const m=asesorMeta(k);workers[k]={id:k,nombre:m.nombre,color:m.color,asignados:0,trabajados:0,confirmados:0,entregados:0,devueltosPed:0,devueltosPool:0,confirmadosPorOtro:0,tiemposResp:[],tiemposGest:[]};}return workers[k];};
+  const g={importados:brutos.length,confirmados:0,entregados:0,devueltos:0,pendientes:0,perdidos:0,rechazados:0};
+  brutos.forEach(b=>{
+    const est=brutoEstadoNorm(b.estado);
+    if(est==='registrado')g.confirmados++;else if(est==='rechazado')g.rechazados++;else if(est==='perdido')g.perdidos++;else g.pendientes++;
+    const conf=brutoAsesorConfirmo(b),orig=brutoAsesorOriginal(b);
+    const ped=b.pedido_numero!=null?pedByNum[b.pedido_numero]:null;
+    if(ped&&ped.estado==='entregado')g.entregados++;
+    if(ped&&(ped.estado==='devuelto'||ped.estado==='cancelado'))g.devueltos++;
+    if(orig&&orig.id!=null)W(orig.id).asignados++;
+    const parts=new Set();
+    (Array.isArray(b.historial)?b.historial:[]).forEach(h=>{
+      if(GESTION.includes(h.accion)&&h.asesor_id!=null)parts.add(String(h.asesor_id));
+      if(h.asesor_dest!=null)parts.add(String(h.asesor_dest));
+      if(h.accion==='devuelto_al_pool'&&h.asesor_id!=null)W(h.asesor_id).devueltosPool++;
+    });
+    parts.forEach(id=>{W(id).trabajados++;});
+    // T. respuesta: desde que el lead ENTRÓ hasta que su primer tomador lo tomó
+    if(orig&&orig.id!=null&&orig.ts&&b.created_at){
+      const ms=new Date(orig.ts)-new Date(b.created_at);
+      if(ms>=0&&ms<1209600000)W(orig.id).tiemposResp.push(ms); // tope 14 días (descarta datos corruptos)
+    }
+    if(conf&&conf.id!=null){
+      const w=W(conf.id);w.confirmados++;
+      // T. gestión: desde que EL CONFIRMADOR tomó el lead hasta que lo confirmó
+      if(conf.ts){
+        const h=Array.isArray(b.historial)?b.historial:[];
+        const toma=h.filter(x=>(x.accion==='tomado'||x.accion==='asignado')&&String(x.asesor_dest!=null?x.asesor_dest:x.asesor_id)===String(conf.id)&&x.ts&&new Date(x.ts)<=new Date(conf.ts)).pop();
+        const base=toma&&toma.ts?toma.ts:b.created_at;
+        if(base){const ms=new Date(conf.ts)-new Date(base);if(ms>=0&&ms<1209600000)w.tiemposGest.push(ms);}
+      }
+      if(ped&&ped.estado==='entregado')w.entregados++;
+      if(ped&&(ped.estado==='devuelto'||ped.estado==='cancelado'))w.devueltosPed++;
+    }
+    if(orig&&conf&&String(orig.id)!==String(conf.id))W(orig.id).confirmadosPorOtro++;
+  });
+  return {g,workers:Object.values(workers).sort((a,b)=>(b.trabajados?b.confirmados/b.trabajados:0)-(a.trabajados?a.confirmados/a.trabajados:0))};
+}
+
+// ── COMISIONES ────────────────────────────────────────────────────────
+// Regla (decisión del usuario): la comisión SE GENERA al confirmar y SE ANULA
+// si el pedido termina devuelto/cancelado/rechazado. Generada − Pagada = Pendiente.
+// (comisionDePedido queda intacta para Finanzas/Liquidación, que reportan sobre entregados.)
+function comisionGeneradaPedido(p){
+  if(!p||!p.vendedor)return 0;
+  if(!['confirmado','enviado','entregado'].includes(p.estado))return 0;
+  const a=(DB.asesores||[]).find(x=>pedidoEsDeAsesor(p,x));
+  if(!a)return 0;
+  return p.zona==='lima'?(parseFloat(a.comLima)||0):(parseFloat(a.comProv)||0);
+}
+function pagosDe(asesorId){return (DB.pagosComision||[]).filter(x=>String(x.asesorId)===String(asesorId));}
+function comisionResumenAsesor(a){
+  const peds=(DB.pedidos||[]).filter(p=>pedidoEsDeAsesor(p,a));
+  const generadores=peds.filter(p=>['confirmado','enviado','entregado'].includes(p.estado));
+  const anulados=peds.filter(p=>['devuelto','cancelado','rechazado'].includes(p.estado));
+  const generada=generadores.reduce((s,p)=>s+comisionGeneradaPedido(p),0);
+  const pagos=pagosDe(a.id);
+  const pagada=pagos.reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
+  const ultimo=pagos.length?pagos.slice().sort((x,y)=>String(y.fecha).localeCompare(String(x.fecha)))[0]:null;
+  return {generadores,anulados,generada,pagada,pendiente:Math.round((generada-pagada)*100)/100,pagos,ultimo};
+}
+function renderEquipoComisiones(){
+  if(!isAdmin()){showPage('miDia');return;}
+  const cards=(DB.asesores||[]).map(a=>{
+    const r=comisionResumenAsesor(a);
+    const meta=asesorMeta(a.id);
+    const cell=(l,v,c)=>`<div style="flex:1;min-width:86px;background:var(--surface3);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700">${l}</div><div style="font-family:var(--mono);font-weight:800;font-size:15px;color:${c||'var(--text)'}">${v}</div></div>`;
+    return `<div class="card" style="padding:16px;border-left:4px solid ${meta.color}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="font-weight:800;font-size:14.5px;display:inline-flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(a.nombre)}</div>
+        <span style="font-size:10.5px;color:var(--text3)">Lima S/${parseFloat(a.comLima)||0} · Prov S/${parseFloat(a.comProv)||0} por pedido</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        ${cell('Generada',fmt(r.generada))}
+        ${cell('Pagada',fmt(r.pagada),'var(--blue)')}
+        ${cell('Pendiente',fmt(r.pendiente),r.pendiente>0?'var(--green)':'var(--text3)')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px">
+        ${r.generadores.length} pedido(s) comisionable(s)${r.anulados.length?` · <span style="color:var(--red)">${r.anulados.length} anulado(s) por devolución/cancelación</span>`:''}
+        ${r.ultimo?` · Último pago: ${escB(r.ultimo.fecha||'')} (${fmt(r.ultimo.monto)})`:' · Sin pagos registrados'}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="openPagoComision('${escB(String(a.id))}')" ${r.pendiente<=0?'disabled style="opacity:.5"':''}>${ic('banknote',13)} Registrar pago</button>
+        <button class="btn btn-ghost btn-sm" onclick="verDesgloseComision('${escB(String(a.id))}')">${ic('clipboard-list',13)} Desglose</button>
+        <button class="btn btn-ghost btn-sm" onclick="verPagosComision('${escB(String(a.id))}')">${ic('clock',13)} Pagos</button>
+      </div>
+    </div>`;
+  }).join('');
+  const totPend=(DB.asesores||[]).reduce((s,a)=>s+comisionResumenAsesor(a).pendiente,0);
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Comisiones: se generan al <b>confirmar</b> y se anulan si el pedido se devuelve o cancela · Generada − Pagada = Pendiente</div></div>
+    <div class="section-actions"><span style="font-size:12px;color:var(--text3)">Total pendiente del equipo: <b style="color:var(--green);font-family:var(--mono)">${fmt(totPend)}</b></span></div></div>
+    ${equipoTabsHtml('comisiones')}
+    ${cards?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px">${cards}</div>`:'<div class="empty">Aún no hay asesores registrados. Créalos en la pestaña Usuarios & Delivery.</div>'}`);
+}
+function openPagoComision(asesorId){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  const r=comisionResumenAsesor(a);
+  let ov=document.getElementById('pago-com-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pago-com-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:380px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-weight:800;font-size:15px">${ic('banknote',16)} Registrar pago — ${escB(a.nombre)}</div><button onclick="document.getElementById('pago-com-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Pendiente actual: <b style="color:var(--green);font-family:var(--mono)">${fmt(r.pendiente)}</b></div>
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase">Monto S/</label>
+    <input id="pago-com-monto" type="number" min="0" step="0.5" value="${r.pendiente>0?r.pendiente:''}" style="width:100%;margin:5px 0 10px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:var(--mono);font-weight:800;font-size:16px">
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase">Fecha</label>
+    <input id="pago-com-fecha" type="date" value="${hoy()}" style="width:100%;margin:5px 0 10px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+    <label style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase">Nota (opcional)</label>
+    <input id="pago-com-nota" placeholder="Ej. Yape, semana 27…" style="width:100%;margin:5px 0 14px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('pago-com-ov').remove()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarPagoComision('${escB(String(asesorId))}')">${ic('save',13)} Guardar pago</button>
+    </div>
+  </div>`;
+}
+function guardarPagoComision(asesorId){
+  const monto=parseFloat(document.getElementById('pago-com-monto')?.value)||0;
+  if(monto<=0){alert('Ingresa un monto válido.');return;}
+  const fecha=document.getElementById('pago-com-fecha')?.value||hoy();
+  const nota=(document.getElementById('pago-com-nota')?.value||'').trim();
+  if(!Array.isArray(DB.pagosComision))DB.pagosComision=[];
+  DB.pagosComision.push({id:Date.now(),asesorId,monto,fecha,nota,user:SESSION?.name||'',ts:new Date().toISOString()});
+  save();
+  document.getElementById('pago-com-ov')?.remove();
+  renderEquipoComisiones();
+  showToast('✅ Pago registrado: '+fmt(monto));
+}
+function eliminarPagoComision(id){
+  if(!confirm('¿Eliminar este pago del historial? El pendiente volverá a subir.'))return;
+  DB.pagosComision=(DB.pagosComision||[]).filter(x=>x.id!==id);
+  save();
+  document.getElementById('pagos-com-ov')?.remove();
+  renderEquipoComisiones();
+}
+function verPagosComision(asesorId){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  const pagos=pagosDe(asesorId).slice().sort((x,y)=>String(y.fecha).localeCompare(String(x.fecha)));
+  let ov=document.getElementById('pagos-com-ov');
+  if(!ov){ov=document.createElement('div');ov.id='pagos-com-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:440px;width:100%;max-height:80vh;overflow:auto;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:800;font-size:15px">${ic('clock',16)} Pagos — ${escB(a.nombre)}</div><button onclick="document.getElementById('pagos-com-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    ${pagos.length?pagos.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-weight:700;font-family:var(--mono)">${fmt(p.monto)}</div><div style="font-size:11px;color:var(--text3)">${escB(p.fecha||'')}${p.nota?' · '+escB(p.nota):''}${p.user?' · por '+escB(p.user):''}</div></div>
+      <button class="btn btn-ghost btn-xs" onclick="eliminarPagoComision(${p.id})" title="Eliminar pago">${ic('trash',12)}</button>
+    </div>`).join(''):'<div style="color:var(--text3);padding:16px 0;text-align:center">Sin pagos registrados todavía.</div>'}
+  </div>`;
+}
+function verDesgloseComision(asesorId){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  const r=comisionResumenAsesor(a);
+  const fila=(p,anulado)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;${anulado?'opacity:.55':''}">
+    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${p.id} · ${escB(p.nombre||'')} <span style="color:var(--text3)">· ${escB(p.fecha||'')} · ${p.zona==='lima'?'Lima':'Prov'}</span>${anulado?` <span style="color:var(--red);font-weight:700">${escB(p.estado)}</span>`:''}</span>
+    <span style="font-family:var(--mono);font-weight:700;flex-shrink:0;${anulado?'text-decoration:line-through;color:var(--red)':''}">${fmt(anulado?(p.zona==='lima'?(parseFloat(a.comLima)||0):(parseFloat(a.comProv)||0)):comisionGeneradaPedido(p))}</span>
+  </div>`;
+  let ov=document.getElementById('desg-com-ov');
+  if(!ov){ov=document.createElement('div');ov.id='desg-com-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto';ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  ov.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:800;font-size:15px">${ic('clipboard-list',16)} Desglose — ${escB(a.nombre)}</div><button onclick="document.getElementById('desg-com-ov').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button></div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px">Cada pedido confirmado genera su comisión. Los devueltos/cancelados aparecen tachados (comisión anulada).</div>
+    ${r.generadores.slice().sort((x,y)=>(y.id||0)-(x.id||0)).map(p=>fila(p,false)).join('')}
+    ${r.anulados.slice().sort((x,y)=>(y.id||0)-(x.id||0)).map(p=>fila(p,true)).join('')}
+    ${!r.generadores.length&&!r.anulados.length?'<div style="color:var(--text3);padding:16px 0;text-align:center">Sin pedidos con comisión.</div>':''}
+    <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-weight:800"><span>Total generada</span><span style="font-family:var(--mono);color:var(--green)">${fmt(r.generada)}</span></div>
+  </div>`;
+}
+
+// ── PERMISOS (set esencial, a nivel de interfaz) ─────────────────────
+const PERMISOS_DEF=[
+  ['crearPedidos','Crear pedidos','Puede registrar pedidos nuevos y convertir leads',true],
+  ['editarPedidos','Editar pedidos','Puede modificar pedidos ya registrados',true],
+  ['eliminarPedidos','Eliminar pedidos','Borrar pedidos definitivamente',false],
+  ['eliminarLeads','Eliminar leads','Borrar pedidos brutos definitivamente',false],
+  ['importarLeads','Importar CSV','Acceso a la importación masiva de pedidos',false],
+  ['devolverLeads','Devolver leads al pool','Puede soltar leads que ya tomó',true],
+  ['editarEtapas','Cambiar etapa de atención','Puede mover el "Estado del pedido" de los leads',true],
+  ['verCostos','Ver costos internos','Ve el costo de producto al registrar/editar pedidos',false],
+  ['verGanancias','Ver ganancias','Ve la ganancia estimada en el registro de pedidos',false],
+  ['verComisionesAjenas','Ver comisiones de otros','Ve comisiones de los demás trabajadores',false]
+];
+function permisoDe(a,key){
+  const def=(PERMISOS_DEF.find(p=>p[0]===key)||[])[3]||false;
+  const v=a&&a.permisos?a.permisos[key]:undefined;
+  return v===undefined?def:!!v;
+}
+// ¿El usuario actual puede hacer X? Admin siempre puede.
+function puede(key){
+  if(isAdmin())return true;
+  const a=(DB.asesores||[]).find(x=>String(x.workerId)===String(SESSION?.id));
+  return permisoDe(a,key);
+}
+function renderEquipoPermisos(){
+  if(!isAdmin()){showPage('miDia');return;}
+  const asesores=(DB.asesores||[]).filter(a=>a.workerId); // solo con acceso real a la app
+  const sinAcceso=(DB.asesores||[]).filter(a=>!a.workerId).length;
+  const filas=asesores.map(a=>{
+    const meta=asesorMeta(a.id);
+    return `<tr>
+      <td style="padding:10px 12px;border-top:1px solid var(--border);white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:7px;font-weight:700"><span style="width:9px;height:9px;border-radius:50%;background:${meta.color};display:inline-block"></span>${escB(a.nombre)}</span></td>
+      ${PERMISOS_DEF.map(([key])=>{
+        const on=permisoDe(a,key);
+        return `<td style="padding:10px 8px;border-top:1px solid var(--border);text-align:center">
+          <button onclick="togglePermiso('${escB(String(a.id))}','${key}')" title="Clic para ${on?'quitar':'dar'} este permiso" style="cursor:pointer;width:38px;height:21px;border-radius:11px;border:none;position:relative;transition:background .15s;background:${on?'var(--green)':'var(--surface3)'};box-shadow:inset 0 0 0 1px var(--border)">
+            <span style="position:absolute;top:2px;${on?'right:2px':'left:2px'};width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+          </button>
+        </td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+  const th='padding:9px 8px;color:var(--text3);font-size:9.5px;text-transform:uppercase;letter-spacing:.02em;text-align:center;vertical-align:bottom;line-height:1.3';
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Permisos por trabajador · todo lo sensible está desactivado por defecto; activa solo lo necesario</div></div></div>
+    ${equipoTabsHtml('permisos')}
+    ${asesores.length?`<div class="card" style="padding:0;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:820px">
+        <thead><tr><th style="${th};text-align:left;padding-left:12px">Trabajador</th>${PERMISOS_DEF.map(([k,l])=>`<th style="${th}" title="${escB(PERMISOS_DEF.find(p=>p[0]===k)[2])}">${escB(l)}</th>`).join('')}</tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:12px;padding:14px">
+      <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${ic('lightbulb',13)} Qué controla cada permiso</div>
+      ${PERMISOS_DEF.map(([k,l,d,def])=>`<div style="display:flex;gap:8px;font-size:11px;padding:3px 0"><b style="min-width:170px;color:var(--text2)">${escB(l)}</b><span style="color:var(--text3)">${escB(d)} · <i>por defecto: ${def?'permitido':'bloqueado'}</i></span></div>`).join('')}
+      <div style="font-size:10.5px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">Los permisos controlan lo que cada trabajador ve y puede hacer en la aplicación. Los cambios se aplican en tiempo real.</div>
+    </div>`
+    :`<div class="empty">No hay trabajadores con acceso a la app todavía.${sinAcceso?` (${sinAcceso} asesor(es) sin cuenta vinculada — invítalos desde Usuarios & Delivery.)`:''}</div>`}`);
+}
+function togglePermiso(asesorId,key){
+  const a=(DB.asesores||[]).find(x=>String(x.id)===String(asesorId));if(!a)return;
+  if(!a.permisos)a.permisos={};
+  a.permisos[key]=!permisoDe(a,key);
+  save();
+  renderEquipoPermisos();
+}
+
 async function renderUsuarios(){
   if(!isAdmin()){setContent('<div class="empty">Acceso restringido al administrador del negocio.</div>');return;}
-  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo & Usuarios</div><div class="section-sub">Accesos y delivery · las métricas y la efectividad están en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer">Conversión</a></div></div></div>
+  setContent(`<div class="section-header"><div><div class="section-title">${ic('users',20)} Equipo</div><div class="section-sub">Usuarios, accesos y delivery · métricas y comisiones en sus pestañas</div></div></div>
+    ${equipoTabsHtml('usuarios')}
     <div id="usuarios-deliveries"></div>
     <div id="usuarios-workers"><div style="padding:24px;text-align:center;color:var(--text3)">Cargando…</div></div>`);
   renderDeliveriesCard();
@@ -11173,7 +12222,7 @@ function renderDeliveriesCard(){
         </div></td>
       </tr>`).join('')}
     </tbody></table></div>`:`<div class="empty" style="padding:20px">Sin deliveries. Agrega tus motorizados para asignarlos a pedidos Lima.</div>`}
-    <div style="font-size:10.5px;color:var(--text3);margin-top:8px">La efectividad de cada courier la ves en <a onclick="showPage('conversion')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Conversión</a>.</div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:8px">La efectividad de cada courier la ves en <a onclick="showPage('equipoMetricas')" style="color:var(--accent);cursor:pointer;text-decoration:underline">Equipo → Métricas</a>.</div>
   </div>`;
 }
 
@@ -11311,7 +12360,7 @@ function exportarDatos(){
 
 function exportarExcel(){
   // Export pedidos as CSV (opens in Excel)
-  const cols=['ID','Fecha','Fecha Creado','Nombre','Celular','DNI','Producto','Cantidad','Precio','Costo Prod','Embalaje','Costo Envio','Zona','Distrito/Ciudad','Vendedor','Courier','Estado','Motivo Dev.','Upsell','Comentario'];
+  const cols=['ID','Fecha','Fecha Creado','Nombre','Celular','DNI','Producto','Cantidad','Precio','Costo Prod','Embalaje','Costo Envio','Zona','Distrito/Ciudad','Vendedor','Courier','Estado','Motivo Dev.','Producto Extra','Comentario'];
   const getVendNombre=v=>{
     if(!v)return '';
     const a=DB.asesores.find(x=>String(x.id)===String(v));
@@ -11356,7 +12405,7 @@ function exportarFinanzasExcel(){
   const cenv=ent.reduce((s,p)=>s+(p.cenv||0),0);
   const cemb=ent.reduce((s,p)=>s+(p.emb||0)*(p.cantidad||1),0);
   const ccom=ent.reduce((s,p)=>s+comisionDePedido(p),0);
-  const cdev=dev.reduce((s,p)=>s+(p.cprod||0)+(p.cenv||0),0);
+  const cdev=dev.reduce((s,p)=>s+(p.cenv||0),0); // solo envío: el producto vuelve al stock
   const util=ing-cprod-cenv-cemb-pub-gastos-ccom-cdev;
   const ef=ped.length>0?Math.round(ent.length/ped.length*100):0;
   const cols=['Métrica','Valor'];

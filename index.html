@@ -57,7 +57,7 @@
     // Service Worker for offline caching
     if('serviceWorker' in navigator){
       const swCode=`
-const CACHE='cod-pro-v10';
+const CACHE='cod-pro-v11';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
@@ -2648,6 +2648,22 @@ function _rowToPedido(row){
   return {...(row.data||{}),id:row.numero,_rowId:row.id};
 }
 
+// Trae TODOS los pedidos del workspace paginando de 1000 en 1000.
+// Supabase devuelve máximo 1000 filas por consulta: sin esta paginación, al
+// superar los 1000 pedidos históricos solo se cargaban los 1000 más ANTIGUOS
+// y los pedidos recién registrados "desaparecían" de la vista tras recargar.
+async function _fetchPedidosTabla(wsId){
+  const out=[];const CH=1000;
+  for(let from=0;from<100000;from+=CH){
+    const{data,error}=await _supabase.from('pedidos').select('id,numero,data')
+      .eq('workspace_id',wsId).order('numero',{ascending:true}).range(from,from+CH-1);
+    if(error)throw error;
+    out.push(...(data||[]));
+    if(!data||data.length<CH)break;
+  }
+  return out;
+}
+
 function _takePedidosSnapshot(){
   _pedidosSnapshot={};
   (DB.pedidos||[]).forEach(p=>{if(p&&p.id!=null)_pedidosSnapshot[String(p.id)]=JSON.stringify(p);});
@@ -3028,8 +3044,15 @@ async function restaurarBackup(index){
   if(!backups[index])return;
   const b=backups[index];
   const fechaStr=new Date(b.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
-  if(!confirm(`⚠️ RESTAURAR BACKUP\n\nFecha: ${fechaStr}\nPedidos: ${b.totalPedidos}\n\nEsto REEMPLAZA todos los datos actuales.\n¿Confirmas?`))return;
+  if(!confirm(`⚠️ RESTAURAR BACKUP\n\nFecha: ${fechaStr}\n\nRestaura catálogo, asesores, gastos y configuración.\nLos PEDIDOS NO se tocan (viven en su propia tabla y se conservan tal cual).\n¿Confirmas?`))return;
+  // CRÍTICO: los pedidos viven en la tabla 'pedidos' (fuente de verdad).
+  // Restaurar un backup viejo NO debe reemplazarlos: si lo hiciera, el
+  // dual-write BORRARÍA de la tabla todos los pedidos creados después del
+  // backup (pérdida de datos silenciosa y masiva).
+  const misPedidos=DB.pedidos||[];
   DB=JSON.parse(JSON.stringify(b.db));
+  DB.pedidos=misPedidos;
+  _takePedidosSnapshot();
   if(b.cfg)CFG=Object.assign({...CFG},b.cfg);
   await save();
   document.getElementById('modal-backups')?.remove();
@@ -3125,20 +3148,11 @@ async function load(){
     try{const d=localStorage.getItem(getWsKey('db'));if(d)DB=JSON.parse(d);}catch(_){}
     try{const c=localStorage.getItem(getWsKey('cfg'));if(c)CFG=Object.assign({...CFG},JSON.parse(c));}catch(_){}
   }
-  // 2. Cargar PEDIDOS desde la tabla (FUENTE DE VERDAD ÚNICA — Fase 3)
+  // 2. Cargar PEDIDOS desde la tabla (FUENTE DE VERDAD ÚNICA — Fase 3), paginado
   try{
-    const{data:rows,error}=await _supabase.from('pedidos')
-      .select('id,numero,data')
-      .eq('workspace_id',SESSION.workspace_id)
-      .order('numero',{ascending:true});
-    if(!error&&Array.isArray(rows)){
-      DB.pedidos=rows.map(_rowToPedido);
-    } else if(error){
-      console.warn('Error cargando pedidos de tabla:',error.message);
-      // Fallback: si la tabla falla, intentar leer del JSON (respaldo)
-      if(!DB.pedidos)DB.pedidos=[];
-    }
-  }catch(e){console.warn('Excepción cargando pedidos:',e);if(!DB.pedidos)DB.pedidos=[];}
+    const rows=await _fetchPedidosTabla(SESSION.workspace_id);
+    DB.pedidos=rows.map(_rowToPedido);
+  }catch(e){console.warn('Excepción cargando pedidos (se conserva lo actual):',e.message||e);if(!DB.pedidos)DB.pedidos=[];}
   // Asegurar estructura correcta
   if(!DB.pedidos)DB.pedidos=[];if(!DB.asesores)DB.asesores=[];
   if(!DB.deliveries)DB.deliveries=[];
@@ -3339,18 +3353,14 @@ async function onSignedIn(user){
   }
   // ─────────────────────────────────────────────────────────────────
 
-  // ── Fase 3: cargar PEDIDOS desde la tabla 'pedidos' (fuente de verdad) ──
+  // ── Fase 3: cargar PEDIDOS desde la tabla 'pedidos' (fuente de verdad), paginado ──
   // Reemplaza los pedidos del JSON (db_data) — estos quedan solo como respaldo.
   try{
-    const{data:rows,error}=await _supabase.from('pedidos')
-      .select('id,numero,data').eq('workspace_id',SESSION.workspace_id)
-      .order('numero',{ascending:true});
-    if(!error&&Array.isArray(rows)){
-      DB.pedidos=rows.map(_rowToPedido);
-      const _m=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
-      DB.nextId=_m+1;
-    } else if(error){console.warn('Error cargando pedidos de tabla:',error.message);}
-  }catch(e){console.warn('Excepción cargando pedidos:',e);}
+    const rows=await _fetchPedidosTabla(SESSION.workspace_id);
+    DB.pedidos=rows.map(_rowToPedido);
+    const _m=DB.pedidos.length>0?Math.max(...DB.pedidos.map(p=>p.id||0)):0;
+    DB.nextId=_m+1;
+  }catch(e){console.warn('Excepción cargando pedidos (se conserva lo actual):',e.message||e);}
   _takePedidosSnapshot();
   // Stock dinámico: migrar base (1 vez, admin) y recalcular disponible
   await migrarStockBaseSiHaceFalta();
@@ -3551,12 +3561,10 @@ async function bootSaWorkspace(w,saInfo){
   // Los PEDIDOS ya no viven en db_data (Fase 3): traerlos de su tabla para la
   // tienda que se está viendo. Requiere sql/07_superadmin.sql (lectura total SA).
   try{
-    const{data:rows,error}=await _supabase.from('pedidos').select('id,numero,data')
-      .eq('workspace_id',w.id).order('numero',{ascending:true});
-    if(!error&&Array.isArray(rows)&&rows.length)DB.pedidos=rows.map(_rowToPedido);
-    else if(error)console.warn('[SA] No se pudieron leer los pedidos de la tienda:',error.message);
-    else if(!rows||!rows.length)console.warn('[SA] Tienda sin pedidos en tabla (o falta ejecutar sql/07_superadmin.sql)');
-  }catch(e){console.warn('[SA] pedidos:',e);}
+    const rows=await _fetchPedidosTabla(w.id);
+    if(rows.length)DB.pedidos=rows.map(_rowToPedido);
+    else console.warn('[SA] Tienda sin pedidos en tabla (o falta ejecutar sql/07_superadmin.sql)');
+  }catch(e){console.warn('[SA] No se pudieron leer los pedidos de la tienda:',e.message||e);}
   _takePedidosSnapshot();
   // Realtime de la tienda vista: ver cambios en vivo (requiere las políticas SA)
   try{initRealtime();}catch(_){}
@@ -6247,6 +6255,7 @@ function actualizarSelPed(){
   if(allChk)allChk.indeterminate=count>0&&count<total;
 }
 function eliminarSeleccionados(){
+  if(!puede('eliminarPedidos')){alert('No tienes permiso para eliminar pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}
   const ids=[...document.querySelectorAll('.ped-chk:checked')].map(c=>parseInt(c.dataset.id));
   if(!ids.length)return;
   if(!confirm(`¿Eliminar ${ids.length} pedido(s) seleccionado(s)? Esta acción no se puede deshacer.`))return;

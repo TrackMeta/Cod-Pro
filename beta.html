@@ -2946,16 +2946,26 @@ function refrescarBrutosUIDeb(){
 }
 
 // =====================================================================
-// COUNTER ANIMATION — Números que cuentan al cargar
+// COUNTER ANIMATION — Números que cuentan al ENTRAR al dashboard
 // =====================================================================
+// _animarEntrada lo pone setContent(): true solo cuando el usuario navegó a
+// otra sección. En un REPINTADO (llega un pedido, un compañero cambia algo)
+// los números NO vuelven a contar desde 0 — eso se veía como que la app se
+// recargaba sola.
+let _animarEntrada=true;
 function animateCounters(){
+  // Repintado: dejar los valores tal como los pintó el render (ya vienen
+  // formateados y con signo correcto). Nada de contar desde 0 otra vez.
+  if(!_animarEntrada)return;
+  // Igual que fmtN(): conserva el signo. Antes usaba Math.abs y la animación
+  // dejaba una utilidad negativa escrita como positiva.
+  const fmt2=n=>'S/ '+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   document.querySelectorAll('.counter-val[data-val]').forEach(el=>{
     const target=parseFloat(el.dataset.val)||0;
     const isMoney=el.dataset.money==='1';
     const suffix=el.dataset.suffix||'';
     const dur=600;
     let start=null;
-    const fmt2=n=>'S/ '+Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
     const step=ts=>{
       if(!start)start=ts;
       const prog=Math.min((ts-start)/dur,1);
@@ -3008,7 +3018,9 @@ function renderDashboardCharts(trendData){
         x:{grid:{display:false},ticks:{color:textClr,font:{size:10}},border:{display:false}},
         y:{display:false,beginAtZero:true}
       },
-      animation:{duration:500,easing:'easeOutQuart'}
+      // Solo animar al entrar al dashboard. En un repintado por realtime el
+      // gráfico se redibujaba con animación completa y parecía un parpadeo.
+      animation:_animarEntrada?{duration:500,easing:'easeOutQuart'}:false
     }
   });
 }
@@ -12454,6 +12466,7 @@ function setContent(html){
   // animación de entrada y eso era lo que se veía como un parpadeo.
   const navegando=CURRENT_PAGE!==_lastPageAnim;
   _lastPageAnim=CURRENT_PAGE;
+  _animarEntrada=navegando; // lo consultan animateCounters() y los gráficos
   const scrollPrev=(!navegando&&main)?main.scrollTop:0;
   ca.innerHTML=html;
   ca.classList.remove('page-enter');

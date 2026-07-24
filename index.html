@@ -193,10 +193,13 @@ input,select,textarea,button{font-family:var(--font)}
 /* ── ENTRANCE ANIMATIONS ────────────────────── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.content .section-header{animation:fadeIn .28s ease both}
-.content .card,.content .tw,.content .metrics-grid,.content .kanban{animation:fadeUp .32s cubic-bezier(.4,0,.2,1) both}
-.content .card:nth-child(2){animation-delay:.04s}
-.content .card:nth-child(3){animation-delay:.08s}
+/* Solo se animan al ENTRAR a una pagina (setContent pone .page-enter y lo
+   quita a los 500ms). Antes se animaban tambien en cada repintado por
+   realtime, y eso hacia "parpadear" la pantalla mientras el usuario trabajaba. */
+.content.page-enter .section-header{animation:fadeIn .28s ease both}
+.content.page-enter .card,.content.page-enter .tw,.content.page-enter .metrics-grid,.content.page-enter .kanban{animation:fadeUp .32s cubic-bezier(.4,0,.2,1) both}
+.content.page-enter .card:nth-child(2){animation-delay:.04s}
+.content.page-enter .card:nth-child(3){animation-delay:.08s}
 @media(prefers-reduced-motion:reduce){.content .section-header,.content .card,.content .tw,.content .metrics-grid,.content .kanban{animation:none}}
 
 /* ── NOTIFICATIONS ──────────────────────────── */
@@ -2630,6 +2633,47 @@ function refrescarVistasPedidos(){
   updateSidebarBadges();renderNotifications();
 }
 
+// ── Repintado en vivo SIN interrumpir al usuario ──────────────────────
+// Los eventos realtime llegan en RÁFAGAS (un compañero reparte 10 pedidos =
+// 10 eventos). Repintar en cada uno hacía que la app "parpadeara" y que se
+// perdiera lo que el usuario estaba escribiendo o el menú que tenía abierto.
+// Aquí: (1) se agrupa toda la ráfaga en UN solo repintado, (2) se aplaza
+// mientras haya un modal abierto o el usuario esté escribiendo.
+let _vistasT=null,_vistasDesde=0;
+function _usuarioOcupado(){
+  if(document.querySelector('.overlay.open'))return 'modal';
+  const ae=document.activeElement;
+  if(!ae)return '';
+  const t=ae.tagName;
+  return (t==='INPUT'||t==='SELECT'||t==='TEXTAREA'||ae.isContentEditable)?'input':'';
+}
+function refrescarVistasPedidosDeb(){
+  if(!_vistasDesde)_vistasDesde=Date.now();
+  clearTimeout(_vistasT);
+  _vistasT=setTimeout(()=>{
+    const ocupado=_usuarioOcupado();
+    // Con modal abierto se espera siempre; escribiendo, hasta 20s (para que
+    // nadie se quede indefinidamente viendo datos viejos).
+    if(ocupado==='modal'||(ocupado==='input'&&Date.now()-_vistasDesde<20000)){
+      refrescarVistasPedidosDeb();return;
+    }
+    _vistasDesde=0;
+    refrescarVistasPedidos();
+  },400);
+}
+// Compara dos pedidos ignorando el orden de las claves y el _rowId interno.
+// Sirve para detectar el ECO de nuestro propio guardado: Supabase nos reenvía
+// por realtime lo que acabamos de escribir, y repintar por eso hacía parpadear
+// la pantalla justo después de guardar.
+function _stableStr(o){
+  return JSON.stringify(o,(k,v)=>(v&&typeof v==='object'&&!Array.isArray(v))
+    ?Object.keys(v).sort().reduce((a,k2)=>(a[k2]=v[k2],a),{}):v);
+}
+function _mismoPedido(a,b){
+  const{_rowId:_x,...A}=a||{};const{_rowId:_y,...B}=b||{};
+  return _stableStr(A)===_stableStr(B);
+}
+
 // =====================================================================
 // 🔄 DUAL-WRITE (Fase 1) — espejo de pedidos a la tabla 'pedidos'
 // La LECTURA sigue siendo del JSON (db_data). Esto solo MANTIENE la
@@ -2732,6 +2776,13 @@ function initRealtime(){
       payload=>{
         const nd=payload.new;
         if(!nd?.db_data)return;
+        // ECO: cada save() de un admin dispara este UPDATE de vuelta a él mismo.
+        // Si lo que llega es idéntico a lo que ya tenemos (los pedidos van por
+        // su propio canal), no hay nada que repintar — antes esto hacía
+        // parpadear la app en CADA guardado.
+        const _sinPed=o=>{const{pedidos:_p,...r}=o||{};return _stableStr(r);};
+        const cfgIgual=!nd.cfg_data||_stableStr(Object.assign({...CFG},nd.cfg_data))===_stableStr(CFG);
+        if(cfgIgual&&_sinPed(nd.db_data)===_sinPed(DB))return;
         const misPedidos=DB.pedidos||[];
         DB=nd.db_data;
         DB.pedidos=misPedidos; // preservar — la fuente de pedidos es la tabla
@@ -2740,7 +2791,7 @@ function initRealtime(){
         if(!DB.deliveries)DB.deliveries=[];if(!DB.gastos)DB.gastos=[];
         if(!DB.upsells)DB.upsells=[];if(!DB.publicidad)DB.publicidad=[];
         localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
-        refrescarVistasPedidos();
+        refrescarVistasPedidosDeb();
       })
     .subscribe(s=>_rtOnStatus('ws',s));
   // === Canal 2: tabla pedidos (TODOS reciben INSERT/UPDATE/DELETE) ===
@@ -2748,11 +2799,20 @@ function initRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'pedidos',filter:`workspace_id=eq.${wsId}`},
       payload=>{
         if(!DB.pedidos)DB.pedidos=[];
+        // cambio=false ⇒ el evento es el ECO de nuestro propio guardado (o un
+        // duplicado): ya tenemos el pedido idéntico en memoria, así que no se
+        // repinta. Esto era la causa principal del parpadeo al trabajar.
+        let cambio=false;
         if(payload.eventType==='INSERT'){
           const nuevo=_rowToPedido(payload.new);
-          if(nuevo&&!DB.pedidos.find(x=>x.id===nuevo.id)){
-            if(nuevo.estado==='entregado')descontarStockPedido(nuevo);
-            DB.pedidos.push(nuevo);
+          if(nuevo){
+            const ex=DB.pedidos.find(x=>x.id===nuevo.id);
+            if(!ex){
+              if(nuevo.estado==='entregado')descontarStockPedido(nuevo);
+              DB.pedidos.push(nuevo);cambio=true;
+            } else if(!_mismoPedido(ex,nuevo)){
+              DB.pedidos[DB.pedidos.indexOf(ex)]=nuevo;cambio=true;
+            } else ex._rowId=nuevo._rowId; // solo adoptar la PK, sin repintar
           }
         } else if(payload.eventType==='UPDATE'){
           const actualizado=_rowToPedido(payload.new);
@@ -2761,11 +2821,14 @@ function initRealtime(){
           if(idx>=0){
             // Ajustar stock local en transición a/desde entregado
             const prev=DB.pedidos[idx];
-            if(prev.estado!=='entregado'&&actualizado.estado==='entregado')descontarStockPedido(actualizado);
-            else if(prev.estado==='entregado'&&actualizado.estado!=='entregado')restaurarStockPedido(actualizado);
+            cambio=!_mismoPedido(prev,actualizado);
+            if(cambio){
+              if(prev.estado!=='entregado'&&actualizado.estado==='entregado')descontarStockPedido(actualizado);
+              else if(prev.estado==='entregado'&&actualizado.estado!=='entregado')restaurarStockPedido(actualizado);
+            }
             DB.pedidos[idx]=actualizado;
           } else {
-            DB.pedidos.push(actualizado);
+            DB.pedidos.push(actualizado);cambio=true;
           }
         } else if(payload.eventType==='DELETE'){
           // En DELETE, Supabase manda la PK (id bigserial). El numero solo
@@ -2778,12 +2841,13 @@ function initRealtime(){
           if(idx>=0){
             const elim=DB.pedidos[idx];
             if(elim.estado==='entregado')restaurarStockPedido(elim);
-            DB.pedidos.splice(idx,1);
+            DB.pedidos.splice(idx,1);cambio=true;
           }
         }
+        if(!cambio)return; // eco de nuestro propio guardado: nada que hacer
         localStorage.setItem(getWsKey('db'),JSON.stringify(DB));
         _takePedidosSnapshot(); // mantener baseline sincronizado con realtime
-        refrescarVistasPedidos();
+        refrescarVistasPedidosDeb();
       })
     .subscribe(s=>_rtOnStatus('pedidos',s));
   // === Canal 3: tabla pedidos_brutos (capa previa, aislada — NO toca DB.pedidos) ===
@@ -2834,11 +2898,18 @@ async function resyncAll(motivo){
   if(ahora-_lastResync<15000)return; // no más de 1 resync cada 15s
   _lastResync=ahora;
   try{
+    const antes=JSON.stringify(DB);
     await load();
     try{localStorage.setItem(getWsKey('db'),JSON.stringify(DB));}catch(_){}
-    refrescarVistasPedidos();
-    refrescarBrutosUI();
-    if(CURRENT_PAGE==='miDia')renderMiDia();
+    // Solo repintar si los datos REALMENTE cambiaron. Antes, cada vez que el
+    // usuario volvía a la pestaña (p.ej. tras responder un WhatsApp) se
+    // repintaba toda la app aunque no hubiera novedades — se veía como un
+    // parpadeo sin motivo.
+    if(JSON.stringify(DB)!==antes){
+      refrescarVistasPedidos();
+      refrescarBrutosUI();
+      if(CURRENT_PAGE==='miDia')renderMiDia();
+    }
     console.log('[realtime] resync completo ('+(motivo||'')+')');
   }catch(e){console.warn('[realtime] resync falló:',e);}
 }
@@ -2857,12 +2928,18 @@ setInterval(()=>{
 // Refresco de brutos con debounce: agrupa ráfagas de eventos realtime (p.ej. al
 // repartir 10 pedidos del pool) en UN solo repintado, y no interrumpe al usuario
 // mientras tiene un selector abierto.
-let _brutosUiT=null;
+let _brutosUiT=null,_brutosDesde=0;
 function refrescarBrutosUIDeb(){
+  if(!_brutosDesde)_brutosDesde=Date.now();
   clearTimeout(_brutosUiT);
   _brutosUiT=setTimeout(()=>{
-    const ae=document.activeElement;
-    if(ae&&ae.tagName==='SELECT'&&(document.getElementById('midia-cola')?.contains(ae)||document.getElementById('brutos-view')?.contains(ae))){refrescarBrutosUIDeb();return;}
+    // Mismo criterio que refrescarVistasPedidosDeb: no repintar encima de un
+    // modal abierto ni mientras el usuario está escribiendo/eligiendo.
+    const ocupado=_usuarioOcupado();
+    if(ocupado==='modal'||(ocupado==='input'&&Date.now()-_brutosDesde<20000)){
+      refrescarBrutosUIDeb();return;
+    }
+    _brutosDesde=0;
     refrescarBrutosUI();
   },350);
 }
@@ -12365,12 +12442,17 @@ function updateNegocioName(name){
 // =====================================================================
 // UTILS
 // =====================================================================
+let _pageEnterT=null;
 function setContent(html){
   const ca=document.getElementById('content-area');
   ca.innerHTML=html;
   ca.classList.remove('page-enter');
   void ca.offsetWidth; // force reflow para reiniciar la animación
   ca.classList.add('page-enter');
+  // Quitar la clase al terminar: así los repintados posteriores (realtime,
+  // filtros, etc.) NO vuelven a reproducir la animación de entrada.
+  clearTimeout(_pageEnterT);
+  _pageEnterT=setTimeout(()=>ca.classList.remove('page-enter'),500);
   requestAnimationFrame(initFbar);
 }
 

@@ -12443,18 +12443,49 @@ function updateNegocioName(name){
 // =====================================================================
 // UTILS
 // =====================================================================
-let _pageEnterT=null;
+let _pageEnterT=null,_lastPageAnim=null;
 function setContent(html){
   const ca=document.getElementById('content-area');
+  const main=document.querySelector('.main');
+  // ¿Es navegación a otra sección, o un REPINTADO de la que ya estoy viendo?
+  // Repintado = realtime (llega un lead de Shopify, un compañero mueve un
+  // pedido), botón "Actualizar", cambio de filtro o de período. En esos casos
+  // NO se anima ni se pierde el scroll: antes cada repintado reproducía la
+  // animación de entrada y eso era lo que se veía como un parpadeo.
+  const navegando=CURRENT_PAGE!==_lastPageAnim;
+  _lastPageAnim=CURRENT_PAGE;
+  const scrollPrev=(!navegando&&main)?main.scrollTop:0;
   ca.innerHTML=html;
   ca.classList.remove('page-enter');
-  void ca.offsetWidth; // force reflow para reiniciar la animación
-  ca.classList.add('page-enter');
-  // Quitar la clase al terminar: así los repintados posteriores (realtime,
-  // filtros, etc.) NO vuelven a reproducir la animación de entrada.
-  clearTimeout(_pageEnterT);
-  _pageEnterT=setTimeout(()=>ca.classList.remove('page-enter'),500);
+  if(navegando){
+    void ca.offsetWidth; // force reflow para reiniciar la animación
+    ca.classList.add('page-enter');
+    // Quitar la clase al terminar: así los repintados posteriores no vuelven
+    // a reproducir la animación de entrada.
+    clearTimeout(_pageEnterT);
+    _pageEnterT=setTimeout(()=>ca.classList.remove('page-enter'),500);
+  } else if(main&&scrollPrev>0){
+    _restaurarScroll(main,scrollPrev);
+  }
   requestAnimationFrame(initFbar);
+}
+// Devuelve el scroll a donde estaba tras un repintado. Vistas como Mi Día
+// pintan primero un "Cargando…" (más corto) y rellenan al llegar los datos,
+// así que hay que reintentar mientras crece la altura — pero se aborta en
+// cuanto el usuario mueve la rueda o el dedo, para no pelear con él.
+function _restaurarScroll(main,top){
+  let vivo=true;
+  const cancelar=()=>{vivo=false;};
+  main.addEventListener('wheel',cancelar,{passive:true,once:true});
+  main.addEventListener('touchmove',cancelar,{passive:true,once:true});
+  const aplicar=()=>{if(vivo&&main.scrollTop!==top)main.scrollTop=top;};
+  aplicar();
+  requestAnimationFrame(aplicar);
+  const t0=Date.now();
+  const iv=setInterval(()=>{
+    if(!vivo||Date.now()-t0>800){clearInterval(iv);main.removeEventListener('wheel',cancelar);main.removeEventListener('touchmove',cancelar);return;}
+    aplicar();
+  },80);
 }
 
 function exportarDatos(){

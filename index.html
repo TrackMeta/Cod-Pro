@@ -6965,7 +6965,12 @@ function pedidoItemsArr(p){return (p.items&&p.items.length)?p.items:[{productoId
 function pedidoProductoMain(p){const its=pedidoItemsArr(p).filter(it=>!it.esUpsell);return its.map(it=>`${it.nombre||''}${it.variante?' ('+it.variante+')':''} ×${it.cantidad||1}`).join(', ')||(p.producto||'—');}
 function pedidoUpsellTxt(p){return pedidoItemsArr(p).filter(it=>it.esUpsell).map(it=>`${it.nombre||''} ×${it.cantidad||1}`).join(', ');}
 
+let _guardandoPedido=false; // candado anti doble-submit (evita crear el pedido 2 veces)
 async function guardarPedido(){
+  // Doble clic / red lenta: el 2º clic entra antes de que el 1º termine (async).
+  // El flag se pone ANTES del primer await, así que el 2º clic lo ve y se va sin crear nada.
+  if(_guardandoPedido)return;
+  _guardandoPedido=true;
   try{
   const nombre=document.getElementById('p-nombre').value.trim();
   const celular=document.getElementById('p-celular').value.trim();
@@ -7100,6 +7105,7 @@ async function guardarPedido(){
   if(!id&&_brutoEnRegistro)marcarBrutoRegistrado(_brutoEnRegistro,p.id);
   if(!id&&p.estado==='confirmado')notificarConfirmado(p);
   }catch(err){console.error('guardarPedido ERROR:',err);alert('Error al guardar: '+err.message);}
+  finally{_guardandoPedido=false;}
 }
 function eliminarPedido(id){
   if(!puede('eliminarPedidos')){alert('No tienes permiso para eliminar pedidos. Pídeselo al administrador (Equipo → Permisos).');return;}

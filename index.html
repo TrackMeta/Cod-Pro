@@ -7000,6 +7000,20 @@ async function guardarPedido(){
   const celFinal=celNorm.startsWith('+')?celNorm:celular;
 
   const id=document.getElementById('p-id').value;
+  // Aviso de duplicados: al CREAR (no editar), si ya hay un pedido del mismo
+  // teléfono para la misma fecha, avisa antes de crear otro. Cubre duplicados
+  // por otras vías (Shopify, Sheets, otro worker) además del doble-clic.
+  if(!id){
+    const fechaNuevo=document.getElementById('p-fecha').value;
+    const celDig=celFinal.replace(/\D/g,'').slice(-9);
+    if(celDig.length>=6&&fechaNuevo){
+      const dups=DB.pedidos.filter(x=>x.fecha===fechaNuevo&&String(x.celular||'').replace(/\D/g,'').slice(-9)===celDig);
+      if(dups.length){
+        const lista=dups.map(d=>`#${d.id} · ${d.nombre||''} (${d.estado||''})`).join('\n');
+        if(!confirm(`⚠️ Ya existe ${dups.length===1?'un pedido':dups.length+' pedidos'} del mismo teléfono para el ${fechaNuevo}:\n\n${lista}\n\n¿Crear otro pedido de todas formas?`))return;
+      }
+    }
+  }
   const zona=document.getElementById('p-zona').value;
   const adv=parseFloat(document.getElementById('p-adelanto').value)||0;
   // Combinar productos principales + upsell aceptado (cuenta igual que un producto)

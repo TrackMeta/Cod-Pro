@@ -7608,27 +7608,32 @@ async function exportarExcelShalom(){
       stringMap.set(s,ssCount);newStrings.push(s);ssCount++;return ssCount-1;
     }
 
-    // Construir filas — DNI/CEL como números, ORIGEN/DESTINO/TAM como strings
+    // Construir filas — DNI/CEL como TEXTO (conserva ceros a la izquierda), ORIGEN/DESTINO/TAM como strings del desplegable
     const headerRow='<row r="1" spans="1:14"><c r="A1" s="1" t="s"><v>0</v></c><c r="B1" s="1" t="s"><v>1</v></c><c r="C1" s="1" t="s"><v>2</v></c><c r="D1" s="1" t="s"><v>3</v></c><c r="E1" s="1" t="s"><v>4</v></c><c r="F1" s="1" t="s"><v>5</v></c><c r="G1" s="1" t="s"><v>6</v></c><c r="H1" s="1" t="s"><v>7</v></c><c r="I1" s="1" t="s"><v>8</v></c><c r="J1" s="1" t="s"><v>9</v></c><c r="K1" s="1" t="s"><v>10</v></c><c r="L1" s="1" t="s"><v>11</v></c><c r="M1" s="1" t="s"><v>12</v></c><c r="N1" s="2"/></row>';
+    // Escape XML para valores que van inline (DNI/teléfono pueden traer caracteres raros)
+    const escX=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     let rowsXml='';
     arr.forEach((p,i)=>{
       const rowNum=i+2;
-      const celular=(p.celular||'').replace(/\D/g,'').replace(/^51/,'');
-      const dni=p.dni||'';
+      // DNI y teléfono se tratan SIEMPRE como string (nunca Number/parseInt) para no perder ceros iniciales
+      const celular=String(p.celular||'').replace(/\D/g,'').replace(/^51/,'');
+      const dni=String(p.dni||'');
       const origen=p.shalomOrigen||'AV MIGUEL GRAU  PAMPLONA ALTA';
       const destino=p.prov||'';
       const tam=shalomTamOverride[p.id]||p.shalomTam||'PAQUETE XS';
       const iOrigen=getOrAdd(origen);
       const iDestino=getOrAdd(destino);
       const iTam=getOrAdd(tam);
+      // Medidas: alto/ancho/largo/peso (I/J/K/L). Shalom exige un valor; si falta o es 0, sale 0 literal (nunca celda vacía)
+      const alto=Number(p.shalomAlto)||0, ancho=Number(p.shalomAncho)||0, largo=Number(p.shalomLargo)||0, peso=Number(p.shalomPeso)||0;
       rowsXml+=`<row r="${rowNum}" spans="1:14">` +
-        `<c r="A${rowNum}" s="3"><v>${dni}</v></c>` +
-        `<c r="B${rowNum}" s="3"><v>${celular}</v></c>` +
+        `<c r="A${rowNum}" s="3" t="inlineStr"><is><t xml:space="preserve">${escX(dni)}</t></is></c>` +
+        `<c r="B${rowNum}" s="3" t="inlineStr"><is><t xml:space="preserve">${escX(celular)}</t></is></c>` +
         `<c r="C${rowNum}" s="3"/><c r="D${rowNum}" s="3"/><c r="E${rowNum}" s="3"/>` +
         (origen?`<c r="F${rowNum}" s="2" t="s"><v>${iOrigen}</v></c>`:`<c r="F${rowNum}" s="2"/>`) +
         (destino?`<c r="G${rowNum}" s="2" t="s"><v>${iDestino}</v></c>`:`<c r="G${rowNum}" s="2"/>`) +
         `<c r="H${rowNum}" s="2" t="s"><v>${iTam}</v></c>` +
-        `<c r="I${rowNum}" s="2"/><c r="J${rowNum}" s="2"/><c r="K${rowNum}" s="2"/><c r="L${rowNum}" s="2"/>` +
+        `<c r="I${rowNum}" s="2"><v>${alto}</v></c><c r="J${rowNum}" s="2"><v>${ancho}</v></c><c r="K${rowNum}" s="2"><v>${largo}</v></c><c r="L${rowNum}" s="2"><v>${peso}</v></c>` +
         `<c r="M${rowNum}" s="2"><v>1</v></c></row>`;
     });
 
